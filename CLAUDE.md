@@ -11,7 +11,7 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 
 ## Layout
 
-- `apps/api`: Hono + Zod OpenAPI on Cloudflare Workers, Drizzle on Neon Postgres, Clerk auth. Exports `AppType`.
+- `apps/api`: Hono + Zod OpenAPI on Cloudflare Workers, Drizzle on Neon Postgres, Better Auth (runs inside the API; tables in our Postgres). Exports `AppType`.
 - `apps/web`: React 19, Vite, TanStack Router/Query, Tailwind v4, React Flow + ELK. Calls the API through the typed Hono client in `src/api.ts`.
 
 ## Commands
@@ -26,10 +26,11 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 1. **Workspace isolation:** every query on workspace-owned data filters by `workspace_id` taken from the session, never from the request body or URL alone. Every new endpoint gets a test proving a member of another workspace gets 404.
 2. **Permissions** follow the Permissions board (owner / editor / viewer; project lead). Checked on the server, not only hidden in the UI.
 3. **Drafts never write directly.** Model output becomes `draft_changes`; accepting runs in one transaction that also writes the decision log.
-4. **Tokens** (share links, reviewer links, invites) are stored only as hashes.
-5. **Validate at the boundary** with Zod. No raw SQL string building. No secrets in code or logs.
-6. **Look:** tokens only (no raw hex in components), IBM Plex, radius 6/8, one accent, status glyphs not dots. Banned in the app: gradients, glows, sparkle/wand/bot icons, "AI" wording, emoji, purple.
-7. **Tests first** for every behaviour change. Vitest for logic and API, Playwright for screens.
+4. **Tokens** (share links, reviewer links, invites, email codes) are stored only as hashes.
+5. **Auth is passwordless:** Google or a 6-digit email code through Better Auth. Never add password login (it doesn't fit the Workers free CPU limit and adds a secret to protect).
+6. **Validate at the boundary** with Zod. No raw SQL string building. No secrets in code or logs.
+7. **Look:** tokens only (no raw hex in components), IBM Plex, radius 6/8, one accent, status glyphs not dots. Banned in the app: gradients, glows, sparkle/wand/bot icons, "AI" wording, emoji, purple.
+8. **Tests first** for every behaviour change. Vitest for logic and API, Playwright for screens.
 
 ## Team and workflows
 
