@@ -36,3 +36,37 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - Passwordless (Google + 6-digit email code): password hashing doesn't fit the Workers free CPU limit, and there is no password to leak.
 - Pencil: Sign in and Sign up lose the password field and SSO button; Forgot password became "Enter code". Boards updated (stack, costs, architecture, data model: sessions, accounts, verifications tables; API: `/api/auth/*`; permissions).
 - Resend moves up: needed in feature 1 to send codes. Until then, dev prints the code in the API log.
+
+## 2026-10-29: Feature 0 design system
+- Dark tokens, `--shadow-float`, avatar and height tokens in `styles.css`; 17px `--text-dialog`; favicon from Logo mark.
+- Primitives in `apps/web/src/ui/` (native `<dialog>`, `popover`, `<select>`); dev-only gallery `apps/web/design.html`.
+- Tests: `src/design-rules.test.ts` (rule 7 guard, runs in `pnpm check`); Playwright `apps/web/e2e` via `pnpm --filter @planfrojex/web e2e`.
+
+## Feature order (agreed 2026-10-29)
+Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
+
+| # | Feature | Screens | Status |
+|---|---|---|---|
+| 0 | Design system | Foundations, Components | shipped |
+| 1 | Auth and workspace | Sign in/up, Enter code, onboarding (3), No access | plan awaiting approval |
+| 2 | App shell and Home | Sidebar, workspace switcher, Home | |
+| 3 | Members | Members, Invite dialog | |
+| 4 | Projects list and New project | Projects, New project dialog, starring, saved views | |
+| 5 | Project › Brief | Brief, project header, comment column | |
+| 6 | Tasks | List, board, New task dialog, task side panel | |
+| 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | |
+| 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | |
+| 9 | Activity | Timeline, filters | |
+| 10 | My tasks | My tasks | |
+| 11 | Inbox | Mentions, assignments, replies | |
+| 12 | ⌘K search | Search overlay | |
+| 13 | Workspace settings | General, share links, danger zone | |
+| 14 | Account settings | Account | |
+| 15 | Share links + public share page | Share dialog, public page | |
+| 16 | Mobile | Projects, Brief, Share page (390px) | |
+| 17 | Landing page | Landing | |
+| 18 | Stakeholder approval | Share page review banner | |
+| 19 | Tracker sync | Settings › Integrations | |
+| 20 | Drift detection | Plan drift card | |
+| 21 | Weekly status email | Monday email | |
+| 22 | 404 and states pass | 404, states audit | |
