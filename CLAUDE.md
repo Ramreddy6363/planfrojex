@@ -40,7 +40,7 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 - One worktree per feature or fix, created with `pnpm wt`. All agents for that work run inside it.
 
 ## Git
-- Repo: `github.com/Ramreddy6363/planfrojex` (private). `main` is protected: changes land only through a pull request with green CI (`.github/workflows/ci.yml`: check, build, audit).
+- Repo: `github.com/Ramreddy6363/planfrojex` (public: never commit secrets, keys or customer data). `main` is protected: changes land only through a pull request with green CI (`.github/workflows/ci.yml`: check, build, audit).
 - Branches: `feat/<name>` for features, `feat/fix-<name>` for fixes (created by `pnpm wt`). Squash merge, branch deleted after merge.
 - Commit messages: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
 - Only the lead commits, pushes and opens PRs, inside `/ship`. Agents never run git write commands.
