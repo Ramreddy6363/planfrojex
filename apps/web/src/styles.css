@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+
+/* Tokens from docs/specs/2026-10-13-redesign-design.md section 5. No other colours on app screens. */
+@theme {
+  --color-*: initial;
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f7f7f5;
+  --color-bg-muted: #efefec;
+  --color-border: #e4e4e0;
+  --color-border-strong: #cfcfca;
+  --color-text: #1a1a18;
+  --color-text-muted: #6b6b66;
+  --color-text-faint: #9a9a94;
+  --color-accent: #2550c9;
+  --color-accent-subtle: #eaf0fc;
+  --color-on-accent: #ffffff;
+  --color-success: #1f7a4d;
+  --color-warning: #a15c07;
+  --color-danger: #c4321f;
+  --color-highlight: #fbe38e;
+  --color-transparent: transparent;
+
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --text-display: 24px;
+  --text-display--line-height: 32px;
+  --text-title: 20px;
+  --text-title--line-height: 28px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-ui: 14px;
+  --text-ui--line-height: 20px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+
+  --radius-control: 6px;
+  --radius-panel: 8px;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
