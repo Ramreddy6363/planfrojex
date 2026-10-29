@@ -60,7 +60,7 @@ Date: 2026-10-13 · Status: awaiting review · Scope: interface and design syste
 
 | # | Page | Content |
 |---|---|---|
-| 1 | Sign in / Sign up | Form on the left, product screenshot on the right. Clerk handles login, with styled screens. |
+| 1 | Sign in / Sign up | Form on the left, product screenshot on the right. Passwordless: Google, or a 6-digit code sent by email (the "Enter code" screen replaces Forgot password). Better Auth runs inside our API; users, workspaces and invites live in our Postgres. |
 | 2 | Create workspace + invite | First-run setup: name the workspace, then invite by email (optional; can skip). |
 | 3 | Home | My open tasks grouped Overdue / Today / This week / Later; projects I'm on; workspace activity. |
 | 4 | Projects list | Table: name, status, lead, progress, due date, last updated. Filter bar (status, lead, priority), saved views, star toggle. |

@@ -30,3 +30,9 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - Team: lead + builder (Sonnet), reviewer (Opus), security (Opus), qa (Sonnet) in `.claude/agents/`.
 - Skills: `/feature`, `/fix`, `/ship` in `.claude/skills/`. Ship's git step waits for the git setup.
 - Worktrees: `pnpm wt <name>` → `../planforjex-worktrees/<name>` on `feat/<name>`, copies files in `.worktreeinclude`.
+
+## 2026-10-29: Auth switched from Clerk to Better Auth
+- Why: free at any size, users and workspaces in our own Postgres (no webhook sync), fits our designed screens.
+- Passwordless (Google + 6-digit email code): password hashing doesn't fit the Workers free CPU limit, and there is no password to leak.
+- Pencil: Sign in and Sign up lose the password field and SSO button; Forgot password became "Enter code". Boards updated (stack, costs, architecture, data model: sessions, accounts, verifications tables; API: `/api/auth/*`; permissions).
+- Resend moves up: needed in feature 1 to send codes. Until then, dev prints the code in the API log.
