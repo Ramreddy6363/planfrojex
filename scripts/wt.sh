@@ -8,9 +8,19 @@ case "${1:-}" in
   "" | -h | --help) echo "usage: pnpm wt <name> | pnpm wt rm <name> | pnpm wt ls"; exit 1 ;;
   ls) git worktree list; exit 0 ;;
   rm)
+    # Safe to re-run: pnpm merge (gh --delete-branch) may already have removed the worktree and branch.
     name=${2:?name required}
-    git worktree remove "$base/$name"
-    git branch -d "feat/$name" || echo "branch feat/$name is not merged; kept it"
+    [[ -d "$base/$name" ]] && git worktree remove "$base/$name"
+    git worktree prune
+    branch="feat/$name"
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+      # Squash merges don't look merged to git, so trust the PR state instead.
+      if [[ $(gh pr view "$branch" --json state --jq .state 2>/dev/null) == MERGED ]]; then
+        git branch -D "$branch"
+      else
+        git branch -d "$branch" || echo "branch $branch is not merged; kept it"
+      fi
+    fi
     exit 0
     ;;
 esac

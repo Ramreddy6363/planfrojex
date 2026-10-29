@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Guardrail: commits in this repo carry no AI co-author or attribution lines.
+if grep -qiE '^co-authored-by:.*(claude|anthropic)|generated with \[?claude code' "$1"; then
+  echo "commit-msg: remove the Claude co-author / attribution line; this repo doesn't use them." >&2
+  exit 1
+fi
