@@ -10,7 +10,9 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "biome check . && turbo typecheck test",
-    "wt": "bash scripts/wt.sh"
+    "wt": "bash scripts/wt.sh",
+    "prepare": "git config core.hooksPath .githooks",
+    "merge": "bash scripts/merge.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",

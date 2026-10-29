@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Guardrail: main only changes through a merged pull request, and nothing is pushed with failing checks.
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [[ $remote_ref == refs/heads/main && ${ALLOW_MAIN_PUSH:-} != 1 ]]; then
+    echo "pre-push: direct pushes to main are blocked. Open a pull request (see /ship)." >&2
+    exit 1
+  fi
+done
+echo "pre-push: running pnpm check" >&2
+pnpm check >/dev/null 2>&1 || { echo "pre-push: pnpm check failed; fix it before pushing." >&2; exit 1; }

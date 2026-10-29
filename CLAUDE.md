@@ -44,4 +44,5 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 - Branches: `feat/<name>` for features, `feat/fix-<name>` for fixes (created by `pnpm wt`). Squash merge, branch deleted after merge.
 - Commit messages: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
 - Only the lead commits, pushes and opens PRs, inside `/ship`. Agents never run git write commands.
+- Guardrails (never bypass): `.githooks/pre-push` blocks pushes to `main` and runs `pnpm check` before any push; `pnpm merge <branch>` is the only way to merge and refuses unless CI passed; `.claude/hooks/guard-git.sh` blocks `gh pr merge`, pushes to `main`, force pushes and `--no-verify`.
 - Deploys are manual through `/ship` from `main`; CI never deploys.
