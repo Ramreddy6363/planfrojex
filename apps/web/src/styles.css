@@ -22,7 +22,17 @@
   --color-warning: #a15c07;
   --color-danger: #c4321f;
   --color-highlight: #fbe38e;
+  --color-avatar-1: #4e6a8c;
+  --color-avatar-2: #4f7a64;
+  --color-avatar-3: #8c5a4f;
+  --color-avatar-text: #ffffff;
+  --color-scrim: #1a1a1833;
   --color-transparent: transparent;
+
+  --shadow-float: 0 4px 16px #1a1a181a;
+  --spacing-control: 32px;
+  --spacing-control-sm: 28px;
+  --spacing-row: 40px;
 
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -35,11 +45,33 @@
   --text-body--line-height: 22px;
   --text-ui: 14px;
   --text-ui--line-height: 20px;
+  --text-dialog: 17px;
+  --text-dialog--line-height: 24px;
   --text-caption: 13px;
   --text-caption--line-height: 18px;
 
   --radius-control: 6px;
   --radius-panel: 8px;
+}
+
+/* Dark values from Pencil Foundations. Tokens only, no toggle (spec 5.3). */
+[data-theme="dark"] {
+  --color-bg: #141413;
+  --color-bg-subtle: #1b1b1a;
+  --color-bg-muted: #252523;
+  --color-border: #2e2e2b;
+  --color-border-strong: #3d3d39;
+  --color-text: #ededea;
+  --color-text-muted: #a3a39d;
+  --color-text-faint: #6e6e69;
+  --color-accent: #6f93f0;
+  --color-accent-subtle: #1c2740;
+  --color-on-accent: #0e1530;
+  --color-success: #4cb782;
+  --color-warning: #d69a3a;
+  --color-danger: #e5664f;
+  --color-highlight: #5c4a12;
+  --color-scrim: #00000066;
 }
 
 body {

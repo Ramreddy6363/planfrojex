@@ -26,4 +26,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
+      - run: pnpm --filter @planfrojex/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @planfrojex/web e2e
       - run: pnpm audit --audit-level high
