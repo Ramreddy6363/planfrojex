@@ -7,6 +7,7 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 - **Screens:** Pencil file `design/planfrojex.pen` (read via the Pencil MCP) and PNGs in `design/exports/`. Build what is drawn; if a screen is missing, stop and ask.
 - **Design rules and tokens:** `docs/specs/2026-10-13-redesign-design.md` section 5. Tokens live in `apps/web/src/styles.css`.
 - **API, data model, permissions, flows:** the "Backend: stack and API" boards in Pencil (System architecture, Data model, API endpoints, Key flows, Permissions).
+- **UI building blocks:** `apps/web/src/ui/` primitives + tokens in `styles.css`; gallery at `/design.html` in dev. Screens use only these; `src/design-rules.test.ts` enforces rule 7. E2E: `pnpm --filter @planfrojex/web e2e`.
 - **Progress:** `docs/plans/progress.md`. Update it when a feature ships.
 
 ## Layout
