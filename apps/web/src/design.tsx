@@ -10,13 +10,17 @@ import { Dialog } from './ui/dialog'
 import { EmptyState } from './ui/empty-state'
 import { Input } from './ui/input'
 import { Menu } from './ui/menu'
-import { Progress } from './ui/progress'
+import { OtpInput } from './ui/otp-input'
+import { Progress, StepMarks } from './ui/progress'
 import { Select } from './ui/select'
 import { SkeletonRow } from './ui/skeleton-row'
 import { type Status, StatusLabel } from './ui/status'
 import { Tabs } from './ui/tabs'
+import { TextAction, TextLink } from './ui/text-link'
 import { Textarea } from './ui/textarea'
 import { ToastRegion } from './ui/toast'
+import { UrlInput } from './ui/url-input'
+import { WorkspacePreview } from './ui/workspace-preview'
 
 const people = [
   { id: 'u1', name: 'Maya Chen' },
@@ -37,6 +41,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 
 const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
   const [tab, setTab] = useState('plan')
+  const [otp, setOtp] = useState('')
   const [dialog, setDialog] = useState(false)
   const [closes, setCloses] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
@@ -54,18 +59,38 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         <Button variant="danger">Danger</Button>
         <Button variant="danger-fill">Delete project</Button>
         <Button size="sm">Small</Button>
+        <Button size="lg">Large</Button>
         <Button icon={Pencil}>With icon</Button>
         <Button disabled>Disabled</Button>
+        <Button variant="choice" size="auto">
+          Choice
+        </Button>
+        <Button variant="choice-selected" size="auto">
+          Selected choice
+        </Button>
+        <TextLink href="#gallery-links">Text link</TextLink>
+        <TextAction>Text action</TextAction>
       </Section>
       <Section title="Inputs">
-        <div className="w-60">
+        <div className="w-60 space-y-2">
           <Input placeholder="Project name" aria-label="Project name" />
+          <Input height="lg" placeholder="Large input" aria-label="Large input" />
+          <Input aria-invalid placeholder="Invalid input" aria-label="Invalid input" />
+        </div>
+        <div className="w-80">
+          <UrlInput aria-label="Workspace URL slug" placeholder="northwind" />
+        </div>
+        <div className="w-80">
+          <OtpInput value={otp} onChange={setOtp} />
         </div>
         <div className="w-60">
           <Textarea
             placeholder="Describe the problem this project solves."
             aria-label="Description"
           />
+        </div>
+        <div className="w-60">
+          <Textarea height="invite" placeholder="Team email addresses" aria-label="Invite emails" />
         </div>
         <div className="w-60">
           <Select aria-label="Status" defaultValue="In progress">
@@ -89,6 +114,8 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         <Avatar id="u1" name="Maya Chen" />
         <AvatarStack people={people} />
         <Progress value={60} label="Plan progress" />
+        <StepMarks step={1} />
+        <StepMarks step={2} />
       </Section>
       <Section title="Status">
         {statuses.map((s) => (
@@ -145,6 +172,18 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
           action="Undo"
           onAction={() => setToast(null)}
         />
+      </Section>
+      <Section title="Workspace preview">
+        <div className="w-100">
+          <WorkspacePreview
+            name="Northwind"
+            slug="northwind"
+            owner="Maya Chen"
+            emails={[]}
+            inviteRole="editor"
+            invitations={false}
+          />
+        </div>
       </Section>
       <Section title="States">
         <div className="w-100">

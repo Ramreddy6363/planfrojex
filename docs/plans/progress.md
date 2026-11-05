@@ -42,13 +42,18 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - Primitives in `apps/web/src/ui/` (native `<dialog>`, `popover`, `<select>`); dev-only gallery `apps/web/design.html`.
 - Tests: `src/design-rules.test.ts` (rule 7 guard, runs in `pnpm check`); Playwright `apps/web/e2e` via `pnpm --filter @planfrojex/web e2e`.
 
+## 2026-11-05: Feature 1 auth and workspace
+- Passwordless Better Auth (Google + 6-digit email code, hashed, DB rate limits); tables users, sessions, accounts, verifications, workspaces, memberships, invites, rate_limits (migration 0000, applied on Neon `production`).
+- Endpoints: /me, POST /workspaces, GET /workspaces/:ws, POST /workspaces/:ws/invites, POST /invites/accept. Screens: sign in/up, enter code, onboarding (3), accept invite, no access (workspace version).
+- Local dev: `wrangler dev --env dev` against Docker Postgres; CI runs integration tests on a Postgres service.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
 | # | Feature | Screens | Status |
 |---|---|---|---|
 | 0 | Design system | Foundations, Components | shipped |
-| 1 | Auth and workspace | Sign in/up, Enter code, onboarding (3), No access | plan awaiting approval |
+| 1 | Auth and workspace | Sign in/up, Enter code, onboarding (3), No access | shipped 2026-11-05 |
 | 2 | App shell and Home | Sidebar, workspace switcher, Home | |
 | 3 | Members | Members, Invite dialog | |
 | 4 | Projects list and New project | Projects, New project dialog, starring, saved views | |

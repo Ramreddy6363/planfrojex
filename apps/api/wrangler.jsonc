@@ -3,5 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // `pnpm dev`: same Worker, but on the local Docker PostgreSQL through node-postgres.
+  "env": { "dev": { "main": "src/dev.ts" } }
 }
