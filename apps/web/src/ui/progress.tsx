@@ -13,3 +13,24 @@ export const Progress = ({ value: raw, label }: { value: number; label: string }
     </div>
   )
 }
+
+export function StepMarks({ step, total = 2 }: { step: number; total?: number }) {
+  return (
+    <div
+      role="progressbar"
+      aria-label="Onboarding steps"
+      aria-valuemin={1}
+      aria-valuemax={total}
+      aria-valuenow={step}
+      className="flex gap-1"
+    >
+      {Array.from({ length: total }, (_, index) => index + 1).map((value) => (
+        <span
+          key={value}
+          aria-hidden="true"
+          className={`h-[3px] w-8 rounded-xs ${value <= step ? 'bg-text' : 'bg-border'}`}
+        />
+      ))}
+    </div>
+  )
+}
