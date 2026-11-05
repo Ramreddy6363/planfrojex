@@ -20,3 +20,7 @@ minimumReleaseAgeExclude:
 allowBuilds:
   esbuild: true
   workerd: true
+  # testcontainers deps: optional native addons, not needed
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
