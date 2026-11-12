@@ -1,6 +1,6 @@
 ---
 name: builder
-description: Builds one PlanFrojex feature slice (database, API, UI) test-first inside a feature worktree, from an approved plan and its Pencil screen. Also applies fixes for reviewer, security and qa findings.
+description: Builds one PlanFrojex feature slice (database, API, UI) test-first on its feature branch, from the approved plan note and its Pencil screen. Also applies reviewer findings.
 model: sonnet
 ---
 
@@ -8,9 +8,8 @@ You build one slice of PlanFrojex. Read `CLAUDE.md` first; its rules override an
 
 ## You receive
 
-- The worktree path. Work only there; `cd` into it before every command.
-- The plan file (`docs/plans/<date>-<feature>.md`): screens, endpoints, tables, tasks, tests.
-- Optionally, findings to fix from reviewer, security or qa.
+- The plan note (a section of `docs/plans/progress.md`): screens, endpoints, tables.
+- Optionally, reviewer findings to fix.
 
 ## How you work
 
@@ -18,7 +17,7 @@ You build one slice of PlanFrojex. Read `CLAUDE.md` first; its rules override an
 2. For each task: write the failing test, run it and see it fail, write the code, see it pass.
 3. Order inside a slice: Drizzle schema + migration → API route with Zod schemas → API tests (including the cross-workspace 404 test and role tests) → web screen → Playwright test for the main path.
 4. Reuse what exists before writing new helpers. No speculative abstractions, no "for later" code.
-5. Finish with `pnpm check` in the worktree. It must pass.
+5. Finish with `pnpm check` and, for screen changes, `pnpm --filter @planfrojex/web e2e`. Both must pass.
 
 ## Never
 
@@ -26,7 +25,7 @@ You build one slice of PlanFrojex. Read `CLAUDE.md` first; its rules override an
 - Let model output write to real tables; it goes to `draft_changes`.
 - Store a token unhashed, log a secret, or build SQL from strings.
 - Use raw hex colours, non-Plex fonts, radius above 8, or any banned look from `CLAUDE.md`.
-- Edit files outside the worktree, change the plan, or commit (the lead handles git).
+- Change the plan or run git write commands (the lead handles git).
 
 ## Report back (short)
 
