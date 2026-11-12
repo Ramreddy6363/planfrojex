@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
-# The only way a PR reaches main: wait for CI, refuse unless every check passed, then squash merge.
+# The only way a PR reaches main. GitHub CI is off, so the full check runs here first, then squash merge.
 set -euo pipefail
 branch=${1:?usage: pnpm merge <branch>}
 
-if ! gh pr checks "$branch" --watch --fail-fast; then
-  echo "merge: CI did not pass for $branch; not merging." >&2
-  exit 1
+[[ $(git branch --show-current) == "$branch" ]] || { echo "merge: switch to $branch first" >&2; exit 1; }
+[[ -z $(git status --porcelain) ]] || { echo "merge: commit or stash changes first" >&2; exit 1; }
+git fetch -q origin "$branch"
+[[ $(git rev-parse HEAD) == $(git rev-parse "origin/$branch") ]] || { echo "merge: push $branch first" >&2; exit 1; }
+
+# Throwaway Postgres for the integration tests unless one is given.
+if [[ -z ${PLANFROJEX_TEST_DATABASE_URL:-} ]]; then
+  pg=$(docker run -d --rm -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=planfrojex_test -p 127.0.0.1::5432 postgres:17)
+  trap 'docker stop "$pg" >/dev/null' EXIT
+  until docker exec "$pg" pg_isready -U postgres -d planfrojex_test -q; do sleep 1; done
+  sleep 2 # the image restarts once after init
+  until docker exec "$pg" pg_isready -U postgres -d planfrojex_test -q; do sleep 1; done
+  export PLANFROJEX_TEST_DATABASE_URL="postgres://postgres@$(docker port "$pg" 5432)/planfrojex_test"
 fi
-# Guard against a PR that has no checks at all (CI not triggered).
-passed=$(gh pr checks "$branch" --json name,bucket --jq '[.[] | select(.bucket == "pass")] | length')
-if [[ $passed -eq 0 ]]; then
-  echo "merge: no passing CI checks found on $branch; not merging." >&2
-  exit 1
-fi
+export CI=1 # integration suites fail instead of skipping
+
+pnpm check --force
+pnpm build
+pnpm --filter @planfrojex/web e2e
+pnpm audit --audit-level high
+
 gh pr merge "$branch" --squash --delete-branch

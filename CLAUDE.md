@@ -40,10 +40,10 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 - Plans are a short section in `docs/plans/progress.md`, not separate files.
 
 ## Git
-- Repo: `github.com/Ramreddy6363/planfrojex` (public: never commit secrets, keys or customer data). `main` is protected: changes land only through a pull request with green CI (`.github/workflows/ci.yml`: check, build, audit).
+- Repo: `github.com/Ramreddy6363/planfrojex` (public: never commit secrets, keys or customer data). `main` is protected: changes land only through a pull request with green CI (`pnpm merge` runs check, integration tests, build, e2e and audit locally; GitHub CI is off).
 - Branches: `feat/<name>` for features, `feat/fix-<name>` for fixes (plain `git switch -c` in the main checkout). Squash merge, branch deleted after merge.
 - Commit messages: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
 - No AI attribution: no `Co-Authored-By: Claude` trailers and no "Generated with Claude Code" lines in commits or PR bodies. `.githooks/commit-msg` rejects them.
 - Only the lead commits, pushes and opens PRs. Agents never run git write commands.
-- Guardrails (never bypass): `.githooks/pre-push` blocks pushes to `main` and runs `pnpm check` before any push; `pnpm merge <branch>` is the only way to merge and refuses unless CI passed; `.claude/hooks/guard-git.sh` blocks `gh pr merge`, pushes to `main`, force pushes and `--no-verify`.
+- Guardrails (never bypass): `.githooks/pre-push` blocks pushes to `main` and runs `pnpm check` before any push; `pnpm merge <branch>` is the only way to merge and refuses unless the local checks pass; `.claude/hooks/guard-git.sh` blocks `gh pr merge`, pushes to `main`, force pushes and `--no-verify`.
 - Deploys are manual through `/ship` from `main`; CI never deploys.
