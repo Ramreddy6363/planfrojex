@@ -18,7 +18,6 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 
 - `pnpm dev` / `pnpm build` / `pnpm test` / `pnpm typecheck` / `pnpm lint`
 - `pnpm check`: lint + typecheck + tests. Must pass before any stage counts as done.
-- `pnpm wt <name>` / `pnpm wt rm <name>` / `pnpm wt ls`: feature worktrees.
 - `pnpm --filter @planfrojex/api db:generate` then `db:migrate`.
 
 ## Rules (non-negotiable)
@@ -32,19 +31,19 @@ Planning tool for small product teams: a rough brief becomes a reviewed plan wit
 7. **Look:** tokens only (no raw hex in components), IBM Plex, radius 6/8, one accent, status glyphs not dots. Banned in the app: gradients, glows, sparkle/wand/bot icons, "AI" wording, emoji, purple.
 8. **Tests first** for every behaviour change. Vitest for logic and API, Playwright for screens.
 
-## Team and workflows
+## Workflow (keep it short)
 
-- Agents in `.claude/agents/`: `builder` (Sonnet), `reviewer` (Opus), `security` (Opus), `qa` (Sonnet). The main session is the lead.
-- `/feature <screen>`: plan → worktree → build → verify → review + security → ship. User approves the plan and the ship.
-- `/fix <bug>`: failing test → fix → review (+ security if it touches auth, data or input) → ship.
-- `/ship`: checks, migrate, deploy, smoke test.
-- One worktree per feature or fix, created with `pnpm wt`. All agents for that work run inside it.
+- Agents in `.claude/agents/`: `builder` (Sonnet) writes code, `reviewer` (Opus) reviews it, including a security pass when auth, permissions, tokens or user data change. The main session is the lead.
+- `/feature <screen>`: plan note, user OK, branch, build test-first, one review, PR, merge on green CI. One approval: the plan.
+- `/fix <bug>`: failing test, fix, review, PR, merge on green CI.
+- `/ship`: commit, PR, merge; migrate and deploy once production exists.
+- Plans are a short section in `docs/plans/progress.md`, not separate files.
 
 ## Git
 - Repo: `github.com/Ramreddy6363/planfrojex` (public: never commit secrets, keys or customer data). `main` is protected: changes land only through a pull request with green CI (`.github/workflows/ci.yml`: check, build, audit).
-- Branches: `feat/<name>` for features, `feat/fix-<name>` for fixes (created by `pnpm wt`). Squash merge, branch deleted after merge.
+- Branches: `feat/<name>` for features, `feat/fix-<name>` for fixes (plain `git switch -c` in the main checkout). Squash merge, branch deleted after merge.
 - Commit messages: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
 - No AI attribution: no `Co-Authored-By: Claude` trailers and no "Generated with Claude Code" lines in commits or PR bodies. `.githooks/commit-msg` rejects them.
-- Only the lead commits, pushes and opens PRs, inside `/ship`. Agents never run git write commands.
+- Only the lead commits, pushes and opens PRs. Agents never run git write commands.
 - Guardrails (never bypass): `.githooks/pre-push` blocks pushes to `main` and runs `pnpm check` before any push; `pnpm merge <branch>` is the only way to merge and refuses unless CI passed; `.claude/hooks/guard-git.sh` blocks `gh pr merge`, pushes to `main`, force pushes and `--no-verify`.
 - Deploys are manual through `/ship` from `main`; CI never deploys.
