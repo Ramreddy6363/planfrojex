@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const signedInUser = { id: '1', email: 'test@example.com', emailVerified: true }
+
 test('signs in with a code and creates a personal workspace', async ({ page }) => {
   await page.route('http://localhost:8787/**', async (route) => {
     const request = route.request()
@@ -21,7 +23,8 @@ test('signs in with a code and creates a personal workspace', async ({ page }) =
         },
         headers,
       })
-    if (path === '/me') return route.fulfill({ json: { workspaces: [] }, headers })
+    if (path === '/me')
+      return route.fulfill({ json: { user: signedInUser, workspaces: [] }, headers })
     if (path === '/workspaces' && request.method() === 'POST')
       return route.fulfill({
         status: 201,
@@ -46,7 +49,7 @@ test('signs in with a code and creates a personal workspace', async ({ page }) =
   await page.getByRole('button', { name: 'Just me' }).click()
   await page.getByLabel('Name your space').fill('My space')
   await page.getByRole('button', { name: 'Start planning' }).click()
-  await expect(page.getByRole('heading', { name: 'My space' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 
 test('an invitee signs in and joins the invited workspace', async ({ page }) => {
@@ -65,7 +68,7 @@ test('an invitee signs in and joins the invited workspace', async ({ page }) => 
     if (path === '/me')
       return route.fulfill({
         status: signedIn ? 200 : 401,
-        json: signedIn ? { workspaces: [] } : { error: 'Sign in required' },
+        json: signedIn ? { user: signedInUser, workspaces: [] } : { error: 'Sign in required' },
         headers,
       })
     if (path === '/api/auth/email-otp/send-verification-otp')
@@ -100,7 +103,7 @@ test('an invitee signs in and joins the invited workspace', async ({ page }) => 
   await page.getByRole('button', { name: 'Continue with email' }).click()
   await page.getByLabel('Code digit 1').fill('123456')
   await page.getByRole('button', { name: 'Verify and continue' }).click()
-  await expect(page.getByRole('heading', { name: 'Northwind' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 
 test('sign-up collects a name and passes it when verifying the code', async ({ page }) => {
@@ -174,6 +177,8 @@ test('creates a team workspace and invites two teammates', async ({ page }) => {
       'access-control-allow-headers': 'content-type',
     }
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    if (path === '/me')
+      return route.fulfill({ json: { user: signedInUser, workspaces: [] }, headers })
     if (path === '/workspaces' && request.method() === 'POST')
       return route.fulfill({
         status: 201,
@@ -204,7 +209,7 @@ test('creates a team workspace and invites two teammates', async ({ page }) => {
     'one@example.com',
   )
   await page.getByRole('button', { name: 'Send 2 invites' }).click()
-  await expect(page.getByRole('heading', { name: 'Northwind' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
   expect(invitations).toEqual({ emails: ['one@example.com', 'two@example.com'], role: 'editor' })
 })
 
@@ -235,6 +240,8 @@ test('creates a unique personal workspace for a short name', async ({ page }) =>
       'access-control-allow-headers': 'content-type',
     }
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    if (path === '/me')
+      return route.fulfill({ json: { user: signedInUser, workspaces: [] }, headers })
     if (path === '/workspaces' && request.method() === 'POST') {
       const slug = request.postDataJSON().slug as string
       slugs.push(slug)
@@ -249,7 +256,7 @@ test('creates a unique personal workspace for a short name', async ({ page }) =>
   await page.goto('/onboarding')
   await page.getByLabel('Name your space').fill('Jo')
   await page.getByRole('button', { name: 'Start planning' }).click()
-  await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
   expect(slugs).toEqual(['jo-space', 'jo-space-2'])
 })
 
@@ -306,6 +313,15 @@ test('workspace preview follows a custom workspace URL', async ({ page }) => {
 
 test('a server error on a workspace shows a retry, not no-access', async ({ page }) => {
   let fail = true
+  await page.route('http://localhost:8787/me', (route) =>
+    route.fulfill({
+      json: { user: signedInUser, workspaces: [] },
+      headers: {
+        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-credentials': 'true',
+      },
+    }),
+  )
   await page.route('http://localhost:8787/workspaces/northwind', (route) =>
     route.fulfill({
       status: fail ? 500 : 200,
@@ -321,7 +337,7 @@ test('a server error on a workspace shows a retry, not no-access', async ({ page
   await expect(page.getByText("You don't have access")).toHaveCount(0)
   fail = false
   await page.getByRole('button', { name: 'Retry' }).click()
-  await expect(page.getByRole('heading', { name: 'Northwind' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 
 test('a wrong code clears the boxes and explains how to retry', async ({ page }) => {
@@ -443,6 +459,8 @@ test('a failed sign-out stays on the workspace and says so', async ({ page }) =>
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    if (path === '/me')
+      return route.fulfill({ json: { user: signedInUser, workspaces: [] }, headers })
     if (path === '/workspaces/northwind')
       return route.fulfill({
         json: { workspace: { name: 'Northwind', slug: 'northwind' } },
@@ -455,7 +473,7 @@ test('a failed sign-out stays on the workspace and says so', async ({ page }) =>
   await page.goto('/northwind')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('alert')).toHaveText('Could not sign out. Try again.')
-  await expect(page.getByRole('heading', { name: 'Northwind' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 
 test('a link in the workspace name gets a plain message', async ({ page }) => {

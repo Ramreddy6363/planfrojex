@@ -27,7 +27,7 @@ export const Menu = ({ label, items }: { label: string; items: MenuItem[] }) => 
     const below = r.bottom + 4
     l.style.left = `${Math.max(8, Math.min(r.left, innerWidth - l.offsetWidth - 8))}px`
     l.style.top = `${below + l.offsetHeight + 8 > innerHeight ? Math.max(8, r.top - l.offsetHeight - 4) : below}px`
-    buttons()[0]?.focus()
+    buttons()[0]?.focus({ preventScroll: true })
   }
 
   // Fixed placement goes stale on scroll or resize, so close instead of chasing the trigger.

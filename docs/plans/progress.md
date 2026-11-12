@@ -47,6 +47,10 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - Endpoints: /me, POST /workspaces, GET /workspaces/:ws, POST /workspaces/:ws/invites, POST /invites/accept. Screens: sign in/up, enter code, onboarding (3), accept invite, no access (workspace version).
 - Local dev: `wrangler dev --env dev` against Docker Postgres; CI runs integration tests on a Postgres service.
 
+## 2026-11-12: Feature 2 app shell and Home
+- Workspace sidebar and keyboard-accessible switcher use existing memberships; Home shows empty task, project and activity states until those features are implemented.
+- Existing workspace authorization and sign-out remain in use; no new database tables or migrations.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -54,7 +58,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 |---|---|---|---|
 | 0 | Design system | Foundations, Components | shipped |
 | 1 | Auth and workspace | Sign in/up, Enter code, onboarding (3), No access | shipped 2026-11-05 |
-| 2 | App shell and Home | Sidebar, workspace switcher, Home | |
+| 2 | App shell and Home | Sidebar, workspace switcher, Home | shipped 2026-11-12 |
 | 3 | Members | Members, Invite dialog | |
 | 4 | Projects list and New project | Projects, New project dialog, starring, saved views | |
 | 5 | Project › Brief | Brief, project header, comment column | |
