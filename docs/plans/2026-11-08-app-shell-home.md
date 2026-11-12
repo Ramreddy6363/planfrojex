@@ -1,6 +1,6 @@
 # Feature 2: App shell and Home
 
-Status: **approved** · Worktree: `feat/app-shell`
+Status: **shipped** · Branch: `feat/app-shell`
 
 Provide a workspace frame, let members switch between their workspaces, and replace the workspace placeholder with Home. Use real account and workspace data; never display the sample records from the exports as real data.
 
