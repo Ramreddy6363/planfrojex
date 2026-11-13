@@ -308,17 +308,43 @@ function ProjectBrief() {
                   ? `Due ${formatShortDate(project.targetDate)}`
                   : 'No target date'}
               </span>
-              <span className="text-text-muted">No plan yet</span>
+              <div className="flex items-center gap-2 text-text-muted">
+                <span
+                  role="progressbar"
+                  aria-label="Task progress"
+                  aria-valuemin={0}
+                  aria-valuemax={project.taskProgress.total || 1}
+                  aria-valuenow={project.taskProgress.done}
+                  className="h-1 w-20 overflow-hidden rounded-full bg-bg-subtle"
+                >
+                  <span
+                    className="block h-full bg-accent"
+                    style={{
+                      width: `${project.taskProgress.total ? (project.taskProgress.done / project.taskProgress.total) * 100 : 0}%`,
+                    }}
+                  />
+                </span>
+                <span>
+                  {project.taskProgress.done}/{project.taskProgress.total} tasks
+                </span>
+              </div>
             </div>
           </div>
           <div className="border-b border-border px-8 pt-1 pb-0">
             <Tabs
               value="brief"
-              onChange={() => {}}
+              onChange={(tab) => {
+                if (tab === 'tasks')
+                  void navigate({
+                    to: '/$ws/projects/$projectId/tasks',
+                    params: { ws: workspace.slug, projectId },
+                    search: { view: 'list' },
+                  })
+              }}
               tabs={[
                 { id: 'brief', label: 'Brief' },
                 { id: 'plan', label: 'Plan', disabled: true },
-                { id: 'tasks', label: 'Tasks', disabled: true },
+                { id: 'tasks', label: 'Tasks' },
                 { id: 'diagrams', label: 'Diagrams', disabled: true },
                 { id: 'activity', label: 'Activity', disabled: true },
               ]}
@@ -619,30 +645,31 @@ function ProjectBrief() {
                           >
                             {relativeTime(comment.createdAt)}
                           </time>
-                          {comment.authorId === me.user.id && editingComment !== comment.id && (
-                            <Menu
-                              label="Actions for your comment"
-                              iconOnly
-                              triggerClassName="ml-auto h-7 px-1"
-                              items={[
-                                {
-                                  label: 'Edit comment',
-                                  icon: Pencil,
-                                  onSelect: () => {
-                                    setEditingComment(comment.id)
-                                    setEditingCommentDraft(comment.body)
-                                    setEditingMentions(comment.mentions)
+                          {(comment.authorId === me.user.id || workspace.role === 'owner') &&
+                            editingComment !== comment.id && (
+                              <Menu
+                                label="Actions for your comment"
+                                iconOnly
+                                triggerClassName="ml-auto h-7 px-1"
+                                items={[
+                                  {
+                                    label: 'Edit comment',
+                                    icon: Pencil,
+                                    onSelect: () => {
+                                      setEditingComment(comment.id)
+                                      setEditingCommentDraft(comment.body)
+                                      setEditingMentions(comment.mentions)
+                                    },
                                   },
-                                },
-                                {
-                                  label: 'Delete comment',
-                                  icon: Trash2,
-                                  danger: true,
-                                  onSelect: () => setDeletingComment(comment.id),
-                                },
-                              ]}
-                            />
-                          )}
+                                  {
+                                    label: 'Delete comment',
+                                    icon: Trash2,
+                                    danger: true,
+                                    onSelect: () => setDeletingComment(comment.id),
+                                  },
+                                ]}
+                              />
+                            )}
                         </div>
                         {editingComment === comment.id ? (
                           <div className="mt-2 space-y-2">

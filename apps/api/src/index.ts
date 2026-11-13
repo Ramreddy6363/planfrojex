@@ -6,6 +6,7 @@ import { connect } from './db'
 import type { Env } from './env'
 import { createProjectBriefRoutes } from './projects/brief-routes'
 import { createProjectRoutes } from './projects/routes'
+import { createProjectTaskRoutes, createTaskRoutes } from './projects/task-routes'
 import { consumeRateLimit } from './rate-limit'
 import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
@@ -54,9 +55,13 @@ export function createApp(options: { database?: DatabaseFactory; auth?: AuthFact
     .route('/', createWorkspaceRoutes(options))
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
+    .route('/', createProjectTaskRoutes(options))
+    .route('/', createTaskRoutes(options))
 }
 
 const app = createApp()
 
 export type AppType = typeof app
+export type ProjectTaskRoutes = ReturnType<typeof createProjectTaskRoutes>
+export type TaskRoutes = ReturnType<typeof createTaskRoutes>
 export default app

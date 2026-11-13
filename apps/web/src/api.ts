@@ -1,9 +1,20 @@
-import type { AppType } from '@planfrojex/api'
+import type { AppType, ProjectTaskRoutes, TaskRoutes } from '@planfrojex/api'
 import { type ClientResponse, DetailedError, hc, parseResponse } from 'hono/client'
 
 export const api = hc<AppType>(import.meta.env.VITE_API_URL ?? 'http://localhost:8787', {
   init: { credentials: 'include' },
 })
+const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
+export const projectTasksApi = hc<ProjectTaskRoutes>(apiBase, { init: { credentials: 'include' } })
+export const tasksApi = hc<TaskRoutes>(apiBase, { init: { credentials: 'include' } })
+type ProjectTaskEndpoint = NonNullable<typeof projectTasksApi.projects>[':id']
+type TaskEndpoint = NonNullable<typeof tasksApi.tasks>
+// OpenAPIHono's route merger flattens these two path segments in its inferred
+// client type. The hc proxy still needs both segments at runtime.
+export const projectTasksClient = projectTasksApi as unknown as {
+  projects: { ':id': { tasks: ProjectTaskEndpoint } }
+}
+export const tasksClient = tasksApi as unknown as { tasks: { ':id': TaskEndpoint } }
 
 export class RequestError extends Error {
   constructor(

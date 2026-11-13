@@ -36,7 +36,7 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`m-auto ${extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-120' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
+      className={`m-auto ${extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
     >
       <div
         className={

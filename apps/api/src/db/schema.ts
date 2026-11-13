@@ -160,6 +160,37 @@ export const projects = pgTable(
   ],
 )
 
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    number: integer('number').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull().default(''),
+    status: text('status', { enum: ['todo', 'in_progress', 'done'] })
+      .notNull()
+      .default('todo'),
+    priority: text('priority', { enum: ['low', 'medium', 'high'] })
+      .notNull()
+      .default('medium'),
+    assigneeId: text('assignee_id').references(() => user.id, { onDelete: 'set null' }),
+    dueDate: date('due_date'),
+    position: integer('position').notNull().default(0),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex('tasks_project_number_idx').on(t.projectId, t.number),
+    index('tasks_project_status_position_idx').on(t.projectId, t.status, t.position, t.id),
+    index('tasks_assignee_idx').on(t.assigneeId),
+  ],
+)
+
 export const comments = pgTable(
   'comments',
   {
@@ -167,9 +198,10 @@ export const comments = pgTable(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    target: text('target', { enum: ['project'] })
+    target: text('target', { enum: ['project', 'task'] })
       .notNull()
       .default('project'),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
     authorId: text('author_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -177,7 +209,10 @@ export const comments = pgTable(
     mentions: text('mentions').array().notNull().default(sql`'{}'::text[]`),
     ...timestamps(),
   },
-  (t) => [index('comments_project_created_idx').on(t.projectId, t.createdAt, t.id)],
+  (t) => [
+    index('comments_project_created_idx').on(t.projectId, t.createdAt, t.id),
+    index('comments_task_created_idx').on(t.taskId, t.createdAt, t.id),
+  ],
 )
 
 export const stars = pgTable(

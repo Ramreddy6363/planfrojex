@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
-import { comments, memberships, projects, stars, user, workspaces } from '../db/schema'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { comments, memberships, projects, stars, tasks, user, workspaces } from '../db/schema'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
 import {
@@ -44,6 +44,7 @@ const projectResponse = z.object({
   createdAt: z.string(),
   createdBy: z.object({ id: z.string(), name: z.string() }).nullable(),
   starred: z.boolean(),
+  taskProgress: z.object({ done: z.number(), total: z.number() }),
 })
 const projectDetailResponse = z.object({ project: projectResponse })
 const projectParams = { params: z.object({ id: z.uuid() }) }
@@ -91,8 +92,8 @@ const patchProjectRoute = createRoute({
     404: json(error, 'Project not found'),
   },
 })
-const projectTarget = z.string().regex(/^project:[0-9a-f-]{36}$/i)
-const commentsQuery = z.object({ target: projectTarget })
+const commentTarget = z.string().regex(/^(project|task):[0-9a-f-]{36}$/i)
+const commentsQuery = z.object({ target: commentTarget })
 const getCommentsRoute = createRoute({
   method: 'get',
   path: '/comments',
@@ -120,7 +121,7 @@ const getCommentsRoute = createRoute({
   },
 })
 const commentInput = z.object({
-  target: projectTarget,
+  target: commentTarget,
   body: z.string().trim().min(1).max(5_000),
   mentions: z
     .array(z.string().min(1).max(128))
@@ -193,7 +194,7 @@ const patchCommentRoute = createRoute({
     200: json(commentResponse, 'Updated comment'),
     400: json(error, 'Invalid comment'),
     401: json(error, 'Sign in required'),
-    403: json(error, 'Only the author can edit this comment'),
+    403: json(error, 'Only owners or the author can edit this comment'),
     404: json(error, 'Comment not found'),
   },
 })
@@ -205,7 +206,7 @@ const deleteCommentRoute = createRoute({
     200: json(z.object({ ok: z.literal(true) }), 'Deleted comment'),
     400: json(error, 'Invalid comment id'),
     401: json(error, 'Sign in required'),
-    403: json(error, 'Only the author can delete this comment'),
+    403: json(error, 'Only owners or the author can delete this comment'),
     404: json(error, 'Comment not found'),
   },
 })
@@ -226,6 +227,26 @@ async function visibleProject(db: Db, id: string, userId: string) {
       and(eq(memberships.workspaceId, projects.workspaceId), eq(memberships.userId, userId)),
     )
     .where(and(eq(projects.id, id), isNull(projects.deletedAt)))
+  return row
+}
+function parseCommentTarget(value: string) {
+  const separator = value.indexOf(':')
+  const kind = value.slice(0, separator)
+  const parsed = z.uuid().safeParse(value.slice(separator + 1))
+  return parsed.success && (kind === 'project' || kind === 'task')
+    ? { kind: kind as 'project' | 'task', id: parsed.data }
+    : null
+}
+async function visibleTaskCommentTarget(db: Db, id: string, userId: string) {
+  const [row] = await db
+    .select({ taskId: tasks.id, projectId: tasks.projectId, workspaceId: projects.workspaceId })
+    .from(tasks)
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .innerJoin(
+      memberships,
+      and(eq(memberships.workspaceId, projects.workspaceId), eq(memberships.userId, userId)),
+    )
+    .where(and(eq(tasks.id, id), isNull(projects.deletedAt)))
   return row
 }
 async function projectDetails(db: Db, id: string, userId: string) {
@@ -256,6 +277,13 @@ async function projectDetails(db: Db, id: string, userId: string) {
   const [creator] = row.createdBy
     ? await db.select({ name: user.name }).from(user).where(eq(user.id, row.createdBy))
     : []
+  const [taskProgress] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      done: sql<number>`count(*) filter (where ${tasks.status} = 'done')::int`,
+    })
+    .from(tasks)
+    .where(eq(tasks.projectId, id))
   const brief = row.brief
   return {
     id: row.id,
@@ -275,6 +303,7 @@ async function projectDetails(db: Db, id: string, userId: string) {
     createdAt: row.createdAt.toISOString(),
     createdBy: creator ? { id: row.createdBy as string, name: creator.name } : null,
     starred: Boolean(row.starredId),
+    taskProgress: { done: taskProgress?.done ?? 0, total: taskProgress?.total ?? 0 },
   }
 }
 async function memberMentions(db: Db, workspaceId: string, ids: string[]) {
@@ -292,6 +321,7 @@ async function visibleComment(db: Db, id: string, userId: string) {
       projectId: comments.projectId,
       workspaceId: projects.workspaceId,
       authorId: comments.authorId,
+      role: memberships.role,
     })
     .from(comments)
     .innerJoin(projects, eq(projects.id, comments.projectId))
@@ -433,11 +463,17 @@ export function createProjectBriefRoutes(
     .openapi(
       getCommentsRoute,
       async (c) => {
-        const raw = c.req.valid('query').target.slice('project:'.length)
-        const projectId = z.uuid().safeParse(raw)
-        if (!projectId.success) return c.json({ error: 'Invalid comment target' }, 400)
-        const visible = await visibleProject(c.get('db'), projectId.data, c.get('user').id)
-        if (!visible) return c.json({ error: 'Project not found' }, 404)
+        const target = parseCommentTarget(c.req.valid('query').target)
+        if (!target) return c.json({ error: 'Invalid comment target' }, 400)
+        const db = c.get('db')
+        const actorId = c.get('user').id
+        const visible =
+          target.kind === 'project'
+            ? await visibleProject(db, target.id, actorId).then((row) =>
+                row ? { projectId: row.id } : null,
+              )
+            : await visibleTaskCommentTarget(db, target.id, actorId)
+        if (!visible) return c.json({ error: 'Comment target not found' }, 404)
         const rows = await c
           .get('db')
           .select({
@@ -451,7 +487,13 @@ export function createProjectBriefRoutes(
           })
           .from(comments)
           .innerJoin(user, eq(user.id, comments.authorId))
-          .where(and(eq(comments.projectId, projectId.data), eq(comments.target, 'project')))
+          .where(
+            and(
+              eq(comments.projectId, visible.projectId),
+              eq(comments.target, target.kind as 'project' | 'task'),
+              target.kind === 'task' ? eq(comments.taskId, target.id) : isNull(comments.taskId),
+            ),
+          )
           .orderBy(asc(comments.createdAt), asc(comments.id))
         return c.json(
           {
@@ -470,11 +512,16 @@ export function createProjectBriefRoutes(
       postCommentRoute,
       async (c) => {
         const input = c.req.valid('json')
-        const projectId = z.uuid().safeParse(input.target.slice('project:'.length))
-        if (!projectId.success) return c.json({ error: 'Invalid comment target' }, 400)
+        const target = parseCommentTarget(input.target)
+        if (!target) return c.json({ error: 'Invalid comment target' }, 400)
         const db = c.get('db')
         const actorId = c.get('user').id
-        const visible = await visibleProject(db, projectId.data, actorId)
+        const visible =
+          target.kind === 'project'
+            ? await visibleProject(db, target.id, actorId).then((row) =>
+                row ? { projectId: row.id, workspaceId: row.workspaceId } : null,
+              )
+            : await visibleTaskCommentTarget(db, target.id, actorId)
         if (!visible) return c.json({ error: 'Project not found' }, 404)
         if (!(await memberMentions(db, visible.workspaceId, input.mentions)))
           return c.json({ error: 'Mentions must be workspace members' }, 400)
@@ -486,15 +533,21 @@ export function createProjectBriefRoutes(
             .from(workspaces)
             .where(eq(workspaces.id, visible.workspaceId))
             .for('no key update')
-          const stillVisible = await visibleProject(tx, projectId.data, actorId)
+          const stillVisible =
+            target.kind === 'project'
+              ? await visibleProject(tx, target.id, actorId).then((row) =>
+                  row ? { projectId: row.id, workspaceId: row.workspaceId } : null,
+                )
+              : await visibleTaskCommentTarget(tx, target.id, actorId)
           if (!stillVisible) return { kind: 'missing' as const }
           if (!(await memberMentions(tx, stillVisible.workspaceId, input.mentions)))
             return { kind: 'invalid' as const }
           const [row] = await tx
             .insert(comments)
             .values({
-              projectId: projectId.data,
-              target: 'project',
+              projectId: stillVisible.projectId,
+              target: target.kind as 'project' | 'task',
+              taskId: target.kind === 'task' ? target.id : null,
               authorId: actorId,
               body: input.body,
               mentions: input.mentions,
@@ -521,8 +574,8 @@ export function createProjectBriefRoutes(
         const actorId = c.get('user').id
         const visible = await visibleComment(db, id, actorId)
         if (!visible) return c.json({ error: 'Comment not found' }, 404)
-        if (visible.authorId !== actorId)
-          return c.json({ error: 'Only the author can edit this comment' }, 403)
+        if (visible.role !== 'owner' && visible.authorId !== actorId)
+          return c.json({ error: 'Only owners or the author can edit this comment' }, 403)
         const result = await db.transaction(async (tx) => {
           await tx
             .select({ id: workspaces.id })
@@ -531,7 +584,7 @@ export function createProjectBriefRoutes(
             .for('no key update')
           const current = await visibleComment(tx, id, actorId)
           if (!current) return 'missing' as const
-          if (current.authorId !== actorId) return 'forbidden' as const
+          if (current.role !== 'owner' && current.authorId !== actorId) return 'forbidden' as const
           if (input.mentions && !(await memberMentions(tx, current.workspaceId, input.mentions)))
             return 'invalid' as const
           await tx
@@ -541,12 +594,12 @@ export function createProjectBriefRoutes(
               ...(input.mentions !== undefined && { mentions: input.mentions }),
               updatedAt: new Date(),
             })
-            .where(and(eq(comments.id, id), eq(comments.authorId, actorId)))
+            .where(eq(comments.id, id))
           return 'updated' as const
         })
         if (result === 'missing') return c.json({ error: 'Comment not found' }, 404)
         if (result === 'forbidden')
-          return c.json({ error: 'Only the author can edit this comment' }, 403)
+          return c.json({ error: 'Only owners or the author can edit this comment' }, 403)
         if (result === 'invalid')
           return c.json({ error: 'Mentions must be workspace members' }, 400)
         const value = await commentDetails(db, id)
@@ -561,8 +614,8 @@ export function createProjectBriefRoutes(
       const actorId = c.get('user').id
       const visible = await visibleComment(db, id, actorId)
       if (!visible) return c.json({ error: 'Comment not found' }, 404)
-      if (visible.authorId !== actorId)
-        return c.json({ error: 'Only the author can delete this comment' }, 403)
+      if (visible.role !== 'owner' && visible.authorId !== actorId)
+        return c.json({ error: 'Only owners or the author can delete this comment' }, 403)
       const result = await db.transaction(async (tx) => {
         await tx
           .select({ id: workspaces.id })
@@ -571,13 +624,13 @@ export function createProjectBriefRoutes(
           .for('no key update')
         const current = await visibleComment(tx, id, actorId)
         if (!current) return 'missing' as const
-        if (current.authorId !== actorId) return 'forbidden' as const
-        await tx.delete(comments).where(and(eq(comments.id, id), eq(comments.authorId, actorId)))
+        if (current.role !== 'owner' && current.authorId !== actorId) return 'forbidden' as const
+        await tx.delete(comments).where(eq(comments.id, id))
         return 'deleted' as const
       })
       if (result === 'missing') return c.json({ error: 'Comment not found' }, 404)
       if (result === 'forbidden')
-        return c.json({ error: 'Only the author can delete this comment' }, 403)
+        return c.json({ error: 'Only owners or the author can delete this comment' }, 403)
       return c.json({ ok: true as const }, 200)
     })
 }

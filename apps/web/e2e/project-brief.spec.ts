@@ -28,6 +28,7 @@ async function mockBrief(page: import('@playwright/test').Page, role = 'owner') 
     createdAt: '2026-10-02T00:00:00.000Z',
     createdBy: { id: 'owner', name: 'Maya Chen' },
     starred: false,
+    taskProgress: { done: 0, total: 0 },
   }
   const members = [
     { id: 'owner', name: 'Maya Chen', email: 'owner@example.com', image: null, role: 'owner' },
