@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createRoute, redirect, useLoaderData } from '@tanstack/react-router'
+import { createRoute, Link, redirect, useLoaderData } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { api, call, RequestError } from '../api'
@@ -71,7 +71,13 @@ function YourProjects({ slug }: { slug: string }) {
               key={project.id}
               className="flex h-11 items-center gap-4 border-b border-border px-3"
             >
-              <span className="min-w-0 flex-1 truncate font-semibold">{project.name}</span>
+              <Link
+                to="/$ws/projects/$projectId"
+                params={{ ws: slug, projectId: project.id }}
+                className="min-w-0 flex-1 truncate font-semibold hover:text-accent hover:underline"
+              >
+                {project.name}
+              </Link>
               <span className="w-32">
                 <StatusLabel status={project.status} />
               </span>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   CheckCircle2,
   ChevronsUpDown,
@@ -115,10 +115,15 @@ export function WorkspaceShell({
         <p className="mt-6 px-2 text-caption text-text-muted">Starred</p>
         {starred.data?.projects.length ? (
           starred.data.projects.map((project) => (
-            <p key={project.id} className="flex items-center gap-2 px-1 py-2 text-ui">
+            <Link
+              key={project.id}
+              to="/$ws/projects/$projectId"
+              params={{ ws: workspace.slug, projectId: project.id }}
+              className="flex items-center gap-2 rounded-control px-1 py-2 text-ui hover:bg-bg-muted"
+            >
               <Icon icon={Folder} className="shrink-0 text-text-muted" />
               <span className="truncate">{project.name}</span>
-            </p>
+            </Link>
           ))
         ) : (
           <p className="px-2 py-2 text-caption text-text-muted">No starred projects yet</p>

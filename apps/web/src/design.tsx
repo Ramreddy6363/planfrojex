@@ -17,6 +17,7 @@ import { Select } from './ui/select'
 import { SkeletonRow } from './ui/skeleton-row'
 import { type Status, StatusLabel } from './ui/status'
 import { Tabs } from './ui/tabs'
+import { Tag } from './ui/tag'
 import { TextAction, TextLink } from './ui/text-link'
 import { Textarea } from './ui/textarea'
 import { ToastRegion } from './ui/toast'
@@ -134,6 +135,11 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         {statuses.map((s) => (
           <StatusLabel key={s} status={s} />
         ))}
+      </Section>
+      <Section title="Tags">
+        <Tag>web</Tag>
+        <Tag>billing</Tag>
+        <Tag>self-serve</Tag>
       </Section>
       <Section title="Brand">
         <Brand />

@@ -94,7 +94,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 2 | App shell and Home | Sidebar, workspace switcher, Home | shipped 2026-11-12 |
 | 3 | Members | Members, Invite dialog | shipped 2026-11-13 |
 | 4 | Projects list and New project | Projects, New project dialog, starring, saved views | shipped 2026-11-13 |
-| 5 | Project › Brief | Brief, project header, comment column | |
+| 5 | Project › Brief | Brief, project header, comment column | shipped 2026-11-13 |
 | 6 | Tasks | List, board, New task dialog, task side panel | |
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | |
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | |

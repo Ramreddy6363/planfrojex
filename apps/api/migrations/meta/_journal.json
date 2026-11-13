@@ -15,6 +15,13 @@
       "when": 1794550656378,
       "tag": "0001_burly_peter_quill",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794567925024,
+      "tag": "0002_massive_leech",
+      "breakpoints": true
     }
   ]
 }
