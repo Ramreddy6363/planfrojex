@@ -1,5 +1,7 @@
 import { createRoute, redirect, useLoaderData } from '@tanstack/react-router'
+import { useState } from 'react'
 import { RequestError } from '../api'
+import { NewProjectDialog } from '../new-project-dialog'
 import { getMe, getWorkspace } from '../session'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
@@ -36,6 +38,7 @@ export function WorkspaceError({ error }: { error: unknown }) {
 
 function Workspace() {
   const { workspace, me } = useLoaderData({ from: '/$ws' })
+  const [newProjectOpen, setNewProjectOpen] = useState(false)
   return (
     <WorkspaceShell workspace={workspace} me={me} active="home">
       <header className="flex items-center gap-4 border-b border-border px-8 py-4">
@@ -47,7 +50,12 @@ function Workspace() {
             day: 'numeric',
           }).format(new Date())}
         </span>
-        <Button variant="primary" disabled className="ml-auto">
+        <Button
+          variant="primary"
+          disabled={workspace.role === 'viewer'}
+          className="ml-auto"
+          onClick={() => setNewProjectOpen(true)}
+        >
           New project
         </Button>
       </header>
@@ -67,6 +75,12 @@ function Workspace() {
           <EmptyState title="No activity yet" body="Workspace activity will appear here." />
         </section>
       </div>
+      <NewProjectDialog
+        open={newProjectOpen}
+        onClose={() => setNewProjectOpen(false)}
+        slug={workspace.slug}
+        userId={me.user.id}
+      />
     </WorkspaceShell>
   )
 }

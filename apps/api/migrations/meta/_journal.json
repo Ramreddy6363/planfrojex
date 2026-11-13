@@ -8,6 +8,13 @@
       "when": 1793796137708,
       "tag": "0000_kind_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794550656378,
+      "tag": "0001_burly_peter_quill",
+      "breakpoints": true
     }
   ]
 }

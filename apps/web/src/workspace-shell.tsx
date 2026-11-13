@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   CheckCircle2,
@@ -9,6 +10,7 @@ import {
   UsersRound,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { api, call } from './api'
 import { auth } from './auth-client'
 import type { getMe, getWorkspace } from './session'
 import { Button } from './ui/button'
@@ -24,11 +26,36 @@ export function WorkspaceShell({
 }: {
   workspace: Awaited<ReturnType<typeof getWorkspace>>['workspace']
   me: Awaited<ReturnType<typeof getMe>>
-  active: 'home' | 'members'
+  active: 'home' | 'members' | 'projects'
   children: ReactNode
 }) {
   const navigate = useNavigate()
   const { busy, error, run } = useAction()
+  const starred = useQuery({
+    queryKey: ['projects', workspace.slug, 'sidebar'],
+    queryFn: async () => {
+      let page = await call(
+        api.workspaces[':ws'].projects.$get({
+          param: { ws: workspace.slug },
+          query: { view: 'starred' },
+        }),
+      )
+      const projects = [...page.projects]
+      const seen = new Set<string>()
+      while (page.nextCursor && !seen.has(page.nextCursor)) {
+        const cursor = page.nextCursor
+        seen.add(cursor)
+        page = await call(
+          api.workspaces[':ws'].projects.$get({
+            param: { ws: workspace.slug },
+            query: { view: 'starred', cursor },
+          }),
+        )
+        projects.push(...page.projects)
+      }
+      return { projects }
+    },
+  })
   return (
     <div className="flex min-h-screen bg-bg text-text">
       <nav
@@ -43,7 +70,9 @@ export function WorkspaceShell({
               : ''
           }
           onChange={(event) =>
-            void navigate({ to: `/${event.target.value}${active === 'members' ? '/members' : ''}` })
+            void navigate({
+              to: `/${event.target.value}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : ''}`,
+            })
           }
         >
           <option value="" disabled>
@@ -74,9 +103,23 @@ export function WorkspaceShell({
           Inbox
         </Button>
         <p className="mt-6 px-2 text-caption text-text-muted">Starred</p>
-        <p className="px-2 py-2 text-caption text-text-muted">No starred projects yet</p>
+        {starred.data?.projects.length ? (
+          starred.data.projects.map((project) => (
+            <p key={project.id} className="truncate px-2 py-2 text-caption">
+              {project.name}
+            </p>
+          ))
+        ) : (
+          <p className="px-2 py-2 text-caption text-text-muted">No starred projects yet</p>
+        )}
         <p className="mt-6 px-2 text-caption text-text-muted">Workspace</p>
-        <Button variant="ghost" disabled icon={FolderKanban} className="justify-start">
+        <Button
+          variant="ghost"
+          icon={FolderKanban}
+          aria-current={active === 'projects' ? 'page' : undefined}
+          className={`justify-start ${active === 'projects' ? '!bg-accent-subtle !text-accent' : ''}`}
+          onClick={() => void navigate({ to: `/${workspace.slug}/projects` })}
+        >
           Projects
         </Button>
         <Button

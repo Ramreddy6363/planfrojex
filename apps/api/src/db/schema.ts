@@ -2,8 +2,10 @@ import { sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
+  date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -127,3 +129,43 @@ export const rateLimit = pgTable('rate_limits', {
   count: integer('count').notNull(),
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 })
+
+export const projects = pgTable(
+  'projects',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('title').notNull(),
+    status: text('status', { enum: ['draft', 'planning', 'in-progress', 'completed', 'archived'] })
+      .notNull()
+      .default('draft'),
+    leadId: text('lead_id')
+      .notNull()
+      .references(() => user.id),
+    targetDate: date('target_date'),
+    brief: jsonb('brief').$type<{ problem: string }>().notNull(),
+    tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex('projects_workspace_key_idx').on(t.workspaceId, t.key),
+    index('projects_workspace_updated_idx').on(t.workspaceId, t.updatedAt, t.id),
+  ],
+)
+
+export const stars = pgTable(
+  'stars',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.projectId] })],
+)
