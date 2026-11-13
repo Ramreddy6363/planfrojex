@@ -2,6 +2,8 @@
 # The only way a PR reaches main. GitHub CI is off, so the full check runs here first, then squash merge.
 set -euo pipefail
 branch=${1:?usage: pnpm merge <branch>}
+# gh calls run as the repo owner, whichever gh account is active.
+export GH_TOKEN="$(gh auth token -u Ramreddy6363)"
 
 [[ $(git branch --show-current) == "$branch" ]] || { echo "merge: switch to $branch first" >&2; exit 1; }
 [[ -z $(git status --porcelain) ]] || { echo "merge: commit or stash changes first" >&2; exit 1; }
