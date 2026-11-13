@@ -7,6 +7,7 @@ import { acceptInviteRoute } from './routes/accept-invite'
 import { authCallbackRoute } from './routes/auth-callback'
 import { createWorkspaceRoute } from './routes/create-workspace'
 import { inviteRoute } from './routes/invite'
+import { membersRoute } from './routes/members'
 import { onboardingRoute } from './routes/onboarding'
 import { rootRoute } from './routes/root'
 import { signInRoute } from './routes/sign-in'
@@ -28,6 +29,7 @@ const router = createRouter({
     inviteRoute,
     acceptInviteRoute,
     workspaceRoute,
+    membersRoute,
   ]),
   defaultPendingComponent: Loading,
 })

@@ -1,7 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, gt, sql } from 'drizzle-orm'
 import type { Context, Next } from 'hono'
-import { invites, memberships, workspaces } from '../db/schema'
+import { invites, memberships, user as users, workspaces } from '../db/schema'
 import { sendInvite } from '../email'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
@@ -78,6 +78,112 @@ const getWorkspaceRoute = createRoute({
     200: json(z.object({ workspace: workspaceMember }), 'The workspace'),
     401: json(failure, 'Not signed in'),
     404: json(failure, 'Not a member of this workspace'),
+  },
+})
+const memberParams = z.object({ ws: z.string(), userId: z.string().min(1).max(128) })
+const membersRoute = createRoute({
+  method: 'get',
+  path: '/workspaces/{ws}/members',
+  request: { params: z.object({ ws: z.string() }) },
+  middleware: [requireMember] as const,
+  responses: {
+    200: json(
+      z.object({
+        members: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            email: z.string(),
+            image: z.string().nullable(),
+            role,
+          }),
+        ),
+      }),
+      'Workspace members',
+    ),
+    401: json(failure, 'Not signed in'),
+    404: json(failure, 'Workspace not found'),
+  },
+})
+const memberChangeRoute = createRoute({
+  method: 'patch',
+  path: '/workspaces/{ws}/members/{userId}',
+  request: { params: memberParams, ...body(z.object({ role })) },
+  middleware: [requireMember, requireInvitePermission] as const,
+  responses: {
+    200: json(z.object({ ok: z.literal(true) }), 'Role changed'),
+    400: json(failure, 'Invalid input'),
+    401: json(failure, 'Not signed in'),
+    403: json(failure, 'Owner required'),
+    404: json(failure, 'Not found'),
+    409: json(failure, 'Last owner'),
+  },
+})
+const memberRemoveRoute = createRoute({
+  method: 'delete',
+  path: '/workspaces/{ws}/members/{userId}',
+  request: { params: memberParams },
+  middleware: [requireMember, requireInvitePermission] as const,
+  responses: {
+    200: json(z.object({ ok: z.literal(true) }), 'Member removed'),
+    400: json(failure, 'Invalid input'),
+    401: json(failure, 'Not signed in'),
+    403: json(failure, 'Owner required'),
+    404: json(failure, 'Not found'),
+    409: json(failure, 'Last owner'),
+  },
+})
+const listInvitesRoute = createRoute({
+  method: 'get',
+  path: '/workspaces/{ws}/invites',
+  request: { params: z.object({ ws: z.string() }) },
+  middleware: [requireMember, requireInvitePermission] as const,
+  responses: {
+    200: json(
+      z.object({
+        invites: z.array(
+          z.object({
+            id: z.string(),
+            email: z.string(),
+            role: z.enum(['editor', 'viewer']),
+            invitedBy: z.string(),
+            createdAt: z.string(),
+            expiresAt: z.string(),
+          }),
+        ),
+      }),
+      'Pending invitations',
+    ),
+    401: json(failure, 'Not signed in'),
+    403: json(failure, 'Owner required'),
+    404: json(failure, 'Not found'),
+  },
+})
+const inviteIdParams = z.object({ id: z.string().uuid() })
+const resendRoute = createRoute({
+  method: 'post',
+  path: '/invites/{id}/resend',
+  request: { params: inviteIdParams },
+  responses: {
+    200: json(z.object({ ok: z.literal(true) }), 'Invitation resent'),
+    400: json(failure, 'Invalid invitation'),
+    401: json(failure, 'Not signed in'),
+    403: json(failure, 'Owner required'),
+    404: json(failure, 'Not found'),
+    429: json(failure, 'Too many invitations'),
+    502: json(failure, 'Delivery failed'),
+  },
+})
+const revokeRoute = createRoute({
+  method: 'delete',
+  path: '/invites/{id}',
+  request: { params: inviteIdParams },
+  responses: {
+    200: json(z.object({ ok: z.literal(true) }), 'Invitation revoked'),
+    400: json(failure, 'Invalid invitation'),
+    401: json(failure, 'Not signed in'),
+    403: json(failure, 'Owner required'),
+    404: json(failure, 'Not found'),
   },
 })
 const inviteRoute = createRoute({
@@ -171,6 +277,261 @@ export function createWorkspaceRoutes(
       invalid('Invalid workspace details'),
     )
     .openapi(getWorkspaceRoute, (c) => c.json({ workspace: c.get('membership') }, 200))
+    .openapi(membersRoute, async (c) => {
+      const rows = await c
+        .get('db')
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          image: users.image,
+          role: memberships.role,
+        })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(eq(memberships.workspaceId, c.get('membership').id))
+        .orderBy(asc(users.name))
+      return c.json({ members: rows }, 200)
+    })
+    .openapi(
+      memberChangeRoute,
+      async (c) => {
+        const workspaceId = c.get('membership').id
+        const targetId = c.req.valid('param').userId
+        const newRole = c.req.valid('json').role
+        const outcome = await c.get('db').transaction(async (tx) => {
+          await tx
+            .select({ id: workspaces.id })
+            .from(workspaces)
+            .where(eq(workspaces.id, workspaceId))
+            .for('no key update')
+          const rows = await tx
+            .select({ userId: memberships.userId, role: memberships.role })
+            .from(memberships)
+            .where(eq(memberships.workspaceId, workspaceId))
+          if (!rows.some((row) => row.userId === c.get('user').id && row.role === 'owner'))
+            return 403 as const
+          const target = rows.find((row) => row.userId === targetId)
+          if (!target) return 404 as const
+          if (
+            target.role === 'owner' &&
+            newRole !== 'owner' &&
+            rows.filter((row) => row.role === 'owner').length === 1
+          )
+            return 409 as const
+          await tx
+            .update(memberships)
+            .set({ role: newRole, updatedAt: new Date() })
+            .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, targetId)))
+          return 200 as const
+        })
+        if (outcome === 403) return c.json({ error: 'Only an owner can manage members' }, 403)
+        if (outcome === 404) return c.json({ error: 'Member not found' }, 404)
+        if (outcome === 409)
+          return c.json({ error: 'A workspace must have at least one owner' }, 409)
+        return c.json({ ok: true as const }, 200)
+      },
+      invalid('Invalid member details'),
+    )
+    .openapi(
+      memberRemoveRoute,
+      async (c) => {
+        const workspaceId = c.get('membership').id
+        const targetId = c.req.valid('param').userId
+        const outcome = await c.get('db').transaction(async (tx) => {
+          await tx
+            .select({ id: workspaces.id })
+            .from(workspaces)
+            .where(eq(workspaces.id, workspaceId))
+            .for('no key update')
+          const rows = await tx
+            .select({ userId: memberships.userId, role: memberships.role })
+            .from(memberships)
+            .where(eq(memberships.workspaceId, workspaceId))
+          if (!rows.some((row) => row.userId === c.get('user').id && row.role === 'owner'))
+            return 403 as const
+          const target = rows.find((row) => row.userId === targetId)
+          if (!target) return 404 as const
+          if (target.role === 'owner' && rows.filter((row) => row.role === 'owner').length === 1)
+            return 409 as const
+          await tx
+            .delete(memberships)
+            .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, targetId)))
+          return 200 as const
+        })
+        if (outcome === 403) return c.json({ error: 'Only an owner can manage members' }, 403)
+        if (outcome === 404) return c.json({ error: 'Member not found' }, 404)
+        if (outcome === 409)
+          return c.json({ error: 'A workspace must have at least one owner' }, 409)
+        return c.json({ ok: true as const }, 200)
+      },
+      invalid('Invalid member details'),
+    )
+    .openapi(listInvitesRoute, async (c) => {
+      const rows = await c
+        .get('db')
+        .select({
+          id: invites.id,
+          email: invites.email,
+          role: invites.role,
+          invitedBy: users.name,
+          createdAt: invites.createdAt,
+          expiresAt: invites.expiresAt,
+        })
+        .from(invites)
+        .innerJoin(users, eq(users.id, invites.invitedBy))
+        .where(and(eq(invites.workspaceId, c.get('membership').id), eq(invites.status, 'pending')))
+        .orderBy(asc(invites.createdAt))
+      return c.json(
+        {
+          invites: rows.map((row) => ({
+            ...row,
+            createdAt: row.createdAt.toISOString(),
+            expiresAt: row.expiresAt.toISOString(),
+          })),
+        },
+        200,
+      )
+    })
+    .openapi(
+      resendRoute,
+      async (c) => {
+        const db = c.get('db')
+        const id = c.req.valid('param').id
+        const userId = c.get('user').id
+        const [access] = await db
+          .select({
+            role: memberships.role,
+            workspaceId: workspaces.id,
+            tokenHash: invites.tokenHash,
+          })
+          .from(invites)
+          .innerJoin(workspaces, eq(workspaces.id, invites.workspaceId))
+          .innerJoin(
+            memberships,
+            and(eq(memberships.workspaceId, workspaces.id), eq(memberships.userId, userId)),
+          )
+          .where(eq(invites.id, id))
+        if (!access) return c.json({ error: 'Invitation not found' }, 404)
+        if (access.role !== 'owner')
+          return c.json({ error: 'Only an owner can manage invitations' }, 403)
+        const ip = c.req.header('cf-connecting-ip')
+        if (
+          !(await consumeRateLimit(db, 'invites-user', userId, 1, 40, 3_600_000)) ||
+          !(await consumeRateLimit(
+            db,
+            'invites-workspace',
+            access.workspaceId,
+            1,
+            100,
+            3_600_000,
+          )) ||
+          (ip && !(await consumeRateLimit(db, 'invites-ip', ip, 1, 100, 3_600_000)))
+        )
+          return c.json({ error: 'Too many invitations. Try again later.' }, 429)
+        const token = randomToken()
+        const tokenHash = await hashToken(token)
+        try {
+          const outcome = await db.transaction(async (tx) => {
+            await tx
+              .select({ id: workspaces.id })
+              .from(workspaces)
+              .where(eq(workspaces.id, access.workspaceId))
+              .for('no key update')
+            const [row] = await tx
+              .select({
+                id: invites.id,
+                email: invites.email,
+                status: invites.status,
+                workspaceId: invites.workspaceId,
+                tokenHash: invites.tokenHash,
+              })
+              .from(invites)
+              .where(eq(invites.id, id))
+              .for('update')
+            if (!row) return 404 as const
+            const [current] = await tx
+              .select({ role: memberships.role, name: workspaces.name })
+              .from(memberships)
+              .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
+              .where(
+                and(eq(memberships.workspaceId, row.workspaceId), eq(memberships.userId, userId)),
+              )
+            if (!current) return 404 as const
+            if (current.role !== 'owner') return 403 as const
+            if (row.status !== 'pending' || row.tokenHash !== access.tokenHash) return 400 as const
+            await tx
+              .update(invites)
+              .set({
+                tokenHash,
+                expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000),
+                updatedAt: new Date(),
+              })
+              .where(and(eq(invites.id, id), eq(invites.workspaceId, row.workspaceId)))
+            await sendInvite(c.env, row.email, current.name, token)
+            return 200 as const
+          })
+          if (outcome === 404) return c.json({ error: 'Invitation not found' }, 404)
+          if (outcome === 403) return c.json({ error: 'Only an owner can manage invitations' }, 403)
+          if (outcome === 400) return c.json({ error: 'Invitation is no longer pending' }, 400)
+          return c.json({ ok: true as const }, 200)
+        } catch {
+          return c.json({ error: 'Could not resend invitation' }, 502)
+        }
+      },
+      invalid('Invalid invitation'),
+    )
+    .openapi(
+      revokeRoute,
+      async (c) => {
+        const db = c.get('db')
+        const id = c.req.valid('param').id
+        const userId = c.get('user').id
+        const [access] = await db
+          .select({ role: memberships.role, workspaceId: invites.workspaceId })
+          .from(invites)
+          .innerJoin(
+            memberships,
+            and(eq(memberships.workspaceId, invites.workspaceId), eq(memberships.userId, userId)),
+          )
+          .where(eq(invites.id, id))
+        if (!access) return c.json({ error: 'Invitation not found' }, 404)
+        if (access.role !== 'owner')
+          return c.json({ error: 'Only an owner can manage invitations' }, 403)
+        const outcome = await db.transaction(async (tx) => {
+          await tx
+            .select({ id: workspaces.id })
+            .from(workspaces)
+            .where(eq(workspaces.id, access.workspaceId))
+            .for('no key update')
+          const [row] = await tx
+            .select({ id: invites.id, status: invites.status, workspaceId: invites.workspaceId })
+            .from(invites)
+            .where(eq(invites.id, id))
+            .for('update')
+          if (!row) return 404 as const
+          const [current] = await tx
+            .select({ role: memberships.role })
+            .from(memberships)
+            .where(
+              and(eq(memberships.workspaceId, row.workspaceId), eq(memberships.userId, userId)),
+            )
+          if (!current) return 404 as const
+          if (current.role !== 'owner') return 403 as const
+          if (row.status !== 'pending') return 400 as const
+          await tx
+            .update(invites)
+            .set({ status: 'revoked', updatedAt: new Date() })
+            .where(and(eq(invites.id, id), eq(invites.workspaceId, row.workspaceId)))
+          return 200 as const
+        })
+        if (outcome === 404) return c.json({ error: 'Invitation not found' }, 404)
+        if (outcome === 403) return c.json({ error: 'Only an owner can manage invitations' }, 403)
+        if (outcome === 400) return c.json({ error: 'Invitation is no longer pending' }, 400)
+        return c.json({ ok: true as const }, 200)
+      },
+      invalid('Invalid invitation'),
+    )
     .openapi(
       inviteRoute,
       async (c) => {
