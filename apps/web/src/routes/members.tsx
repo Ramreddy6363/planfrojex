@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createRoute, useLoaderData, useRouter } from '@tanstack/react-router'
-import { Trash2 } from 'lucide-react'
+import { Mail, Trash2, UserRoundPlus } from 'lucide-react'
 import { useState } from 'react'
 import { api, call, RequestError } from '../api'
 import { queryClient } from '../session'
@@ -9,6 +9,7 @@ import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { EmailListInput } from '../ui/email-list-input'
 import { EmptyState } from '../ui/empty-state'
+import { Icon } from '../ui/icon'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
 import { ActionError, useAction } from '../use-action'
@@ -58,15 +59,15 @@ function Members() {
   const emailList = [...new Set([...emailChips, ...parseEmails(emails)])]
   return (
     <WorkspaceShell workspace={workspace} me={me} active="members">
-      <header className="flex items-center justify-between border-b border-border px-8 py-4">
+      <header className="flex items-center justify-between border-b border-border px-8 py-3">
         <h1 className="text-title font-semibold">Members</h1>
         {owner && (
-          <Button variant="primary" onClick={() => setInviteOpen(true)}>
+          <Button variant="primary" icon={UserRoundPlus} onClick={() => setInviteOpen(true)}>
             Invite people
           </Button>
         )}
       </header>
-      <div className="space-y-8 p-8">
+      <div className="space-y-8 px-8 pb-8 pt-6">
         {members.isPending ? (
           <p>Loading members…</p>
         ) : members.isError ? (
@@ -84,14 +85,21 @@ function Members() {
               <EmptyState title="No members" body="Members will appear here." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-ui">
+                <table className="w-full min-w-[760px] table-fixed text-left text-ui">
+                  <colgroup>
+                    <col className="w-[61%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[3%]" />
+                  </colgroup>
                   <thead className="bg-bg-subtle text-text-muted">
                     <tr>
-                      <th className="p-3 font-normal">Name</th>
-                      <th className="p-3 font-normal">Role</th>
-                      <th className="p-3 font-normal">Projects</th>
-                      <th className="p-3 font-normal">Last active</th>
-                      <th className="p-3 font-normal">
+                      <th className="px-3 py-1.5 text-caption font-normal">Name</th>
+                      <th className="px-3 py-1.5 text-caption font-normal">Role</th>
+                      <th className="px-3 py-1.5 text-caption font-normal">Projects</th>
+                      <th className="px-3 py-1.5 text-caption font-normal">Last active</th>
+                      <th className="px-3 py-1.5 text-caption font-normal">
                         <span className="sr-only">Actions</span>
                       </th>
                     </tr>
@@ -99,9 +107,9 @@ function Members() {
                   <tbody>
                     {list.map((member) => (
                       <tr key={member.id} className="border-b border-border">
-                        <td className="p-3">
+                        <td className="px-3 py-1.5">
                           <div className="flex items-center gap-3">
-                            <Avatar id={member.id} name={member.name} />
+                            <Avatar id={member.id} name={member.name} className="!size-7" />
                             <div>
                               <p className="font-medium">
                                 {member.name}
@@ -111,46 +119,51 @@ function Members() {
                             </div>
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="px-3 py-1.5">
                           {owner && !(member.role === 'owner' && ownerCount === 1) ? (
-                            <Select
-                              aria-label={`Role for ${member.name}`}
-                              value={member.role}
-                              disabled={action.busy}
-                              onChange={(event) =>
-                                void action.run(async () => {
-                                  try {
-                                    await call(
-                                      api.workspaces[':ws'].members[':userId'].$patch({
-                                        param: { ws: slug, userId: member.id },
-                                        json: {
-                                          role: event.target.value as 'owner' | 'editor' | 'viewer',
-                                        },
-                                      }),
-                                    )
-                                  } catch (error) {
-                                    if (error instanceof RequestError && error.status === 409)
-                                      throw new UserError(
-                                        'A workspace must have at least one owner.',
+                            <div className="w-30">
+                              <Select
+                                aria-label={`Role for ${member.name}`}
+                                value={member.role}
+                                disabled={action.busy}
+                                onChange={(event) =>
+                                  void action.run(async () => {
+                                    try {
+                                      await call(
+                                        api.workspaces[':ws'].members[':userId'].$patch({
+                                          param: { ws: slug, userId: member.id },
+                                          json: {
+                                            role: event.target.value as
+                                              | 'owner'
+                                              | 'editor'
+                                              | 'viewer',
+                                          },
+                                        }),
                                       )
-                                    throw error
-                                  }
-                                  await refresh()
-                                  if (member.id === me.user.id) await router.invalidate()
-                                })
-                              }
-                            >
-                              <option value="owner">Owner</option>
-                              <option value="editor">Editor</option>
-                              <option value="viewer">Viewer</option>
-                            </Select>
+                                    } catch (error) {
+                                      if (error instanceof RequestError && error.status === 409)
+                                        throw new UserError(
+                                          'A workspace must have at least one owner.',
+                                        )
+                                      throw error
+                                    }
+                                    await refresh()
+                                    if (member.id === me.user.id) await router.invalidate()
+                                  })
+                                }
+                              >
+                                <option value="owner">Owner</option>
+                                <option value="editor">Editor</option>
+                                <option value="viewer">Viewer</option>
+                              </Select>
+                            </div>
                           ) : (
                             <span className="capitalize text-text-muted">{member.role}</span>
                           )}
                         </td>
-                        <td className="p-3 text-text-muted">—</td>
-                        <td className="p-3 text-text-muted">—</td>
-                        <td className="p-3">
+                        <td className="px-3 py-1.5 text-text-muted">—</td>
+                        <td className="px-3 py-1.5 text-text-muted">—</td>
+                        <td className="px-0 py-1.5 text-right">
                           {owner && !(member.role === 'owner' && ownerCount === 1) && (
                             <Menu
                               label={`Actions for ${member.name}`}
@@ -197,8 +210,9 @@ function Members() {
               invitations.data?.invites.map((invite) => (
                 <div
                   key={invite.id}
-                  className="flex items-center gap-4 border-b border-border py-3"
+                  className="flex items-center gap-4 border-b border-border px-3 py-2"
                 >
+                  <Icon icon={Mail} className="text-text-muted" />
                   <span className="min-w-0 flex-1 truncate">{invite.email}</span>
                   <span className="capitalize text-text-muted">{invite.role}</span>
                   <span className="text-caption text-text-muted">
@@ -220,6 +234,7 @@ function Members() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="!text-danger"
                     onClick={() =>
                       setConfirmation({ kind: 'revoke', id: invite.id, name: invite.email })
                     }
@@ -338,6 +353,7 @@ function Members() {
 export const membersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$ws/members',
+  remountDeps: ({ params }) => ({ workspace: params.ws }),
   loader: ({ params }) => loadWorkspace(params.ws),
   errorComponent: ({ error }) => <WorkspaceError error={error} />,
   component: Members,

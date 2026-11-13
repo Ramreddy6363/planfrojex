@@ -36,15 +36,21 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`m-auto ${extraWide ? 'w-190' : wide ? 'w-120' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
+      className={`m-auto ${extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-120' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
     >
-      <div className={sidebar ? 'grid md:grid-cols-[250px_minmax(0,1fr)]' : ''}>
+      <div
+        className={
+          sidebar
+            ? `grid md:grid-cols-[250px_minmax(0,1fr)] ${extraWide ? 'md:min-h-[500px]' : ''}`
+            : ''
+        }
+      >
         {sidebar && (
           <aside className="border-b border-border bg-bg-subtle p-2 md:border-b-0 md:border-r">
             {sidebar}
           </aside>
         )}
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-col">
           <div className="flex items-start justify-between px-5 py-4">
             <h2 id={titleId} className="text-dialog font-semibold">
               {title}
@@ -60,7 +66,7 @@ export const Dialog = ({
             </Button>
           </div>
           <div className="px-5 pb-5 text-body text-text-muted">{children}</div>
-          <div className="flex justify-end gap-2 rounded-b-panel border-t border-border bg-bg-subtle px-5 py-3">
+          <div className="mt-auto flex justify-end gap-2 rounded-b-panel border-t border-border bg-bg-subtle px-5 py-3">
             {footer}
           </div>
         </div>

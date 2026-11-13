@@ -55,4 +55,5 @@ No deploys until production exists.
 - Repo `github.com/Ramreddy6363/planfrojex` is public: never commit secrets, keys or customer data.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`). Squash merge, branch deleted after merge.
 - No AI attribution of any tool in commits or PR bodies (no `Co-Authored-By` bot trailers, no "Generated with …" lines). `.githooks/commit-msg` rejects them.
+- Every PR body includes one line stating what the review pass found and what was fixed, or `Review: No findings`.
 - Never push to `main`, never `gh pr merge` directly, never `--force` or `--no-verify`. `.githooks/pre-push` blocks pushes to `main` and runs `pnpm check`.

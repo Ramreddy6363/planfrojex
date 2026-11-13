@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { createRoute, useLoaderData } from '@tanstack/react-router'
-import { Star } from 'lucide-react'
+import { ArrowUpDown, Plus, Star } from 'lucide-react'
 import { useState } from 'react'
 import { api, call } from '../api'
 import { NewProjectDialog } from '../new-project-dialog'
+import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
+import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
 import { StatusLabel } from '../ui/status'
@@ -52,10 +54,10 @@ function Projects() {
   const counts = list.data?.counts ?? { all: 0, active: 0, mine: 0, starred: 0 }
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
-      <header className="flex items-center justify-between border-b border-border px-8 py-4">
+      <header className="flex items-center justify-between border-b border-border px-8 py-3">
         <h1 className="text-title font-semibold">Projects</h1>
         {workspace.role !== 'viewer' && (
-          <Button variant="primary" onClick={() => setOpen(true)}>
+          <Button variant="primary" icon={Plus} onClick={() => setOpen(true)}>
             New project
           </Button>
         )}
@@ -74,7 +76,7 @@ function Projects() {
             { id: 'starred', label: `Starred ${counts.starred}` },
           ]}
         />
-        <div className="flex flex-wrap gap-2 border-b border-border py-3">
+        <div className="flex flex-wrap gap-2 border-b border-border py-2.5">
           <Select
             aria-label="Status"
             value={status}
@@ -118,7 +120,10 @@ function Projects() {
               }}
             />
           </div>
-          <span className="ml-auto self-center text-caption text-text-muted">Last updated</span>
+          <span className="ml-auto flex items-center gap-1.5 self-center text-caption text-text-muted">
+            <Icon icon={ArrowUpDown} />
+            Last updated
+          </span>
         </div>
         {list.isPending ? (
           <p className="py-6">Loading projects…</p>
@@ -146,12 +151,22 @@ function Projects() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-ui">
+            <table className="w-full min-w-[900px] table-fixed text-left text-ui">
+              <colgroup>
+                <col className="w-[26.5%]" />
+                <col className="w-[12.8%]" />
+                <col className="w-[16.4%]" />
+                <col className="w-[9.3%]" />
+                <col className="w-[14.6%]" />
+                <col className="w-[7.5%]" />
+                <col className="w-[9.5%]" />
+                <col className="w-[3.4%]" />
+              </colgroup>
               <thead className="bg-bg-subtle text-text-muted">
                 <tr>
                   {['Name', 'Status', 'Lead', 'Team', 'Progress', 'Due', 'Updated', ''].map(
                     (label) => (
-                      <th className="p-3 font-normal" key={label}>
+                      <th className="px-3 py-1.5 text-caption font-normal" key={label}>
                         {label || <span className="sr-only">Star</span>}
                       </th>
                     ),
@@ -161,26 +176,39 @@ function Projects() {
               <tbody>
                 {list.data.projects.map((project) => (
                   <tr key={project.id} className="border-b border-border">
-                    <td className="p-3 font-medium">{project.name}</td>
-                    <td className="p-3">
+                    <td className="truncate px-3 py-1.5 font-medium">{project.name}</td>
+                    <td className="px-3 py-1.5">
                       <StatusLabel status={project.status} />
                     </td>
-                    <td className="p-3">{project.leadName}</td>
-                    <td className="p-3">
-                      <Avatar id={project.leadId} name={project.leadName} />
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
+                        <span className="truncate">{project.leadName}</span>
+                      </div>
                     </td>
-                    <td className="p-3 text-text-muted">No plan yet</td>
-                    <td className="p-3 text-text-muted">{project.targetDate || '—'}</td>
-                    <td className="p-3 text-text-muted">
-                      {new Date(project.updatedAt).toLocaleDateString()}
+                    <td className="px-3 py-1.5">
+                      <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
                     </td>
-                    <td className="p-3">
+                    <td className="px-3 py-1.5 text-text-muted">No plan yet</td>
+                    <td className="px-3 py-1.5 font-mono text-text-muted">
+                      {project.targetDate
+                        ? new Intl.DateTimeFormat(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            timeZone: 'UTC',
+                          }).format(new Date(`${project.targetDate}T00:00:00Z`))
+                        : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 font-mono text-text-muted">
+                      {relativeTime(project.updatedAt)}
+                    </td>
+                    <td className="px-0 py-1.5 text-right">
                       <Button
                         variant="ghost"
                         size="sm"
                         icon={Star}
                         aria-pressed={project.starred}
-                        className={project.starred ? '!text-warning [&_svg]:fill-current' : ''}
+                        className={`px-1.5 ${project.starred ? '!text-warning' : '!text-text-faint'}`}
                         aria-label={`${project.starred ? 'Unstar' : 'Star'} ${project.name}`}
                         disabled={action.busy}
                         onClick={() =>
@@ -202,6 +230,11 @@ function Projects() {
                 ))}
               </tbody>
             </table>
+            {view === 'all' && !status && !lead && !due && !cursor && !list.data.nextCursor && (
+              <p className="px-3 py-3 text-caption text-text-muted">
+                {counts.all} {counts.all === 1 ? 'project' : 'projects'}
+              </p>
+            )}
             {cursor && <Button onClick={() => setCursor(undefined)}>First page</Button>}
             {list.data.nextCursor && (
               <Button onClick={() => setCursor(list.data.nextCursor ?? undefined)}>
@@ -224,6 +257,7 @@ function Projects() {
 export const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$ws/projects',
+  remountDeps: ({ params }) => ({ workspace: params.ws }),
   loader: ({ params }) => loadWorkspace(params.ws),
   errorComponent: ({ error }) => <WorkspaceError error={error} />,
   component: Projects,

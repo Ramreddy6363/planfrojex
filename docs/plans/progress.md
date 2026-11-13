@@ -46,6 +46,7 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - Passwordless Better Auth (Google + 6-digit email code, hashed, DB rate limits); tables users, sessions, accounts, verifications, workspaces, memberships, invites, rate_limits (migration 0000, applied on Neon `production`).
 - Endpoints: /me, POST /workspaces, GET /workspaces/:ws, POST /workspaces/:ws/invites, POST /invites/accept. Screens: sign in/up, enter code, onboarding (3), accept invite, no access (workspace version).
 - Local dev: `wrangler dev --env dev` against Docker Postgres; `pnpm merge` runs integration tests against temporary Postgres locally.
+- **D4, first deploy:** Decide the production web/API domain and apply migration `0001` (projects and stars) to Neon production before deploying the app. Use Neon HTTP for production migrations on networks that block port 5432.
 
 ## 2026-11-12: Feature 2 app shell and Home
 - Workspace sidebar and keyboard-accessible switcher use existing memberships; Home shows empty task, project and activity states until those features are implemented.

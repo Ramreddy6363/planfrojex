@@ -1,14 +1,15 @@
 import { type LucideIcon, MoreHorizontal } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { Button } from './button'
 import { Icon } from './icon'
 
 export type MenuItem = {
   label: string
-  icon: LucideIcon
+  icon?: LucideIcon
   onSelect: () => void
   danger?: boolean
   separated?: boolean
+  current?: boolean
 }
 
 // Native popover: light dismiss, Esc, and focus return to the trigger. We add placement and arrow keys.
@@ -16,10 +17,14 @@ export const Menu = ({
   label,
   items,
   iconOnly = false,
+  triggerContent,
+  triggerClassName = '',
 }: {
   label: string
   items: MenuItem[]
   iconOnly?: boolean
+  triggerContent?: ReactNode
+  triggerClassName?: string
 }) => {
   const id = useId()
   const [open, setOpen] = useState(false)
@@ -76,11 +81,12 @@ export const Menu = ({
         popoverTarget={id}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={iconOnly ? label : undefined}
-        variant={iconOnly ? 'ghost' : 'secondary'}
+        aria-label={iconOnly || triggerContent ? label : undefined}
+        variant={iconOnly || triggerContent ? 'ghost' : 'secondary'}
         icon={iconOnly ? MoreHorizontal : undefined}
+        className={triggerClassName}
       >
-        {!iconOnly && label}
+        {triggerContent ?? (!iconOnly && label)}
       </Button>
       <div
         ref={list}
@@ -99,6 +105,7 @@ export const Menu = ({
             <button
               type="button"
               role="menuitem"
+              aria-current={it.current ? 'page' : undefined}
               tabIndex={-1}
               onClick={() => {
                 list.current?.hidePopover()
@@ -106,7 +113,7 @@ export const Menu = ({
               }}
               className={`flex h-7.5 items-center gap-2 rounded-control px-2 text-ui hover:bg-bg-muted focus-visible:bg-bg-muted ${it.danger ? 'text-danger' : 'text-text'}`}
             >
-              <Icon icon={it.icon} className={it.danger ? '' : 'text-text-muted'} />
+              {it.icon && <Icon icon={it.icon} className={it.danger ? '' : 'text-text-muted'} />}
               {it.label}
             </button>
           </div>

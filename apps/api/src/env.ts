@@ -3,7 +3,7 @@ import type { Db } from './db'
 export type Env = {
   Variables: {
     db: Db
-    user: { id: string; email: string; emailVerified: boolean }
+    user: { id: string; email: string; emailVerified: boolean; name: string }
     membership: {
       id: string
       name: string

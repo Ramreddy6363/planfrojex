@@ -3,7 +3,7 @@ import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { Avatar, AvatarStack } from './ui/avatar'
-import { Brand, LogoMark } from './ui/brand'
+import { Brand, LogoMark, WorkspaceMark } from './ui/brand'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Dialog } from './ui/dialog'
@@ -138,6 +138,7 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
       <Section title="Brand">
         <Brand />
         <LogoMark size={24} />
+        <WorkspaceMark name="Northwind" />
       </Section>
       <Section title="Floating layers">
         <Menu
