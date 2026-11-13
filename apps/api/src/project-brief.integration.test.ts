@@ -196,7 +196,7 @@ suite('project brief', () => {
     expect((await deleteComment()).status).toBe(404)
   })
 
-  it('allows workspace members to comment but only the author to edit or delete', async () => {
+  it('lets owners edit any project comment while editors and viewers can edit only their own', async () => {
     current = people.viewer
     const created = await app.request(
       '/comments',
@@ -233,10 +233,70 @@ suite('project brief', () => {
         .status,
     ).toBe(403)
     current = people.viewer
+    current = people.owner
     expect(
       (
         await app.request(
           `/comments/${result.comment.id}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ body: 'Edited by owner' }),
+          },
+          env,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      (await app.request(`/comments/${result.comment.id}`, { method: 'DELETE', headers }, env))
+        .status,
+    ).toBe(200)
+    current = people.viewer
+    const viewerComment = await app.request(
+      '/comments',
+      json({ target: `project:${projectId}`, body: 'Viewer owns this comment', mentions: [] }),
+      env,
+    )
+    const viewerCommentId = ((await viewerComment.json()) as { comment: { id: string } }).comment.id
+    expect(
+      (
+        await app.request(
+          `/comments/${viewerCommentId}`,
+          { method: 'PATCH', headers, body: JSON.stringify({ body: 'Viewer edited it' }) },
+          env,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      (await app.request(`/comments/${viewerCommentId}`, { method: 'DELETE', headers }, env))
+        .status,
+    ).toBe(200)
+    current = people.editor
+    const editorComment = await app.request(
+      '/comments',
+      json({ target: `project:${projectId}`, body: 'Editor comment', mentions: [] }),
+      env,
+    )
+    const editorCommentId = ((await editorComment.json()) as { comment: { id: string } }).comment.id
+    current = people.viewer
+    expect(
+      (
+        await app.request(
+          `/comments/${editorCommentId}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ body: 'Viewer cannot edit editor comment' }),
+          },
+          env,
+        )
+      ).status,
+    ).toBe(403)
+    current = people.editor
+    expect(
+      (
+        await app.request(
+          `/comments/${editorCommentId}`,
           {
             method: 'PATCH',
             headers,
@@ -247,7 +307,7 @@ suite('project brief', () => {
       ).status,
     ).toBe(200)
     expect(
-      (await app.request(`/comments/${result.comment.id}`, { method: 'DELETE', headers }, env))
+      (await app.request(`/comments/${editorCommentId}`, { method: 'DELETE', headers }, env))
         .status,
     ).toBe(200)
     expect(

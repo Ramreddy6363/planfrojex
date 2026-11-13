@@ -21,6 +21,7 @@ export async function openTestDb(url: string) {
   }
   return {
     client,
+    schemaName: name,
     db: drizzle(client, { schema }),
     async close() {
       await client.query(`DROP SCHEMA ${name} CASCADE`)

@@ -84,6 +84,18 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - **Open questions:** (1) in-place editing per section as above (not drawn; recommended), (2) project URL uses the id (simplest; key-based URLs like `/northwind/projects/PORTAL` can come later), (3) mention notifications wait for feature 11.
 - **Out of scope:** Plan, Tasks, Diagrams, Activity tabs, Share dialog, project team, delete/restore, mobile brief (702), drafting from the brief.
 
+## 2026-11-13: Feature 6 Tasks — approved 2026-11-13 (with the three recommendations)
+Screens: 404 list + side panel, 405 board, 406 New task dialog. Tasks tab and "x/y tasks" progress in the project header become live.
+- **List (404):** grouped In progress / To do / Completed (Completed collapsed), row = checkbox (toggles done), PORT-36 key, title, priority bars, assignee avatar, due date. Filters: Assignee, Priority chips. Click row opens side panel.
+- **Board (405):** three columns with counts and "+" (opens dialog with that status). Drag a card between/within columns (native HTML drag and drop, keyboard fallback via the panel's Status field). List/Board choice kept in the URL.
+- **Side panel:** key, copy link, close; title, Status, Assignee, Priority, Due editable inline by owners/editors; description; comments on the task (reuses feature 5 comments, target `task:<id>`, @mentions). ⋯ menu: Delete task (owner/editor, confirm).
+- **New task (406):** title, description, status, assignee, priority, due; "Create another" keeps the dialog open.
+- **Permissions (board 1007):** owner/editor create, edit, assign, delete; viewer reads and comments.
+- **Table `tasks`** (migration 0003, additive): id uuid v7, project_id, number (per project, shown KEY-n), title ≤200, description ≤10000, status todo|in_progress|done, priority low|medium|high (default medium), assignee_id nullable (workspace member), due_date, position int, created_by, timestamps. Unique (project_id, number); number assigned under a project row lock.
+- **Endpoints (board 1005):** GET /projects/:id/tasks (status, assignee, priority filters) and GET /tasks/:id (O/E/V); POST /projects/:id/tasks, PATCH /tasks/:id (status, assignee, priority, due, title, description, position), DELETE /tasks/:id (O/E). Comments: GET/POST /comments accept `task:<id>`. Every endpoint: other-workspace member gets 404; viewer gets 403 on writes; assignee must be a workspace member.
+- **Open questions:** (1) Milestone chip, filter and field wait for feature 7 (milestones table comes with Plan), recommend hiding them until then. (2) Board 1007 says owners may edit/delete any comment; feature 5 shipped author-only. Recommend fixing that here for both brief and task comments. (3) Delete task is a hard delete (board has no soft delete for tasks).
+- **Out of scope:** milestones, My tasks page (10), assignment notifications (11), tracker sync (19), bulk actions on checked rows beyond toggling done.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -95,7 +107,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 3 | Members | Members, Invite dialog | shipped 2026-11-13 |
 | 4 | Projects list and New project | Projects, New project dialog, starring, saved views | shipped 2026-11-13 |
 | 5 | Project › Brief | Brief, project header, comment column | shipped 2026-11-13 |
-| 6 | Tasks | List, board, New task dialog, task side panel | |
+| 6 | Tasks | List, board, New task dialog, task side panel | shipped 2026-11-13 |
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | |
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | |
 | 9 | Activity | Timeline, filters | |
