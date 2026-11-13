@@ -141,12 +141,15 @@ test('sidebar loads every page of starred projects', async ({ page }) => {
       return route.fulfill({
         headers,
         json: {
-          projects: [
-            {
-              id: url.searchParams.has('cursor') ? '2' : '1',
-              name: url.searchParams.has('cursor') ? 'Second star' : 'First star',
-            },
-          ],
+          projects:
+            url.searchParams.get('view') === 'starred'
+              ? [
+                  {
+                    id: url.searchParams.has('cursor') ? '2' : '1',
+                    name: url.searchParams.has('cursor') ? 'Second star' : 'First star',
+                  },
+                ]
+              : [],
           counts: { all: 2, active: 0, mine: 0, starred: 2 },
           nextCursor: url.searchParams.has('cursor') ? null : 'first',
         },
