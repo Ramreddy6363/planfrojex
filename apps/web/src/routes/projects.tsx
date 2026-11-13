@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createRoute, useLoaderData } from '@tanstack/react-router'
+import { createRoute, Link, useLoaderData } from '@tanstack/react-router'
 import { ArrowUpDown, Plus, Star } from 'lucide-react'
 import { useState } from 'react'
 import { api, call } from '../api'
@@ -176,7 +176,15 @@ function Projects() {
               <tbody>
                 {list.data.projects.map((project) => (
                   <tr key={project.id} className="border-b border-border">
-                    <td className="truncate px-3 py-1.5 font-medium">{project.name}</td>
+                    <td className="truncate px-3 py-1.5 font-medium">
+                      <Link
+                        to="/$ws/projects/$projectId"
+                        params={{ ws: slug, projectId: project.id }}
+                        className="hover:text-accent hover:underline"
+                      >
+                        {project.name}
+                      </Link>
+                    </td>
                     <td className="px-3 py-1.5">
                       <StatusLabel status={project.status} />
                     </td>

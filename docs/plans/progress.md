@@ -72,6 +72,18 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - **Navigation and later work:** Project details and editing belong to Feature 5; until that screen exists, project rows and sidebar stars must not lead to a broken page. Home's New project button opens the same creation dialog. No project deletion, project team management, task progress, custom saved views, deployment, or new dependencies.
 - **Verification:** Test first for creation, validation, all three roles, cross-workspace 404s on each workspace-owned endpoint, per-user stars, filters, views, pagination and migration. Add browser coverage for creation, templates, filters and views, starring, permissions, loading, empty and error states, and keyboard interaction. Run `pnpm check` and the full Playwright suite, compare the screens with exports 302 and 303, and complete an independent correctness and security review before shipping through the repository workflow.
 
+## 2026-11-13: Feature 5 Project › Brief — approved 2026-11-13 (with the three recommendations)
+
+- **Screens:** `401-project-brief.png` with the project header `104-project-header-component.png`. Project rows (Projects list, Home, sidebar stars) open `/:ws/projects/:id`. Unknown or other-workspace project: the existing no-access/404 treatment.
+- **Header:** breadcrumb, title, status, lead, due date, star (works). Plan, Tasks, Diagrams, Activity tabs and Share are visibly unavailable until their features; team avatars show the lead only; progress shows "No plan yet". No "⋯" menu yet (delete/restore isn't drawn).
+- **Brief:** sections Problem, Goals (numbered), Constraints, Out of scope, plus tags. Owners and editors edit each section in place (click → textarea → Save/Cancel); viewers read only. Properties panel: status, lead, target date editable by owners/editors; Created "date by name".
+- **Comments:** list + composer on the right; everyone in the workspace (viewers too, per the API board) can comment; `@` suggests workspace members and stores their ids in `mentions`. Authors can edit and delete their own comments. Notifications for mentions come with Inbox (feature 11).
+- **Data (additive migration 0002):** `projects.created_by` (nullable, existing rows stay empty); `brief` JSON grows to `{ problem, goals[], constraints, outOfScope }` (old `{ problem }` rows read fine); new `comments` table (id, project_id, target `project` for now, author_id, body ≤ 5000 chars, mentions text[], created_at, updated_at).
+- **Endpoints (API board):** `GET /projects/:id` (O/E/V), `PATCH /projects/:id` title, status, lead, target date, brief, tags (O/E); `GET /comments?target=project:<id>` and `POST /comments` (O/E/V); `PATCH` and `DELETE /comments/:id` (author only). Every one resolves the project's workspace from the caller's membership: other workspace → 404. Mentions must be members of that workspace. Comment posting rate-limited per person.
+- **Tests first:** each endpoint's roles and cross-workspace 404; lead must be a member; brief/tags validation and size limits; author-only comment edit/delete; mentions restricted to members. Browser: open a project, edit a section, change status, star, post/edit/delete a comment with a mention, viewer read-only, loading/error states. Compare with 401 and 104.
+- **Open questions:** (1) in-place editing per section as above (not drawn; recommended), (2) project URL uses the id (simplest; key-based URLs like `/northwind/projects/PORTAL` can come later), (3) mention notifications wait for feature 11.
+- **Out of scope:** Plan, Tasks, Diagrams, Activity tabs, Share dialog, project team, delete/restore, mobile brief (702), drafting from the brief.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -82,7 +94,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 2 | App shell and Home | Sidebar, workspace switcher, Home | shipped 2026-11-12 |
 | 3 | Members | Members, Invite dialog | shipped 2026-11-13 |
 | 4 | Projects list and New project | Projects, New project dialog, starring, saved views | shipped 2026-11-13 |
-| 5 | Project › Brief | Brief, project header, comment column | |
+| 5 | Project › Brief | Brief, project header, comment column | shipped 2026-11-13 |
 | 6 | Tasks | List, board, New task dialog, task side panel | |
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | |
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | |

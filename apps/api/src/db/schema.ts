@@ -146,8 +146,11 @@ export const projects = pgTable(
       .notNull()
       .references(() => user.id),
     targetDate: date('target_date'),
-    brief: jsonb('brief').$type<{ problem: string }>().notNull(),
+    brief: jsonb('brief')
+      .$type<{ problem: string; goals?: string[]; constraints?: string; outOfScope?: string }>()
+      .notNull(),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     ...timestamps(),
   },
@@ -155,6 +158,26 @@ export const projects = pgTable(
     uniqueIndex('projects_workspace_key_idx').on(t.workspaceId, t.key),
     index('projects_workspace_updated_idx').on(t.workspaceId, t.updatedAt, t.id),
   ],
+)
+
+export const comments = pgTable(
+  'comments',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    target: text('target', { enum: ['project'] })
+      .notNull()
+      .default('project'),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    mentions: text('mentions').array().notNull().default(sql`'{}'::text[]`),
+    ...timestamps(),
+  },
+  (t) => [index('comments_project_created_idx').on(t.projectId, t.createdAt, t.id)],
 )
 
 export const stars = pgTable(

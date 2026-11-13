@@ -309,6 +309,7 @@ export function createProjectRoutes(
               name: input.name,
               brief: { problem: input.brief },
               leadId: input.leadId,
+              createdBy: c.get('user').id,
               targetDate: input.targetDate,
             })
             .returning()
