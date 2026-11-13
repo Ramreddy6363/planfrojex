@@ -5,6 +5,15 @@ export const LogoMark = ({ size = 16, className = '' }: { size?: number; classNa
   </svg>
 )
 
+export const WorkspaceMark = ({ name }: { name: string }) => (
+  <span
+    aria-hidden
+    className="inline-flex size-5.5 shrink-0 items-center justify-center rounded-control bg-text text-caption font-semibold text-bg"
+  >
+    {name.trim().charAt(0).toUpperCase()}
+  </span>
+)
+
 export const Brand = () => (
   <span
     role="img"

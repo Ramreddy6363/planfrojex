@@ -124,10 +124,10 @@ suite('workspace routes against PostgreSQL', () => {
     expect(taken.status).toBe(409)
     expect(await test.db.select().from(memberships)).toHaveLength(2)
   })
-  it('returns only id, email and emailVerified for the user in /me', async () => {
+  it('returns only id, email, emailVerified and name for the user in /me', async () => {
     current = { ...people.owner, name: 'Owner', image: 'x' } as typeof current
     const me = (await (await call('/me')).json()) as { user: unknown }
-    expect(me.user).toEqual(people.owner)
+    expect(me.user).toEqual({ ...people.owner, name: 'Owner' })
   })
   it('answers 404 for unknown paths, signed in or not', async () => {
     expect((await call('/nope')).status).toBe(404)

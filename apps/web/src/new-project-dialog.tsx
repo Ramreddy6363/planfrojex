@@ -71,7 +71,7 @@ export function NewProjectDialog({
       extraWide
       sidebar={
         <section aria-label="Start from">
-          <p className="px-2 py-3 text-caption text-text-muted">Start from</p>
+          <p className="px-2 py-2 text-caption text-text-muted">Start from</p>
           {templates.isPending ? (
             <p>Loading templates…</p>
           ) : templates.isError ? (

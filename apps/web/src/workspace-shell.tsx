@@ -2,9 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   CheckCircle2,
+  ChevronsUpDown,
+  Folder,
   FolderKanban,
   House,
   Inbox,
+  LogOut,
   Search,
   Settings,
   UsersRound,
@@ -13,8 +16,11 @@ import type { ReactNode } from 'react'
 import { api, call } from './api'
 import { auth } from './auth-client'
 import type { getMe, getWorkspace } from './session'
+import { Avatar } from './ui/avatar'
+import { WorkspaceMark } from './ui/brand'
 import { Button } from './ui/button'
-import { Select } from './ui/select'
+import { Icon } from './ui/icon'
+import { Menu } from './ui/menu'
 import { ActionError, useAction } from './use-action'
 import { UserError } from './user-error'
 
@@ -31,6 +37,7 @@ export function WorkspaceShell({
 }) {
   const navigate = useNavigate()
   const { busy, error, run } = useAction()
+  const displayName = me.user.name || me.user.email
   const starred = useQuery({
     queryKey: ['projects', workspace.slug, 'sidebar'],
     queryFn: async () => {
@@ -62,51 +69,55 @@ export function WorkspaceShell({
         aria-label="Workspace navigation"
         className="flex w-60 shrink-0 flex-col border-r border-border bg-bg-subtle p-3"
       >
-        <Select
-          aria-label="Switch workspace"
-          value={
-            me.workspaces.some((item: { slug: string }) => item.slug === workspace.slug)
-              ? workspace.slug
-              : ''
+        <Menu
+          label="Switch workspace"
+          triggerClassName="w-full justify-start px-1"
+          triggerContent={
+            <>
+              <WorkspaceMark name={workspace.name} />
+              <span className="min-w-0 flex-1 truncate text-left">{workspace.name}</span>
+              <Icon icon={ChevronsUpDown} className="text-text-muted" />
+            </>
           }
-          onChange={(event) =>
-            void navigate({
-              to: `/${event.target.value}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : ''}`,
-            })
-          }
+          items={me.workspaces.map((item) => ({
+            label: item.name,
+            current: item.slug === workspace.slug,
+            onSelect: () =>
+              void navigate({
+                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : ''}`,
+              }),
+          }))}
+        />
+        <Button
+          variant="secondary"
+          disabled
+          icon={Search}
+          className="mt-3 justify-start font-normal"
         >
-          <option value="" disabled>
-            Choose a workspace
-          </option>
-          {me.workspaces.map((item: { id: string; slug: string; name: string }) => (
-            <option key={item.id} value={item.slug}>
-              {item.name}
-            </option>
-          ))}
-        </Select>
-        <Button variant="secondary" disabled icon={Search} className="mt-3 justify-start">
           Search
+          <kbd className="ml-auto font-sans text-caption text-text-muted">⌘K</kbd>
         </Button>
         <Button
           variant="ghost"
           icon={House}
           aria-current={active === 'home' ? 'page' : undefined}
-          className={`mt-3 justify-start ${active === 'home' ? '!bg-accent-subtle !text-accent' : ''}`}
+          className={`mt-3 justify-start font-normal ${active === 'home' ? '!bg-accent-subtle !text-accent' : ''}`}
           onClick={() => void navigate({ to: `/${workspace.slug}` })}
         >
           Home
         </Button>
-        <Button variant="ghost" disabled icon={CheckCircle2} className="justify-start">
+        <Button variant="ghost" disabled icon={CheckCircle2} className="justify-start font-normal">
           My tasks
         </Button>
-        <Button variant="ghost" disabled icon={Inbox} className="justify-start">
+        <Button variant="ghost" disabled icon={Inbox} className="justify-start font-normal">
           Inbox
         </Button>
         <p className="mt-6 px-2 text-caption text-text-muted">Starred</p>
         {starred.data?.projects.length ? (
           starred.data.projects.map((project) => (
-            <p key={project.id} className="truncate px-2 py-2 text-caption">
-              {project.name}
+            <p key={project.id} className="flex items-center gap-2 px-1 py-2 text-ui">
+              <Icon icon={Folder} className="shrink-0 text-text-muted" />
+              <span className="truncate">{project.name}</span>
             </p>
           ))
         ) : (
@@ -117,7 +128,7 @@ export function WorkspaceShell({
           variant="ghost"
           icon={FolderKanban}
           aria-current={active === 'projects' ? 'page' : undefined}
-          className={`justify-start ${active === 'projects' ? '!bg-accent-subtle !text-accent' : ''}`}
+          className={`justify-start font-normal ${active === 'projects' ? '!bg-accent-subtle !text-accent' : ''}`}
           onClick={() => void navigate({ to: `/${workspace.slug}/projects` })}
         >
           Projects
@@ -126,32 +137,36 @@ export function WorkspaceShell({
           variant="ghost"
           icon={UsersRound}
           aria-current={active === 'members' ? 'page' : undefined}
-          className={`justify-start ${active === 'members' ? '!bg-accent-subtle !text-accent' : ''}`}
+          className={`justify-start font-normal ${active === 'members' ? '!bg-accent-subtle !text-accent' : ''}`}
           onClick={() => void navigate({ to: `/${workspace.slug}/members` })}
         >
           Members
         </Button>
-        <Button variant="ghost" disabled icon={Settings} className="justify-start">
+        <Button variant="ghost" disabled icon={Settings} className="justify-start font-normal">
           Settings
         </Button>
-        <div className="mt-auto border-t border-border pt-3">
-          <p className="truncate px-2 text-text-muted">{me.user.email}</p>
-          <Button
-            className="mt-6 self-start"
-            disabled={busy}
-            onClick={() =>
-              void run(async () => {
-                const { error } = await auth.signOut()
-                if (error) throw new UserError('Could not sign out. Try again.')
-                sessionStorage.removeItem('displayName')
-                await navigate({ to: '/sign-in' })
-              })
-            }
-          >
-            Sign out
-          </Button>
-          <ActionError error={error} />
+        <div className="mt-auto flex items-center gap-2 border-t border-border px-1 pt-3">
+          <Avatar id={me.user.id} name={displayName} />
+          <span className="min-w-0 flex-1 truncate">{displayName}</span>
+          <Menu
+            label="Account"
+            iconOnly
+            items={[
+              {
+                label: busy ? 'Signing out…' : 'Sign out',
+                icon: LogOut,
+                onSelect: () =>
+                  void run(async () => {
+                    const { error } = await auth.signOut()
+                    if (error) throw new UserError('Could not sign out. Try again.')
+                    sessionStorage.removeItem('displayName')
+                    await navigate({ to: '/sign-in' })
+                  }),
+              },
+            ]}
+          />
         </div>
+        <ActionError error={error} />
       </nav>
       <main className="min-w-0 flex-1">{children}</main>
     </div>
