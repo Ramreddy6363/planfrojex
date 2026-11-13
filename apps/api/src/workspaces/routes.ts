@@ -50,7 +50,12 @@ const meRoute = createRoute({
   responses: {
     200: json(
       z.object({
-        user: z.object({ id: z.string(), email: z.string(), emailVerified: z.boolean(), name: z.string() }),
+        user: z.object({
+          id: z.string(),
+          email: z.string(),
+          emailVerified: z.boolean(),
+          name: z.string(),
+        }),
         workspaces: z.array(workspaceMember),
       }),
       'The signed-in user and their workspaces',
@@ -243,7 +248,12 @@ export function createWorkspaceRoutes(
         .orderBy(asc(workspaces.createdAt))
       return c.json(
         {
-          user: { id: user.id, email: user.email, emailVerified: user.emailVerified, name: user.name },
+          user: {
+            id: user.id,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            name: user.name,
+          },
           workspaces: rows,
         },
         200,
