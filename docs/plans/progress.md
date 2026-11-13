@@ -51,6 +51,16 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - Workspace sidebar and keyboard-accessible switcher use existing memberships; Home shows empty task, project and activity states until those features are implemented.
 - Existing workspace authorization and sign-out remain in use; no new database tables or migrations.
 
+## 2026-11-13: Feature 3 Members — approved
+
+- **Screens:** Members page and Invite people dialog, from exports `501-members.png` and `502-members-invite-dialog.png`. Enable Members in the existing workspace sidebar. Include loading, empty, error and confirmation states using the design system.
+- **What people can do:** All workspace members can view the member list. Owners can invite people, view pending invites, change member roles, remove members, resend invitations and revoke invitations. Editors and viewers see the list without owner controls; pending invitations are owner-only, as on the API board.
+- **Existing data:** Reuse `users`, `memberships` and `invites`; reuse the existing invite endpoint and acceptance flow. No new tables or migration are planned. Project counts and last-active information are not yet available: show an unavailable marker instead of sample or invented data.
+- **Endpoints:** Add `GET /workspaces/:ws/members`, `PATCH` and `DELETE /workspaces/:ws/members/:userId`, `GET /workspaces/:ws/invites`, `POST /invites/:id/resend`, and `DELETE /invites/:id`. Keep the existing `POST /workspaces/:ws/invites`. Invitation-ID routes must resolve the invitation's workspace and check membership and owner permission server-side.
+- **Recommended safeguards:** Owners may assign owner, editor or viewer; the last owner cannot be removed or demoted. Enforce this atomically, including concurrent changes. Removing someone removes only that workspace membership; access to their other workspaces stays intact. Resend generates a new random token, stores only its hash, renews expiry, and invalidates the old link; revoked, accepted or concurrently changed invites cannot be resent. Rate limits and delivery failures must be handled without leaving an unusable invitation.
+- **Tests:** Write failing tests first for each endpoint, owner/editor/viewer permissions, another workspace receiving 404, last-owner and concurrent-change safeguards, invite token rotation/revocation/expiry and email failure. Add Playwright coverage for the Members page, inviting, role changes, removal, resend/revoke, permission-limited views, loading and errors. Run `pnpm check`, the browser suite, and compare with both exports; complete the reviewer/security pass before shipping.
+- **Out of scope:** Project membership/counts, real last-active tracking, workspace settings, SSO, public sharing, deployment, and new dependencies.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -59,7 +69,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 0 | Design system | Foundations, Components | shipped |
 | 1 | Auth and workspace | Sign in/up, Enter code, onboarding (3), No access | shipped 2026-11-05 |
 | 2 | App shell and Home | Sidebar, workspace switcher, Home | shipped 2026-11-12 |
-| 3 | Members | Members, Invite dialog | |
+| 3 | Members | Members, Invite dialog | shipped 2026-11-13 |
 | 4 | Projects list and New project | Projects, New project dialog, starring, saved views | |
 | 5 | Project › Brief | Brief, project header, comment column | |
 | 6 | Tasks | List, board, New task dialog, task side panel | |

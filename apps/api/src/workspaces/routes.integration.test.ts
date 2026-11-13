@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
 import { env as processEnv } from 'node:process'
 import { and, eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest'
+import * as schema from '../db/schema'
 import { invites, memberships, user as users, workspaces } from '../db/schema'
 import { outbox } from '../email'
 import { consumeRateLimit } from '../rate-limit'
@@ -247,5 +250,296 @@ suite('workspace routes against PostgreSQL', () => {
         .from(invites)
         .where(and(eq(invites.email, 'bulk3-0@example.com'))),
     ).toHaveLength(0)
+  })
+
+  it('lists members to members and hides them from other workspaces', async () => {
+    const response = await call('/workspaces/northwind/members')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ members: [{ id: 'owner', role: 'owner' }] })
+    as('outsider')
+    expect((await call('/workspaces/northwind/members')).status).toBe(404)
+  })
+
+  it('lets an owner change a member role but protects the last owner', async () => {
+    const [workspace] = await test.db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.slug, 'northwind'))
+    await test.db
+      .insert(memberships)
+      .values({ workspaceId: workspace!.id, userId: 'editor', role: 'editor' })
+    const change = (id: string, role: string) =>
+      routes.request(
+        `/workspaces/northwind/members/${id}`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ role }),
+        },
+        env,
+      )
+    expect((await change('editor', 'viewer')).status).toBe(200)
+    expect((await membersOf('editor'))[0]?.role).toBe('viewer')
+    expect((await change('owner', 'viewer')).status).toBe(409)
+    as('editor')
+    expect((await change('owner', 'editor')).status).toBe(403)
+    as('outsider')
+    expect((await change('owner', 'editor')).status).toBe(404)
+  })
+
+  it('lets an owner remove a member but not the last owner', async () => {
+    const [workspace] = await test.db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.slug, 'northwind'))
+    await test.db
+      .insert(memberships)
+      .values({ workspaceId: workspace!.id, userId: 'viewer', role: 'viewer' })
+    const remove = (id: string) =>
+      routes.request(`/workspaces/northwind/members/${id}`, { method: 'DELETE', headers }, env)
+    expect((await remove('owner')).status).toBe(409)
+    as('viewer')
+    expect((await remove('owner')).status).toBe(403)
+    as('outsider')
+    expect((await remove('viewer')).status).toBe(404)
+    as('owner')
+    expect((await remove('viewer')).status).toBe(200)
+    expect(await membersOf('viewer')).toHaveLength(0)
+  })
+
+  it('lists pending invitations only for the owner', async () => {
+    await seedInvite('ab'.repeat(32))
+    expect((await call('/workspaces/northwind/invites')).status).toBe(200)
+    as('outsider')
+    expect((await call('/workspaces/northwind/invites')).status).toBe(404)
+    const [workspace] = await test.db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.slug, 'northwind'))
+    await test.db
+      .insert(memberships)
+      .values({ workspaceId: workspace!.id, userId: 'viewer', role: 'viewer' })
+    as('viewer')
+    expect((await call('/workspaces/northwind/invites')).status).toBe(403)
+  })
+
+  it('resends with a fresh token and can revoke an invitation', async () => {
+    const oldToken = 'ab'.repeat(32)
+    await seedInvite(oldToken)
+    const [row] = await test.db.select().from(invites)
+    const resend = () =>
+      routes.request(`/invites/${row!.id}/resend`, { method: 'POST', headers }, env)
+    const revoke = () => routes.request(`/invites/${row!.id}`, { method: 'DELETE', headers }, env)
+    as('outsider')
+    expect((await resend()).status).toBe(404)
+    expect((await revoke()).status).toBe(404)
+    as('owner')
+    expect((await resend()).status).toBe(200)
+    const [changed] = await test.db.select().from(invites)
+    expect(changed?.tokenHash).not.toBe(sha(oldToken))
+    const token = outbox[0]?.text.match(/\/invite\/([0-9a-f]{64})/)?.[1]
+    expect(token).toBeTruthy()
+    as('invitee')
+    expect((await accept(oldToken)).status).toBe(400)
+    as('owner')
+    expect((await revoke()).status).toBe(200)
+    expect((await resend()).status).toBe(400)
+    as('invitee')
+    expect((await accept(token as string)).status).toBe(400)
+  })
+
+  it.each(['editor', 'viewer'] as const)('%s cannot resend or revoke invitations', async (role) => {
+    await seedInvite('ab'.repeat(32))
+    const [invitation] = await test.db.select().from(invites)
+    if (!invitation) throw new Error('Missing test invitation')
+    await test.db
+      .insert(memberships)
+      .values({ workspaceId: invitation.workspaceId, userId: role, role })
+    as(role)
+    expect(
+      (await routes.request(`/invites/${invitation.id}/resend`, { method: 'POST', headers }, env))
+        .status,
+    ).toBe(403)
+    expect(
+      (await routes.request(`/invites/${invitation.id}`, { method: 'DELETE', headers }, env))
+        .status,
+    ).toBe(403)
+  })
+
+  it('keeps the original token when resending fails', async () => {
+    const oldToken = 'cd'.repeat(32)
+    await seedInvite(oldToken)
+    const [row] = await test.db.select().from(invites)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 500 })),
+    )
+    try {
+      const response = await routes.request(
+        `/invites/${row!.id}/resend`,
+        { method: 'POST', headers },
+        { ...env, RESEND_API_KEY: 'key', EMAIL_FROM: 'from@example.com' },
+      )
+      expect(response.status).toBe(502)
+      const [unchanged] = await test.db.select().from(invites)
+      expect(unchanged?.tokenHash).toBe(sha(oldToken))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('does not send two links when resends race', async () => {
+    await seedInvite('ab'.repeat(32))
+    const [invitation] = await test.db.select().from(invites)
+    if (!invitation) throw new Error('Missing test invitation')
+    const clients = [new Client({ connectionString: url }), new Client({ connectionString: url })]
+    const { rows } = await test.client.query('SELECT current_schema() AS name')
+    await Promise.all(
+      clients.map(async (client) => {
+        await client.connect()
+        await client.query("SELECT set_config('search_path', $1, false)", [rows[0].name])
+      }),
+    )
+    try {
+      await test.client.query('BEGIN')
+      await test.client.query('SELECT id FROM workspaces WHERE id = $1 FOR UPDATE', [
+        invitation.workspaceId,
+      ])
+      const requests = clients.map((client) => {
+        const app = createWorkspaceRoutes({
+          database: () => drizzle(client, { schema }),
+          auth: () => ({ api: { getSession: async () => ({ user: people.owner }) } }) as never,
+        })
+        return Promise.resolve(
+          app.request(`/invites/${invitation.id}/resend`, { method: 'POST', headers }, env),
+        )
+      })
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      await test.client.query('COMMIT')
+      const responses = await Promise.all(requests)
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 400])
+      expect(outbox).toHaveLength(1)
+    } finally {
+      await test.client.query('ROLLBACK')
+      await Promise.all(clients.map((client) => client.end()))
+    }
+  })
+
+  it('keeps one owner when two owners demote themselves concurrently', async () => {
+    const [workspace] = await test.db.select().from(workspaces)
+    if (!workspace) throw new Error('Missing test workspace')
+    await test.db
+      .insert(memberships)
+      .values({ workspaceId: workspace.id, userId: 'editor', role: 'owner' })
+    const clients = [new Client({ connectionString: url }), new Client({ connectionString: url })]
+    const { rows } = await test.client.query('SELECT current_schema() AS name')
+    await Promise.all(
+      clients.map(async (client) => {
+        await client.connect()
+        await client.query("SELECT set_config('search_path', $1, false)", [rows[0].name])
+      }),
+    )
+    try {
+      const responses = await Promise.all(
+        clients.map((client, index) => {
+          const person = index === 0 ? people.owner : people.editor
+          const app = createWorkspaceRoutes({
+            database: () => drizzle(client, { schema }),
+            auth: () => ({ api: { getSession: async () => ({ user: person }) } }) as never,
+          })
+          return app.request(
+            `/workspaces/northwind/members/${person.id}`,
+            { method: 'PATCH', headers, body: JSON.stringify({ role: 'viewer' }) },
+            env,
+          )
+        }),
+      )
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 409])
+      const remaining = await test.db
+        .select()
+        .from(memberships)
+        .where(and(eq(memberships.workspaceId, workspace.id), eq(memberships.role, 'owner')))
+      expect(remaining).toHaveLength(1)
+    } finally {
+      await Promise.all(clients.map((client) => client.end()))
+    }
+  })
+
+  it('allows invitation acceptance while a resend waits on the invitation', async () => {
+    await seedInvite('ab'.repeat(32))
+    const [invitation] = await test.db.select().from(invites)
+    if (!invitation) throw new Error('Missing test invitation')
+    const second = new Client({ connectionString: url })
+    await second.connect()
+    const { rows } = await test.client.query('SELECT current_schema() AS name')
+    await second.query("SELECT set_config('search_path', $1, false)", [rows[0].name])
+    const app = createWorkspaceRoutes({
+      database: () => drizzle(second, { schema }),
+      auth: () => ({ api: { getSession: async () => ({ user: people.owner }) } }) as never,
+    })
+    try {
+      await test.client.query('BEGIN')
+      await test.client.query('SELECT id FROM invites WHERE id = $1 FOR UPDATE', [invitation.id])
+      const resend = Promise.resolve(
+        app.request(`/invites/${invitation.id}/resend`, { method: 'POST', headers }, env),
+      )
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      await test.client.query("SET LOCAL lock_timeout = '300ms'")
+      await test.client.query(
+        "INSERT INTO memberships (workspace_id, user_id, role) VALUES ($1, 'invitee', 'editor')",
+        [invitation.workspaceId],
+      )
+      await test.client.query('COMMIT')
+      expect((await resend).status).toBe(200)
+    } finally {
+      await test.client.query('ROLLBACK')
+      await second.end()
+    }
+  })
+
+  it('does not resend after the acting owner is concurrently demoted', async () => {
+    await seedInvite('ef'.repeat(32))
+    const [invitation] = await test.db.select().from(invites)
+    if (!invitation) throw new Error('Missing test invitation')
+    await test.db
+      .insert(memberships)
+      .values({ workspaceId: invitation.workspaceId, userId: 'editor', role: 'owner' })
+    const second = new Client({ connectionString: url })
+    await second.connect()
+    const { rows } = await test.client.query('SELECT current_schema() AS name')
+    await second.query("SELECT set_config('search_path', $1, false)", [rows[0].name])
+    const concurrentRoutes = createWorkspaceRoutes({
+      database: () => drizzle(second, { schema }),
+      auth: () => ({ api: { getSession: async () => ({ user: people.editor }) } }) as never,
+    })
+    try {
+      await test.client.query('BEGIN')
+      await test.client.query('SELECT id FROM workspaces WHERE id = $1 FOR UPDATE', [
+        invitation.workspaceId,
+      ])
+      await test.client.query(
+        "UPDATE memberships SET role = 'viewer' WHERE workspace_id = $1 AND user_id = 'editor'",
+        [invitation.workspaceId],
+      )
+      let finished = false
+      const pending = Promise.resolve(
+        concurrentRoutes.request(
+          `/invites/${invitation.id}/resend`,
+          { method: 'POST', headers },
+          env,
+        ),
+      ).then((response) => {
+        finished = true
+        return response
+      })
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(finished).toBe(false)
+      await test.client.query('COMMIT')
+      expect((await pending).status).toBe(403)
+      expect(outbox).toHaveLength(0)
+    } finally {
+      await test.client.query('ROLLBACK')
+      await second.end()
+    }
   })
 })

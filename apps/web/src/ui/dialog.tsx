@@ -10,12 +10,14 @@ export const Dialog = ({
   title,
   children,
   footer,
+  wide = false,
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
   footer: ReactNode
+  wide?: boolean
 }) => {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -30,7 +32,7 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className="m-auto w-110 max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim"
+      className={`m-auto ${wide ? 'w-120' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
     >
       <div className="flex items-start justify-between px-5 py-4">
         <h2 id={titleId} className="text-dialog font-semibold">

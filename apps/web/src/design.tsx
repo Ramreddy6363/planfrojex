@@ -7,6 +7,7 @@ import { Brand, LogoMark } from './ui/brand'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Dialog } from './ui/dialog'
+import { EmailListInput } from './ui/email-list-input'
 import { EmptyState } from './ui/empty-state'
 import { Input } from './ui/input'
 import { Menu } from './ui/menu'
@@ -45,6 +46,8 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
   const [dialog, setDialog] = useState(false)
   const [closes, setCloses] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
+  const [emailChips, setEmailChips] = useState<string[]>([])
+  const [emailInput, setEmailInput] = useState('')
   return (
     <div
       data-theme={theme}
@@ -91,6 +94,16 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         </div>
         <div className="w-60">
           <Textarea height="invite" placeholder="Team email addresses" aria-label="Invite emails" />
+        </div>
+        <div className="w-80">
+          <label htmlFor={`email-list-${theme}`}>Email addresses</label>
+          <EmailListInput
+            id={`email-list-${theme}`}
+            values={emailChips}
+            onChange={setEmailChips}
+            input={emailInput}
+            onInputChange={setEmailInput}
+          />
         </div>
         <div className="w-60">
           <Select aria-label="Status" defaultValue="In progress">

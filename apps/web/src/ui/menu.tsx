@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import { type LucideIcon, MoreHorizontal } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
 import { Button } from './button'
 import { Icon } from './icon'
@@ -12,7 +12,15 @@ export type MenuItem = {
 }
 
 // Native popover: light dismiss, Esc, and focus return to the trigger. We add placement and arrow keys.
-export const Menu = ({ label, items }: { label: string; items: MenuItem[] }) => {
+export const Menu = ({
+  label,
+  items,
+  iconOnly = false,
+}: {
+  label: string
+  items: MenuItem[]
+  iconOnly?: boolean
+}) => {
   const id = useId()
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -63,8 +71,16 @@ export const Menu = ({ label, items }: { label: string; items: MenuItem[] }) => 
 
   return (
     <>
-      <Button ref={trigger} popoverTarget={id} aria-haspopup="menu" aria-expanded={open}>
-        {label}
+      <Button
+        ref={trigger}
+        popoverTarget={id}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={iconOnly ? label : undefined}
+        variant={iconOnly ? 'ghost' : 'secondary'}
+        icon={iconOnly ? MoreHorizontal : undefined}
+      >
+        {!iconOnly && label}
       </Button>
       <div
         ref={list}
