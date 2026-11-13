@@ -13,7 +13,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "biome check . && turbo typecheck test",
-    "prepare": "git config core.hooksPath .githooks",
+    "prepare": "git config core.hooksPath .githooks && git config --unset-all credential.https://github.com.helper; git config --add credential.https://github.com.helper '' && git config --add credential.https://github.com.helper '!bash scripts/git-auth.sh'",
     "merge": "bash scripts/merge.sh"
   },
   "devDependencies": {

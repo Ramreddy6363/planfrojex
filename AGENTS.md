@@ -53,6 +53,7 @@ No deploys until production exists.
 ## Git
 
 - Repo `github.com/Ramreddy6363/planfrojex` is public: never commit secrets, keys or customer data.
+- **GitHub account is always `Ramreddy6363`.** `pnpm install` makes git push as it (`scripts/git-auth.sh`) and `pnpm merge` uses it. Run other `gh` commands as `GH_TOKEN=$(gh auth token -u Ramreddy6363) gh …`. Never switch the active gh account or push as another account.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`). Squash merge, branch deleted after merge.
 - No AI attribution of any tool in commits or PR bodies (no `Co-Authored-By` bot trailers, no "Generated with …" lines). `.githooks/commit-msg` rejects them.
 - Every PR body includes one line stating what the review pass found and what was fixed, or `Review: No findings`.
