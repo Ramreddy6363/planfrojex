@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createAuth } from './auth'
 import { connect } from './db'
 import type { Env } from './env'
+import { createProjectRoutes } from './projects/routes'
 import { consumeRateLimit } from './rate-limit'
 import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
@@ -50,6 +51,7 @@ export function createApp(options: { database?: DatabaseFactory; auth?: AuthFact
     .on(['GET', 'POST'], '/api/auth/*', (c) => auth(c.env).handler(c.req.raw))
     .get('/health', (c) => c.json({ ok: true }))
     .route('/', createWorkspaceRoutes(options))
+    .route('/', createProjectRoutes(options))
 }
 
 const app = createApp()

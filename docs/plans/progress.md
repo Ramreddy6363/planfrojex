@@ -61,6 +61,16 @@ Rule added (user): diagram versions capped at last 50 + named; scenes >1MB store
 - **Tests:** Write failing tests first for each endpoint, owner/editor/viewer permissions, another workspace receiving 404, last-owner and concurrent-change safeguards, invite token rotation/revocation/expiry and email failure. Add Playwright coverage for the Members page, inviting, role changes, removal, resend/revoke, permission-limited views, loading and errors. Run `pnpm check`, the browser suite, and compare with both exports; complete the reviewer/security pass before shipping.
 - **Out of scope:** Project membership/counts, real last-active tracking, workspace settings, SSO, public sharing, deployment, and new dependencies.
 
+## 2026-11-13: Feature 4 Projects — approved
+
+- **Screens:** Projects list and New project dialog from exports `302-projects.png` and `303-new-project-dialog.png`, with applicable empty and error states from `704-states.png`. Enable Projects and starred projects in the workspace sidebar. Reuse existing UI primitives; add missing reusable primitives to the gallery.
+- **List and views:** All workspace members can list projects, filter by status, lead and due date, sort by last update, and switch between the built-in All, Active, Led by me and Starred views shown in the design. Stars are personal and persist across sessions. Custom user-created saved views are not drawn and are out of scope.
+- **Create:** Owners and editors can create a project with a name, editable brief, workspace-member lead, optional target date, and a blank or selected starter template. Viewers can browse and star but cannot create. The five named starter templates provide editable starting text; they do not create tasks or plans. New projects start in Draft. Validate that the lead belongs to the same workspace.
+- **Data:** Add an additive migration for `projects` and personal `stars` as in the data-model board; generate a key from the name, unique per workspace, adding a number on collision. Use UUID v7 IDs. Store the brief as JSON `{ problem: text }`, and include `deleted_at`, `tags`, `created_at` and `updated_at`; exclude deleted projects from the list. Show the lead alone in Team and “No plan yet” in Progress. Apply and test migrations against local or temporary Postgres; never modify the production database as part of this feature.
+- **Endpoints:** `GET` and `POST /workspaces/:ws/projects`, `GET /templates`, and `PUT` and `DELETE /projects/:id/star`, matching the API board. Templates are a fixed list in code, with no table. Reuse workspace membership and role checks; resolve the project's workspace on star operations and return 404 for projects in other workspaces. The list supports the displayed views, filters, ordering, cursor pagination and a count for each tab.
+- **Navigation and later work:** Project details and editing belong to Feature 5; until that screen exists, project rows and sidebar stars must not lead to a broken page. Home's New project button opens the same creation dialog. No project deletion, project team management, task progress, custom saved views, deployment, or new dependencies.
+- **Verification:** Test first for creation, validation, all three roles, cross-workspace 404s on each workspace-owned endpoint, per-user stars, filters, views, pagination and migration. Add browser coverage for creation, templates, filters and views, starring, permissions, loading, empty and error states, and keyboard interaction. Run `pnpm check` and the full Playwright suite, compare the screens with exports 302 and 303, and complete an independent correctness and security review before shipping through the repository workflow.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -70,7 +80,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 1 | Auth and workspace | Sign in/up, Enter code, onboarding (3), No access | shipped 2026-11-05 |
 | 2 | App shell and Home | Sidebar, workspace switcher, Home | shipped 2026-11-12 |
 | 3 | Members | Members, Invite dialog | shipped 2026-11-13 |
-| 4 | Projects list and New project | Projects, New project dialog, starring, saved views | |
+| 4 | Projects list and New project | Projects, New project dialog, starring, saved views | shipped 2026-11-13 |
 | 5 | Project › Brief | Brief, project header, comment column | |
 | 6 | Tasks | List, board, New task dialog, task side panel | |
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | |

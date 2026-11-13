@@ -12,8 +12,13 @@ export async function openTestDb(url: string) {
   const name = `test_${randomUUID().replaceAll('-', '')}`
   await client.query(`CREATE SCHEMA ${name}`)
   await client.query(`SET search_path TO ${name}`)
-  const migration = await readFile('migrations/0000_kind_thunderbolt.sql', 'utf8')
-  await client.query(migration.replaceAll('"public".', ''))
+  const journal = JSON.parse(await readFile('migrations/meta/_journal.json', 'utf8')) as {
+    entries: { tag: string }[]
+  }
+  for (const entry of journal.entries) {
+    const migration = await readFile(`migrations/${entry.tag}.sql`, 'utf8')
+    await client.query(migration.replaceAll('"public".', ''))
+  }
   return {
     client,
     db: drizzle(client, { schema }),

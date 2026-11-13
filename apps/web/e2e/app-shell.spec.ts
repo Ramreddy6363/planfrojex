@@ -92,7 +92,8 @@ test('Home shows empty sections without sample records', async ({ page }) => {
     page.getByLabel('Switch workspace').getByRole('option', { name: 'Northwind' }),
   ).toHaveCount(0)
   await expect(page.getByText('Customer portal rebuild')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'New project' })).toBeDisabled()
+  await page.getByRole('button', { name: 'New project' }).click()
+  await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible()
 })
 
 test('a failed identity request shows a retry instead of no access', async ({ page }) => {

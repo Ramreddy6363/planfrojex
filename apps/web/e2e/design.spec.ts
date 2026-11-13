@@ -35,6 +35,7 @@ test('dialog traps focus, closes on Esc and returns focus', async ({ page }) => 
 
 test('menu opens with Enter, arrows move, Esc closes', async ({ page }) => {
   const trigger = light(page).getByRole('button', { name: 'Actions' })
+  await trigger.scrollIntoViewIfNeeded()
   await trigger.focus()
   await page.keyboard.press('Enter')
   const menu = page.getByRole('menu', { name: 'Actions' }).first()

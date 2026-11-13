@@ -11,6 +11,8 @@ export const Dialog = ({
   children,
   footer,
   wide = false,
+  extraWide = false,
+  sidebar,
 }: {
   open: boolean
   onClose: () => void
@@ -18,6 +20,8 @@ export const Dialog = ({
   children: ReactNode
   footer: ReactNode
   wide?: boolean
+  extraWide?: boolean
+  sidebar?: ReactNode
 }) => {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -32,25 +36,34 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`m-auto ${wide ? 'w-120' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
+      className={`m-auto ${extraWide ? 'w-190' : wide ? 'w-120' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
     >
-      <div className="flex items-start justify-between px-5 py-4">
-        <h2 id={titleId} className="text-dialog font-semibold">
-          {title}
-        </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Close"
-          onClick={() => ref.current?.close()}
-          className="-m-1 px-1.5"
-        >
-          <Icon icon={X} className="text-text-muted" />
-        </Button>
-      </div>
-      <div className="px-5 pb-5 text-body text-text-muted">{children}</div>
-      <div className="flex justify-end gap-2 rounded-b-panel border-t border-border bg-bg-subtle px-5 py-3">
-        {footer}
+      <div className={sidebar ? 'grid md:grid-cols-[250px_minmax(0,1fr)]' : ''}>
+        {sidebar && (
+          <aside className="border-b border-border bg-bg-subtle p-2 md:border-b-0 md:border-r">
+            {sidebar}
+          </aside>
+        )}
+        <div className="min-w-0">
+          <div className="flex items-start justify-between px-5 py-4">
+            <h2 id={titleId} className="text-dialog font-semibold">
+              {title}
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close"
+              onClick={() => ref.current?.close()}
+              className="-m-1 px-1.5"
+            >
+              <Icon icon={X} className="text-text-muted" />
+            </Button>
+          </div>
+          <div className="px-5 pb-5 text-body text-text-muted">{children}</div>
+          <div className="flex justify-end gap-2 rounded-b-panel border-t border-border bg-bg-subtle px-5 py-3">
+            {footer}
+          </div>
+        </div>
       </div>
     </dialog>
   )
