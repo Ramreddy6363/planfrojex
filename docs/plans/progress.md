@@ -147,6 +147,21 @@ Screen: 408 (Activity tab). Table/API: boards 1004 (`activity`) and 1005 (GET /p
 3. Brief/plan text edits show only "edited the Problem section", not the full before/after text (recommended, keeps rows short and payloads small).
 - **Out of scope:** Inbox and notifications (11, which will read this table), workspace-wide activity feed, realtime updates, export.
 
+## 2026-11-15: Feature 10 My tasks — approved 2026-11-15 (with the three recommendations)
+Screen: 305. API: board 1005 (GET /me/tasks). No new tables, no new dependencies.
+- **Page `/:ws/my-tasks`:** tabs Assigned (open tasks assigned to me), Created by me (open tasks I created), Completed (done tasks assigned to me, newest first); each with a count. Group by Due date (Overdue in danger colour, Today, This week, Later, No due date) | Project | Priority. Project filter "All projects" or one project. Row = checkbox, task key (PORT-31), title, priority bars, due date (overdue in danger colour). Clicking a row opens the task's side panel in its project's Tasks tab.
+- **Checkbox:** marks the task done / not done through the existing PATCH /tasks/:id (owners and editors only; disabled with a tooltip for viewers).
+- **Sidebar:** the My tasks count (open tasks assigned to me in this workspace) becomes live; it updates after any task change.
+- **Endpoint:** GET /me/tasks?ws=<slug>&view=assigned|created|completed&project=&cursor=&limit≤100. Only tasks in projects of that workspace (membership from the session, not deleted projects); returns counts for the three tabs. Member of another workspace gets 404; project filter must be a project in that workspace.
+- **Dates:** grouping by Today / This week uses the browser's time zone, done on the client from the due dates (no server time-zone logic yet).
+- **Index (migration 0008, additive):** tasks (assignee_id, status, due_date) and tasks (created_by, status) for the three tabs.
+
+**Open questions**
+1. Scope is the current workspace only, matching the sidebar (recommended), not all workspaces at once.
+2. Completed tab shows the last 90 days with Load more (recommended).
+3. Group by Project and Priority are in the dropdown on the screen; build all three (recommended).
+- **Out of scope:** Inbox (11), editing other task fields from this page, drag to reorder, time-zone setting (14).
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -162,7 +177,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | shipped 2026-11-14 |
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | shipped 2026-11-14 |
 | 9 | Activity | Timeline, filters | shipped 2026-11-14 |
-| 10 | My tasks | My tasks | |
+| 10 | My tasks | My tasks | shipped 2026-11-15 |
 | 11 | Inbox | Mentions, assignments, replies | |
 | 12 | ⌘K search | Search overlay | |
 | 13 | Workspace settings | General, share links, danger zone | |

@@ -16,6 +16,7 @@ import {
 import type { DragEvent, ReactNode } from 'react'
 import { useState } from 'react'
 import { api, call, projectTasksClient, RequestError, tasksClient } from '../api'
+import { myTasksKey } from '../my-tasks'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { Avatar } from '../ui/avatar'
@@ -140,6 +141,7 @@ function ProjectTasks() {
 
   const refresh = async () => {
     await Promise.all([
+      queryClient.invalidateQueries({ queryKey: myTasksKey(workspace.slug) }),
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] }),
       queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
       queryClient.invalidateQueries({ queryKey: ['project', projectId] }),

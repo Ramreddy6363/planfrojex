@@ -8,6 +8,7 @@ import { authCallbackRoute } from './routes/auth-callback'
 import { createWorkspaceRoute } from './routes/create-workspace'
 import { inviteRoute } from './routes/invite'
 import { membersRoute } from './routes/members'
+import { myTasksRoute } from './routes/my-tasks'
 import { onboardingRoute } from './routes/onboarding'
 import { projectActivityRoute } from './routes/project-activity'
 import { projectBriefRoute } from './routes/project-brief'
@@ -36,6 +37,7 @@ const router = createRouter({
     acceptInviteRoute,
     workspaceRoute,
     membersRoute,
+    myTasksRoute,
     projectsRoute,
     projectBriefRoute,
     projectPlanRoute,
