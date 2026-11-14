@@ -44,9 +44,10 @@ One approval: the plan.
 
 1. **Plan note → user OK.** Add a short section to `docs/plans/progress.md` (screens, endpoints, tables, open questions). Wait for the user's OK. Plan wrong mid-build: stop and ask.
 2. **Branch:** `git switch -c feat/<name>` (fixes: `feat/fix-<name>`) from an up-to-date `main`. Never edit on `main`.
-3. **Build test-first.** Then `pnpm check`, e2e, and compare changed screens with their PNG.
-4. **Review:** one fresh-eyes pass following `.claude/agents/reviewer.md` on `git diff main` with only the plan note (a separate subagent if your tool has one; otherwise a separate step). Includes the security pass when auth, permissions, tokens or user data change. Fix high and agreed medium findings.
-5. **Ship:** mark the feature in the progress table, commit, push the branch, open a PR against `main`, `pnpm merge <branch>`, then switch to `main` and pull. Tell the user what shipped and any finding left open.
+3. **Big tasks use sub-agents** (if your tool has them). Big = several layers (migration, API, jobs, UI) or more than a few files. Split into independent parts, for example API + tests, background job, UI + e2e, and run them in parallel. Each sub-agent gets the plan note and its own file list so no two edit the same file. The main session stays lead: it merges the work, runs `pnpm check` and e2e itself, and is the only one that runs git write commands.
+4. **Build test-first.** Then `pnpm check`, e2e, and compare changed screens with their PNG.
+5. **Review:** one fresh-eyes pass following `.claude/agents/reviewer.md` on `git diff main` with only the plan note (a separate subagent if your tool has one; otherwise a separate step). Includes the security pass when auth, permissions, tokens or user data change. Fix high and agreed medium findings.
+6. **Ship:** mark the feature in the progress table, commit, push the branch, open a PR against `main`, `pnpm merge <branch>`, then switch to `main` and pull. Tell the user what shipped and any finding left open.
 
 No deploys until production exists.
 
