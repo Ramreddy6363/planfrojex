@@ -5,6 +5,7 @@ import { createAuth } from './auth'
 import { connect } from './db'
 import type { Env } from './env'
 import { createProjectBriefRoutes } from './projects/brief-routes'
+import { createProjectPlanRoutes } from './projects/plan-routes'
 import { createProjectRoutes } from './projects/routes'
 import { createProjectTaskRoutes, createTaskRoutes } from './projects/task-routes'
 import { consumeRateLimit } from './rate-limit'
@@ -56,6 +57,7 @@ export function createApp(options: { database?: DatabaseFactory; auth?: AuthFact
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
     .route('/', createProjectTaskRoutes(options))
+    .route('/', createProjectPlanRoutes(options))
     .route('/', createTaskRoutes(options))
 }
 

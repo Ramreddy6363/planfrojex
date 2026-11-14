@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
-import { memberships, projects, tasks, user, workspaces } from '../db/schema'
+import { memberships, milestones, projects, tasks, user, workspaces } from '../db/schema'
 import type { Env } from '../env'
 import {
   type AuthFactory,
@@ -27,6 +27,8 @@ const taskResponse = z.object({
   priority,
   assigneeId: z.string().nullable(),
   assigneeName: z.string().nullable(),
+  milestoneId: z.uuid().nullable(),
+  milestoneCode: z.string().nullable(),
   dueDate: z.string().nullable(),
   position: z.number().int(),
   createdBy: z.string(),
@@ -38,6 +40,7 @@ const taskQuery = z.object({
   status: status.optional(),
   assignee: z.string().max(128).optional(),
   priority: priority.optional(),
+  milestone: z.string().max(64).optional(),
 })
 const listRoute = createRoute({
   method: 'get',
@@ -64,6 +67,7 @@ const createTaskSchema = z
     assigneeId: z.string().min(1).max(128).nullable().optional(),
     priority: priority.default('medium'),
     dueDate: z.iso.date().nullable().optional(),
+    milestoneId: z.uuid().nullable().optional(),
   })
   .strict()
 const createTaskRoute = createRoute({
@@ -101,6 +105,7 @@ const patchSchema = z
     priority: priority.optional(),
     dueDate: z.iso.date().nullable().optional(),
     position: z.number().int().min(0).max(2_147_483_647).optional(),
+    milestoneId: z.uuid().nullable().optional(),
   })
   .strict()
   .refine((input) => Object.keys(input).length > 0, 'At least one field is required')
@@ -175,6 +180,8 @@ async function taskDetails(db: Db, id: string, userId: string) {
       priority: tasks.priority,
       assigneeId: tasks.assigneeId,
       assigneeName: user.name,
+      milestoneId: tasks.milestoneId,
+      milestoneCode: milestones.code,
       dueDate: tasks.dueDate,
       position: tasks.position,
       createdBy: tasks.createdBy,
@@ -188,6 +195,10 @@ async function taskDetails(db: Db, id: string, userId: string) {
       and(eq(memberships.workspaceId, projects.workspaceId), eq(memberships.userId, userId)),
     )
     .leftJoin(user, eq(user.id, tasks.assigneeId))
+    .leftJoin(
+      milestones,
+      and(eq(milestones.id, tasks.milestoneId), eq(milestones.projectId, tasks.projectId)),
+    )
     .where(and(eq(tasks.id, id), isNull(projects.deletedAt)))
   return row
     ? {
@@ -201,6 +212,8 @@ async function taskDetails(db: Db, id: string, userId: string) {
         priority: row.priority,
         assigneeId: row.assigneeId,
         assigneeName: row.assigneeName,
+        milestoneId: row.milestoneId,
+        milestoneCode: row.milestoneCode,
         dueDate: row.dueDate,
         position: row.position,
         createdBy: row.createdBy,
@@ -292,6 +305,11 @@ export function createProjectTaskRoutes(
                   ? eq(tasks.assigneeId, filters.assignee)
                   : undefined,
               filters.priority ? eq(tasks.priority, filters.priority) : undefined,
+              filters.milestone === 'unassigned'
+                ? isNull(tasks.milestoneId)
+                : filters.milestone
+                  ? eq(tasks.milestoneId, filters.milestone)
+                  : undefined,
             ),
           )
           .orderBy(
@@ -350,6 +368,18 @@ export function createProjectTaskRoutes(
             !(await isWorkspaceMember(tx, visible.workspaceId, input.assigneeId))
           )
             return { kind: 'invalid' as const }
+          if (
+            input.milestoneId &&
+            !(
+              await tx
+                .select({ id: milestones.id })
+                .from(milestones)
+                .where(
+                  and(eq(milestones.id, input.milestoneId), eq(milestones.projectId, projectId)),
+                )
+            ).length
+          )
+            return { kind: 'invalidMilestone' as const }
           const [last] = await tx
             .select({ max: sql<number>`coalesce(max(${tasks.number}), 0)` })
             .from(tasks)
@@ -367,6 +397,7 @@ export function createProjectTaskRoutes(
               priority: input.priority,
               assigneeId: input.assigneeId ?? null,
               dueDate: input.dueDate ?? null,
+              milestoneId: input.milestoneId ?? null,
               position,
               createdBy: actorId,
             })
@@ -378,6 +409,8 @@ export function createProjectTaskRoutes(
         if (result.kind === 'forbidden') return c.json({ error: 'Owner or editor required' }, 403)
         if (result.kind === 'invalid')
           return c.json({ error: 'Assignee must be a member of this workspace' }, 400)
+        if (result.kind === 'invalidMilestone')
+          return c.json({ error: 'Milestone must belong to this project' }, 400)
         const task = await taskDetails(db, result.id, actorId)
         if (!task) return c.json({ error: 'Task not found' }, 404)
         return c.json({ task }, 201)
@@ -444,12 +477,28 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
             !(await isWorkspaceMember(tx, visible.workspaceId, input.assigneeId))
           )
             return 'invalid' as const
+          if (
+            input.milestoneId &&
+            !(
+              await tx
+                .select({ id: milestones.id })
+                .from(milestones)
+                .where(
+                  and(
+                    eq(milestones.id, input.milestoneId),
+                    eq(milestones.projectId, task.projectId),
+                  ),
+                )
+            ).length
+          )
+            return 'invalidMilestone' as const
           const values: Partial<typeof tasks.$inferInsert> = { updatedAt: new Date() }
           if (input.title !== undefined) values.title = input.title
           if (input.description !== undefined) values.description = input.description
           if (input.priority !== undefined) values.priority = input.priority
           if (input.assigneeId !== undefined) values.assigneeId = input.assigneeId
           if (input.dueDate !== undefined) values.dueDate = input.dueDate
+          if (input.milestoneId !== undefined) values.milestoneId = input.milestoneId
           const nextStatus = input.status ?? task.status
           const reorder = input.position !== undefined || nextStatus !== task.status
           if (!reorder) {
@@ -507,6 +556,8 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
         if (result === 'forbidden') return c.json({ error: 'Owner or editor required' }, 403)
         if (result === 'invalid')
           return c.json({ error: 'Assignee must be a member of this workspace' }, 400)
+        if (result === 'invalidMilestone')
+          return c.json({ error: 'Milestone must belong to this project' }, 400)
         const task = await taskDetails(db, id, actorId)
         if (!task) return c.json({ error: 'Task not found' }, 404)
         return c.json({ task }, 200)

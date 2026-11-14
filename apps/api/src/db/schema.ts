@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -151,12 +152,73 @@ export const projects = pgTable(
       .notNull(),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    planUpdatedAt: timestamp('plan_updated_at', { withTimezone: true }),
+    planUpdatedBy: text('plan_updated_by').references(() => user.id, { onDelete: 'set null' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     ...timestamps(),
   },
   (t) => [
     uniqueIndex('projects_workspace_key_idx').on(t.workspaceId, t.key),
     index('projects_workspace_updated_idx').on(t.workspaceId, t.updatedAt, t.id),
+  ],
+)
+
+export const planSections = pgTable(
+  'plan_sections',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['requirements', 'stories', 'stack', 'estimate'] }).notNull(),
+    content: jsonb('content').$type<unknown>().notNull().default(sql`'null'::jsonb`),
+    version: integer('version').notNull().default(0),
+    updatedBy: text('updated_by').references(() => user.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.kind] })],
+)
+
+export const milestones = pgTable(
+  'milestones',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    title: text('title').notNull(),
+    status: text('status', { enum: ['planning', 'in_progress', 'completed'] })
+      .notNull()
+      .default('planning'),
+    dueDate: date('due_date'),
+    position: integer('position').notNull().default(0),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex('milestones_project_code_idx').on(t.projectId, t.code),
+    uniqueIndex('milestones_project_id_idx').on(t.projectId, t.id),
+  ],
+)
+
+export const risks = pgTable(
+  'risks',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    title: text('title').notNull(),
+    severity: text('severity', { enum: ['low', 'medium', 'high', 'critical'] })
+      .notNull()
+      .default('medium'),
+    ownerId: text('owner_id').references(() => user.id, { onDelete: 'set null' }),
+    decideBy: date('decide_by'),
+    ...timestamps(),
+  },
+  (t) => [
+    index('risks_project_idx').on(t.projectId),
+    uniqueIndex('risks_project_code_idx').on(t.projectId, t.code),
   ],
 )
 
@@ -167,6 +229,7 @@ export const tasks = pgTable(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    milestoneId: uuid('milestone_id'),
     number: integer('number').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
@@ -185,6 +248,11 @@ export const tasks = pgTable(
     ...timestamps(),
   },
   (t) => [
+    foreignKey({
+      columns: [t.projectId, t.milestoneId],
+      foreignColumns: [milestones.projectId, milestones.id],
+      name: 'tasks_project_milestone_fk',
+    }).onDelete('no action'),
     uniqueIndex('tasks_project_number_idx').on(t.projectId, t.number),
     index('tasks_project_status_position_idx').on(t.projectId, t.status, t.position, t.id),
     index('tasks_assignee_idx').on(t.assigneeId),
