@@ -283,6 +283,43 @@ export const comments = pgTable(
   ],
 )
 
+export const diagrams = pgTable(
+  'diagrams',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    type: text('type', {
+      enum: ['flowchart', 'architecture', 'sequence', 'entity_relationship'],
+    }).notNull(),
+    currentVersion: integer('current_version').notNull().default(0),
+    scene: jsonb('scene').$type<unknown>().notNull().default(sql`'{"nodes":[],"edges":[]}'::jsonb`),
+    sceneVersion: integer('scene_version').notNull().default(0),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [index('diagrams_project_idx').on(t.projectId, t.deletedAt)],
+)
+
+export const diagramVersions = pgTable(
+  'diagram_versions',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    diagramId: uuid('diagram_id')
+      .notNull()
+      .references(() => diagrams.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    scene: jsonb('scene').$type<unknown>().notNull(),
+    label: text('label'),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('diagram_versions_diagram_version_idx').on(t.diagramId, t.version)],
+)
+
 export const drafts = pgTable(
   'drafts',
   {
@@ -290,7 +327,9 @@ export const drafts = pgTable(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    kind: text('kind', { enum: ['plan'] })
+    diagramId: uuid('diagram_id').references(() => diagrams.id, { onDelete: 'set null' }),
+    prompt: text('prompt'),
+    kind: text('kind', { enum: ['plan', 'diagram'] })
       .notNull()
       .default('plan'),
     status: text('status', { enum: ['queued', 'running', 'ready', 'failed', 'discarded'] })
@@ -312,7 +351,7 @@ export const draftChanges = pgTable(
       .notNull()
       .references(() => drafts.id, { onDelete: 'cascade' }),
     kind: text('kind', {
-      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate'],
+      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate', 'diagram'],
     }).notNull(),
     before: jsonb('before').$type<unknown>(),
     after: jsonb('after').$type<unknown>().notNull(),
@@ -340,7 +379,7 @@ export const decisions = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     kind: text('kind', {
-      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate'],
+      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate', 'diagram'],
     }).notNull(),
     outcome: text('outcome', { enum: ['accepted', 'rejected', 'reversed'] }).notNull(),
     reason: text('reason'),

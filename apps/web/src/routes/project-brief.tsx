@@ -51,6 +51,10 @@ function ProjectBrief() {
   const editable = workspace.role === 'owner' || workspace.role === 'editor'
   const projectKey = ['project', projectId] as const
   const commentsKey = ['comments', projectId] as const
+  const diagramsQuery = useQuery({
+    queryKey: ['diagrams', projectId],
+    queryFn: () => call(api.projects[':id'].diagrams.$get({ param: { id: projectId } })),
+  })
   const projectQuery = useQuery({
     queryKey: projectKey,
     queryFn: () => call(api.projects[':id'].$get({ param: { id: projectId } })),
@@ -334,6 +338,11 @@ function ProjectBrief() {
             <Tabs
               value="brief"
               onChange={(tab) => {
+                if (tab === 'diagrams')
+                  void navigate({
+                    to: '/$ws/projects/$projectId/diagrams',
+                    params: { ws: workspace.slug, projectId },
+                  })
                 if (tab === 'plan')
                   void navigate({
                     to: '/$ws/projects/$projectId/plan',
@@ -350,7 +359,7 @@ function ProjectBrief() {
                 { id: 'brief', label: 'Brief' },
                 { id: 'plan', label: 'Plan' },
                 { id: 'tasks', label: 'Tasks' },
-                { id: 'diagrams', label: 'Diagrams', disabled: true },
+                { id: 'diagrams', label: `Diagrams ${diagramsQuery.data?.diagrams.length ?? 0}` },
                 { id: 'activity', label: 'Activity', disabled: true },
               ]}
             />

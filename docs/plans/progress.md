@@ -146,7 +146,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 5 | Project › Brief | Brief, project header, comment column | shipped 2026-11-13 |
 | 6 | Tasks | List, board, New task dialog, task side panel | shipped 2026-11-13 |
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | shipped 2026-11-14 |
-| 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | |
+| 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | shipped 2026-11-14 |
 | 9 | Activity | Timeline, filters | |
 | 10 | My tasks | My tasks | |
 | 11 | Inbox | Mentions, assignments, replies | |

@@ -3,6 +3,7 @@ import { TriggerClient } from '@trigger.dev/sdk'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
   decisions,
+  diagrams,
   draftChanges,
   drafts,
   memberships,
@@ -13,6 +14,8 @@ import {
   tasks,
   user,
 } from '../db/schema'
+import { sceneSchema } from '../diagrams/schema'
+import { createDiagramVersion } from '../diagrams/service'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
 import {
@@ -21,7 +24,14 @@ import {
   requireSession,
   useDb,
 } from '../workspaces/permissions'
+import {
+  type DiagramDraftModel,
+  fakeDiagramDraftModel,
+  processDiagramDraft,
+} from './diagram-service'
 import { type DraftModel, draftKinds, fakeDraftModel, processPlanDraft } from './service'
+
+const allDraftKinds = [...draftKinds, 'diagram'] as const
 
 const error = z.object({ error: z.string() })
 const json = <T extends z.ZodType>(schema: T, description: string) => ({
@@ -35,7 +45,28 @@ const reasonBody = z.object({ reason: z.string().trim().max(2_000).optional() })
 const createDraftRoute = createRoute({
   method: 'post',
   path: '/projects/{id}/drafts',
-  request: idParams,
+  request: {
+    ...idParams,
+    body: {
+      content: {
+        'application/json': {
+          schema: z
+            .object({
+              kind: z.enum(['plan', 'diagram']).default('plan'),
+              diagramId: z.uuid().optional(),
+              prompt: z.string().trim().max(4000).optional(),
+            })
+            .strict()
+            .refine(
+              (value) => value.kind !== 'diagram' || Boolean(value.diagramId),
+              'Choose a diagram',
+            )
+            .optional(),
+        },
+      },
+      required: false,
+    },
+  },
   responses: {
     202: json(
       z.object({ draft: z.object({ id: z.uuid(), status: z.literal('queued') }) }),
@@ -49,7 +80,7 @@ const createDraftRoute = createRoute({
 })
 const changeResponse = z.object({
   id: z.uuid(),
-  kind: z.enum(draftKinds),
+  kind: z.enum(allDraftKinds),
   before: z.unknown(),
   after: z.unknown(),
   status: z.enum(['pending', 'accepted', 'rejected']),
@@ -64,6 +95,8 @@ const getDraftRoute = createRoute({
         draft: z.object({
           id: z.uuid(),
           projectId: z.uuid(),
+          kind: z.enum(['plan', 'diagram']),
+          diagramId: z.uuid().nullable(),
           status: z.enum(['queued', 'running', 'ready', 'failed', 'discarded']),
           model: z.string(),
           error: z.string().nullable(),
@@ -151,7 +184,7 @@ const getDecisionsRoute = createRoute({
         decisions: z.array(
           z.object({
             id: z.uuid(),
-            kind: z.enum(draftKinds),
+            kind: z.enum(allDraftKinds),
             outcome: z.enum(['accepted', 'rejected', 'reversed']),
             reason: z.string().nullable(),
             actorId: z.string(),
@@ -243,6 +276,8 @@ async function visibleDraft(db: Db, id: string, actorId: string) {
     .select({
       id: drafts.id,
       projectId: drafts.projectId,
+      kind: drafts.kind,
+      diagramId: drafts.diagramId,
       status: drafts.status,
       model: drafts.model,
       error: drafts.error,
@@ -284,7 +319,34 @@ async function visibleDecision(db: Db, id: string, actorId: string) {
 function encodeAfter(_kind: string, value: unknown) {
   return value
 }
-async function currentSnapshot(tx: Tx, projectId: string, kind: string): Promise<unknown> {
+function diagramIdOf(change: { before: unknown }) {
+  return change.before && typeof change.before === 'object' && 'diagramId' in change.before
+    ? String(change.before.diagramId)
+    : undefined
+}
+async function currentSnapshot(
+  tx: Tx,
+  projectId: string,
+  kind: string,
+  diagramId?: string,
+): Promise<unknown> {
+  if (kind === 'diagram') {
+    if (!diagramId) return null
+    const [diagram] = await tx
+      .select()
+      .from(diagrams)
+      .where(
+        and(
+          eq(diagrams.id, diagramId),
+          eq(diagrams.projectId, projectId),
+          isNull(diagrams.deletedAt),
+        ),
+      )
+      .for('update')
+    return diagram
+      ? { diagramId: diagram.id, sceneVersion: diagram.sceneVersion, scene: diagram.scene }
+      : null
+  }
   if (kind === 'requirements' || kind === 'stories' || kind === 'stack' || kind === 'estimate') {
     const [section] = await tx
       .select({ version: planSections.version, content: planSections.content })
@@ -345,7 +407,28 @@ async function applyValue(
   kind: string,
   value: unknown,
   actorId: string,
+  diagramId?: string,
 ) {
+  if (kind === 'diagram') {
+    if (!diagramId) throw new StalePlanSection()
+    const [diagram] = await tx
+      .select()
+      .from(diagrams)
+      .where(
+        and(
+          eq(diagrams.id, diagramId),
+          eq(diagrams.projectId, projectId),
+          isNull(diagrams.deletedAt),
+        ),
+      )
+      .for('update')
+    if (!diagram) throw new StalePlanSection()
+    const scene = sceneSchema.parse(
+      value && typeof value === 'object' && 'scene' in value ? value.scene : value,
+    )
+    await createDiagramVersion(tx, diagram, scene, null, actorId, true)
+    return
+  }
   if (kind === 'requirements' || kind === 'stories' || kind === 'stack' || kind === 'estimate') {
     const content =
       value && typeof value === 'object' && !Array.isArray(value) && 'version' in value
@@ -522,14 +605,26 @@ async function acceptChange(
       .where(and(eq(draftChanges.id, changeId), eq(draftChanges.draftId, draftId)))
       .for('update')
     if (!change || change.status !== 'pending') return { kind: 'missing' as const }
-    const current = await currentSnapshot(tx, projectId, change.kind)
+    const current = await currentSnapshot(tx, projectId, change.kind, diagramIdOf(change))
     if (!sameJson(current, change.before)) return { kind: 'stale' as const }
     if (change.kind === 'risks' && !(await riskOwnersAreMembers(tx, workspaceId, change.after)))
       return { kind: 'invalid-owner' as const }
     const beforeTaskMilestones =
       change.kind === 'milestones' ? await currentTaskMilestones(tx, projectId) : null
-    await applyValue(tx, projectId, change.kind, encodeAfter(change.kind, change.after), actorId)
-    const appliedPlanSnapshot = await currentSnapshot(tx, projectId, change.kind)
+    await applyValue(
+      tx,
+      projectId,
+      change.kind,
+      encodeAfter(change.kind, change.after),
+      actorId,
+      diagramIdOf(change),
+    )
+    const appliedPlanSnapshot = await currentSnapshot(
+      tx,
+      projectId,
+      change.kind,
+      diagramIdOf(change),
+    )
     const appliedSnapshot =
       change.kind === 'milestones'
         ? {
@@ -553,22 +648,35 @@ async function acceptChange(
       .update(draftChanges)
       .set({ status: 'accepted', appliedSnapshot, updatedAt: new Date() })
       .where(eq(draftChanges.id, change.id))
-    await tx
-      .update(projects)
-      .set({ planUpdatedAt: new Date(), planUpdatedBy: actorId })
-      .where(eq(projects.id, projectId))
+    if (change.kind !== 'diagram')
+      await tx
+        .update(projects)
+        .set({ planUpdatedAt: new Date(), planUpdatedBy: actorId })
+        .where(eq(projects.id, projectId))
     return { kind: 'accepted' as const, decisionId: decision?.id }
   })
 }
 
 export function createProjectDraftRoutes(
-  options: { database?: DatabaseFactory; auth?: AuthFactory; draftModel?: DraftModel } = {},
+  options: {
+    database?: DatabaseFactory
+    auth?: AuthFactory
+    draftModel?: DraftModel
+    diagramDraftModel?: DiagramDraftModel
+  } = {},
 ) {
   const app = new OpenAPIHono<Env>()
   for (const path of ['/projects/*', '/drafts/*', '/decisions/*'])
     app.use(
       path,
       async (c, next) => {
+        // Plan drafting predates the optional JSON input and accepts an empty POST body.
+        if (
+          c.req.method === 'POST' &&
+          /^\/projects\/[^/]+\/drafts$/.test(c.req.path) &&
+          !(await c.req.raw.clone().text())
+        )
+          c.req.raw = new Request(c.req.raw, { body: '{}' })
         if (c.req.method !== 'GET' && c.req.header('origin') !== c.env.WEB_ORIGIN)
           return c.json({ error: 'Invalid origin' }, 403)
         return next()
@@ -584,6 +692,20 @@ export function createProjectDraftRoutes(
       const project = await visibleProject(db, projectId, actorId)
       if (!project) return c.json({ error: 'Project not found' }, 404)
       if (!writable(project.role)) return c.json({ error: 'Owner or editor required' }, 403)
+      const input = c.req.valid('json')
+      if (input?.kind === 'diagram') {
+        const [diagram] = await db
+          .select({ id: diagrams.id })
+          .from(diagrams)
+          .where(
+            and(
+              eq(diagrams.id, input.diagramId as string),
+              eq(diagrams.projectId, projectId),
+              isNull(diagrams.deletedAt),
+            ),
+          )
+        if (!diagram) return c.json({ error: 'Diagram not found' }, 404)
+      }
       if (
         !(await consumeRateLimit(
           db,
@@ -596,12 +718,18 @@ export function createProjectDraftRoutes(
       )
         return c.json({ error: 'Draft limit reached. Try again later.' }, 429)
       const hasKeys = Boolean(
-        c.env.ANTHROPIC_API_KEY && c.env.TRIGGER_SECRET_KEY && !options.draftModel,
+        c.env.ANTHROPIC_API_KEY &&
+          c.env.TRIGGER_SECRET_KEY &&
+          !options.draftModel &&
+          !options.diagramDraftModel,
       )
       const [draft] = await db
         .insert(drafts)
         .values({
           projectId,
+          kind: input?.kind ?? 'plan',
+          diagramId: input?.kind === 'diagram' ? input.diagramId : null,
+          prompt: input?.kind === 'diagram' ? input.prompt : null,
           model: hasKeys ? 'claude-opus-5-5' : 'fake',
           createdBy: actorId,
         })
@@ -615,8 +743,13 @@ export function createProjectDraftRoutes(
               { draftId: draft.id },
             )
           } else {
-            const model = options.draftModel ?? fakeDraftModel
-            await processPlanDraft(db, draft.id, model)
+            if (input?.kind === 'diagram')
+              await processDiagramDraft(
+                db,
+                draft.id,
+                options.diagramDraftModel ?? fakeDiagramDraftModel,
+              )
+            else await processPlanDraft(db, draft.id, options.draftModel ?? fakeDraftModel)
           }
         } catch {
           await db
@@ -652,12 +785,14 @@ export function createProjectDraftRoutes(
         .from(draftChanges)
         .where(eq(draftChanges.draftId, id))
         .orderBy(asc(draftChanges.createdAt), asc(draftChanges.id))
-      changes.sort((a, b) => draftKinds.indexOf(a.kind) - draftKinds.indexOf(b.kind))
+      changes.sort((a, b) => allDraftKinds.indexOf(a.kind) - allDraftKinds.indexOf(b.kind))
       return c.json(
         {
           draft: {
             id: draft.id,
             projectId: draft.projectId,
+            kind: draft.kind,
+            diagramId: draft.diagramId,
             status: draft.status,
             model: draft.model,
             error: draft.error,
@@ -768,10 +903,15 @@ export function createProjectDraftRoutes(
             .from(draftChanges)
             .where(and(eq(draftChanges.draftId, id), eq(draftChanges.status, 'pending')))
             .for('update')
-          pending.sort((a, b) => draftKinds.indexOf(a.kind) - draftKinds.indexOf(b.kind))
+          pending.sort((a, b) => allDraftKinds.indexOf(a.kind) - allDraftKinds.indexOf(b.kind))
           const decisionIds: string[] = []
           for (const change of pending) {
-            const current = await currentSnapshot(tx, visible.projectId, change.kind)
+            const current = await currentSnapshot(
+              tx,
+              visible.projectId,
+              change.kind,
+              diagramIdOf(change),
+            )
             if (!sameJson(current, change.before)) throw new StalePlanSection()
             if (
               change.kind === 'risks' &&
@@ -788,8 +928,14 @@ export function createProjectDraftRoutes(
               change.kind,
               encodeAfter(change.kind, change.after),
               actorId,
+              diagramIdOf(change),
             )
-            const appliedPlanSnapshot = await currentSnapshot(tx, visible.projectId, change.kind)
+            const appliedPlanSnapshot = await currentSnapshot(
+              tx,
+              visible.projectId,
+              change.kind,
+              diagramIdOf(change),
+            )
             const appliedSnapshot =
               change.kind === 'milestones'
                 ? {
@@ -913,7 +1059,12 @@ export function createProjectDraftRoutes(
           .where(eq(draftChanges.id, original.draftChangeId))
           .for('update')
         if (!change || change.status !== 'accepted') return { kind: 'stale' as const }
-        const current = await currentSnapshot(tx, visible.projectId, change.kind)
+        const current = await currentSnapshot(
+          tx,
+          visible.projectId,
+          change.kind,
+          diagramIdOf(change),
+        )
         const milestoneSnapshot =
           change.kind === 'milestones' &&
           change.appliedSnapshot &&
@@ -940,10 +1091,22 @@ export function createProjectDraftRoutes(
           !(await riskOwnersAreMembers(tx, visible.workspaceId, change.before))
         )
           return { kind: 'stale' as const }
-        await applyValue(tx, visible.projectId, change.kind, change.before, actorId)
+        await applyValue(
+          tx,
+          visible.projectId,
+          change.kind,
+          change.before,
+          actorId,
+          diagramIdOf(change),
+        )
         if (milestoneSnapshot)
           await restoreTaskMilestones(tx, visible.projectId, milestoneSnapshot.beforeTaskMilestones)
-        const restored = await currentSnapshot(tx, visible.projectId, change.kind)
+        const restored = await currentSnapshot(
+          tx,
+          visible.projectId,
+          change.kind,
+          diagramIdOf(change),
+        )
         const [reversal] = await tx
           .insert(decisions)
           .values({
