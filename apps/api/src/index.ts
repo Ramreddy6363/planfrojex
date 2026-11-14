@@ -3,6 +3,8 @@ import { cors } from 'hono/cors'
 import { z } from 'zod'
 import { createAuth } from './auth'
 import { connect } from './db'
+import { createProjectDraftRoutes } from './drafts/routes'
+import type { DraftModel } from './drafts/service'
 import type { Env } from './env'
 import { createProjectBriefRoutes } from './projects/brief-routes'
 import { createProjectPlanRoutes } from './projects/plan-routes'
@@ -12,7 +14,9 @@ import { consumeRateLimit } from './rate-limit'
 import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
 
-export function createApp(options: { database?: DatabaseFactory; auth?: AuthFactory } = {}) {
+export function createApp(
+  options: { database?: DatabaseFactory; auth?: AuthFactory; draftModel?: DraftModel } = {},
+) {
   const database = options.database ?? connect
   const auth = options.auth ?? createAuth
   return new OpenAPIHono<Env>()
@@ -58,6 +62,7 @@ export function createApp(options: { database?: DatabaseFactory; auth?: AuthFact
     .route('/', createProjectBriefRoutes(options))
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
+    .route('/', createProjectDraftRoutes(options))
     .route('/', createTaskRoutes(options))
 }
 

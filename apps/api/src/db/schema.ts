@@ -283,6 +283,81 @@ export const comments = pgTable(
   ],
 )
 
+export const drafts = pgTable(
+  'drafts',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['plan'] })
+      .notNull()
+      .default('plan'),
+    status: text('status', { enum: ['queued', 'running', 'ready', 'failed', 'discarded'] })
+      .notNull()
+      .default('queued'),
+    model: text('model').notNull(),
+    error: text('error'),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    ...timestamps(),
+  },
+  (t) => [index('drafts_project_created_idx').on(t.projectId, t.createdAt, t.id)],
+)
+
+export const draftChanges = pgTable(
+  'draft_changes',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    draftId: uuid('draft_id')
+      .notNull()
+      .references(() => drafts.id, { onDelete: 'cascade' }),
+    kind: text('kind', {
+      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate'],
+    }).notNull(),
+    before: jsonb('before').$type<unknown>(),
+    after: jsonb('after').$type<unknown>().notNull(),
+    appliedSnapshot: jsonb('applied_snapshot').$type<unknown>(),
+    baseVersion: integer('base_version'),
+    status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex('draft_changes_draft_kind_idx').on(t.draftId, t.kind)],
+)
+
+export const decisions = pgTable(
+  'decisions',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    draftChangeId: uuid('draft_change_id').references(() => draftChanges.id, {
+      onDelete: 'set null',
+    }),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    kind: text('kind', {
+      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate'],
+    }).notNull(),
+    outcome: text('outcome', { enum: ['accepted', 'rejected', 'reversed'] }).notNull(),
+    reason: text('reason'),
+    reversesDecisionId: uuid('reverses_decision_id'),
+    ...timestamps(),
+  },
+  (t) => [
+    index('decisions_project_created_idx').on(t.projectId, t.createdAt, t.id),
+    uniqueIndex('decisions_reverse_once_idx').on(t.reversesDecisionId),
+    foreignKey({
+      columns: [t.reversesDecisionId],
+      foreignColumns: [t.id],
+      name: 'decisions_reverses_decision_id_decisions_id_fk',
+    }).onDelete('set null'),
+  ],
+)
+
 export const stars = pgTable(
   'stars',
   {

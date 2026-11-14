@@ -23,5 +23,6 @@ export type Env = {
     WEB_ORIGIN: string
     ENVIRONMENT?: string
     ANTHROPIC_API_KEY: string
+    TRIGGER_SECRET_KEY?: string
   }
 }

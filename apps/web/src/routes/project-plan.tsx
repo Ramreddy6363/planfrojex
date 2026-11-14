@@ -20,6 +20,7 @@ import { Select } from '../ui/select'
 import { StatusGlyph } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { Textarea } from '../ui/textarea'
+import { ToastRegion } from '../ui/toast'
 import { ActionError, useAction } from '../use-action'
 import { WorkspaceShell } from '../workspace-shell'
 import { rootRoute } from './root'
@@ -77,6 +78,8 @@ function ProjectPlan() {
   const [addingRisk, setAddingRisk] = useState(false)
   const [editingMilestone, setEditingMilestone] = useState<string | null>(null)
   const [editingRisk, setEditingRisk] = useState<string | null>(null)
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; decisionId?: string } | null>(null)
   const action = useAction()
   const planQuery = useQuery({
     queryKey: ['plan', projectId],
@@ -89,6 +92,22 @@ function ProjectPlan() {
   const membersQuery = useQuery({
     queryKey: ['members', workspace.slug],
     queryFn: () => call(api.workspaces[':ws'].members.$get({ param: { ws: workspace.slug } })),
+  })
+  const draftQuery = useQuery({
+    queryKey: ['draft', activeDraftId],
+    enabled: Boolean(activeDraftId),
+    queryFn: () => {
+      if (!activeDraftId) throw new Error('No active draft')
+      return call(api.drafts[':id'].$get({ param: { id: activeDraftId } }))
+    },
+    refetchInterval: (query) =>
+      query.state.data?.draft.status === 'queued' || query.state.data?.draft.status === 'running'
+        ? 2_000
+        : false,
+  })
+  const decisionsQuery = useQuery({
+    queryKey: ['decisions', projectId],
+    queryFn: () => call(api.projects[':id'].decisions.$get({ param: { id: projectId } })),
   })
   const plan = planQuery.data
   const project = projectQuery.data?.project
@@ -152,6 +171,65 @@ function ProjectPlan() {
     setDraft(asText(section?.content, kind))
     setEditing(kind)
   }
+  const startDraft = async () => {
+    const result = await call(api.projects[':id'].drafts.$post({ param: { id: projectId } }))
+    setActiveDraftId(result.draft.id)
+    setToast({ message: 'Drafting plan from the brief…' })
+  }
+  const acceptChange = async (changeId: string) => {
+    if (!activeDraftId) return
+    const result = await call(
+      api.drafts[':id'].changes[':changeId'].accept.$post({
+        param: { id: activeDraftId, changeId },
+        json: {},
+      }),
+    )
+    setToast({ message: 'Plan change accepted', decisionId: result.decision.id })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['plan', projectId] }),
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] }),
+      queryClient.invalidateQueries({ queryKey: ['draft', activeDraftId] }),
+    ])
+  }
+  const rejectChange = async (changeId: string) => {
+    if (!activeDraftId) return
+    await call(
+      api.drafts[':id'].changes[':changeId'].reject.$post({
+        param: { id: activeDraftId, changeId },
+        json: {},
+      }),
+    )
+    setToast({ message: 'Plan change rejected' })
+    await queryClient.invalidateQueries({ queryKey: ['draft', activeDraftId] })
+    await queryClient.invalidateQueries({ queryKey: ['decisions', projectId] })
+  }
+  const acceptRemaining = async () => {
+    if (!activeDraftId) return
+    const result = await call(
+      api.drafts[':id']['accept-all'].$post({ param: { id: activeDraftId }, json: {} }),
+    )
+    setToast({ message: `${result.accepted} plan changes accepted` })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['plan', projectId] }),
+      queryClient.invalidateQueries({ queryKey: ['draft', activeDraftId] }),
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] }),
+    ])
+  }
+  const discardDraft = async () => {
+    if (!activeDraftId) return
+    await call(api.drafts[':id'].$delete({ param: { id: activeDraftId } }))
+    setActiveDraftId(null)
+    setToast({ message: 'Draft discarded' })
+  }
+  const undoDecision = async (decisionId: string) => {
+    await call(api.decisions[':id'].undo.$post({ param: { id: decisionId } }))
+    setToast({ message: 'Plan change undone' })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['plan', projectId] }),
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] }),
+      queryClient.invalidateQueries({ queryKey: ['draft', activeDraftId] }),
+    ])
+  }
   if (planQuery.isLoading || projectQuery.isLoading)
     return (
       <WorkspaceShell workspace={workspace} me={me} active="projects">
@@ -172,6 +250,114 @@ function ProjectPlan() {
       updatedAt: '',
       updatedBy: null,
     }
+  const drawChange = (kind: string) => {
+    const change = draftQuery.data?.draft.changes.find((item) => item.kind === kind)
+    if (!change || change.status !== 'pending') return null
+    const valueLines = (value: unknown): string[] => {
+      if (value == null) return []
+      if (
+        kind === 'requirements' ||
+        kind === 'stories' ||
+        kind === 'stack' ||
+        kind === 'estimate'
+      ) {
+        const snapshot =
+          typeof value === 'object' && !Array.isArray(value)
+            ? (value as { content?: unknown })
+            : null
+        const content = snapshot && 'content' in snapshot ? snapshot.content : value
+        if (content == null) return []
+        if (kind === 'estimate' && typeof content === 'object' && !Array.isArray(content)) {
+          const estimate = content as { value?: unknown; note?: unknown }
+          return [estimate.value, estimate.note].filter(
+            (part): part is string => typeof part === 'string' && part.length > 0,
+          )
+        }
+        return Array.isArray(content) ? content.map(String) : [String(content)]
+      }
+      if (Array.isArray(value))
+        return value.map((entry) => {
+          if (!entry || typeof entry !== 'object') return String(entry)
+          const item = entry as Record<string, unknown>
+          const code = typeof item.code === 'string' ? `${item.code} · ` : ''
+          const title = typeof item.title === 'string' ? item.title : ''
+          if (kind === 'milestones') {
+            const status = typeof item.status === 'string' ? item.status.replace('_', ' ') : ''
+            const date = typeof item.dueDate === 'string' ? ` · due ${item.dueDate}` : ''
+            return `${code}${title}${status ? ` · ${status}` : ''}${date}`
+          }
+          const severity = typeof item.severity === 'string' ? ` · ${item.severity} risk` : ''
+          const ownerName =
+            typeof item.ownerId === 'string'
+              ? (membersQuery.data?.members.find((member) => member.id === item.ownerId)?.name ??
+                'Assigned owner')
+              : 'Unassigned'
+          const owner = ` · ${ownerName}`
+          const date = typeof item.decideBy === 'string' ? ` · decide by ${item.decideBy}` : ''
+          return `${code}${title}${severity}${owner}${date}`
+        })
+      return [String(value)]
+    }
+    const label =
+      {
+        requirements: 'Requirements',
+        stories: 'User stories',
+        milestones: 'Milestones',
+        risks: 'Risks',
+        stack: 'Tech stack',
+        estimate: 'Estimate',
+      }[kind] ?? kind
+    const before = valueLines(change.before)
+    const after = valueLines(change.after)
+    return (
+      <article className="mt-4 rounded-panel border border-border bg-bg-subtle p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-medium">Draft from brief</h3>
+          <span className="text-caption text-text-muted">{label} · Pending</span>
+        </div>
+        <div className="grid gap-3 text-ui sm:grid-cols-2">
+          <div>
+            <p className="mb-1 text-caption text-text-muted">Current</p>
+            {before.length ? (
+              before.map((line) => (
+                <p key={`before-${line}`} className="text-danger">
+                  − {line}
+                </p>
+              ))
+            ) : (
+              <p className="text-text-muted">No content</p>
+            )}
+          </div>
+          <div>
+            <p className="mb-1 text-caption text-text-muted">Proposed</p>
+            {after.length ? (
+              after.map((line) => (
+                <p key={`after-${line}`} className="text-success">
+                  + {line}
+                </p>
+              ))
+            ) : (
+              <p className="text-text-muted">No content</p>
+            )}
+          </div>
+        </div>
+        {editable && (
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void action.run(() => rejectChange(change.id))}
+            >
+              Reject
+            </Button>
+            <Button size="sm" onClick={() => void action.run(() => acceptChange(change.id))}>
+              Accept
+            </Button>
+          </div>
+        )}
+      </article>
+    )
+  }
   const drawSection = (kind: Kind) => {
     const item = section(kind)
     const lines = Array.isArray(item.content) ? (item.content as string[]) : []
@@ -269,6 +455,7 @@ function ProjectPlan() {
         ) : (
           <p className="text-ui text-text-muted">Nothing added yet</p>
         )}
+        {drawChange(kind)}
       </section>
     )
   }
@@ -361,11 +548,64 @@ function ProjectPlan() {
             ]}
           />
         </div>
-        <div className="flex items-center border-b border-border px-8 py-3 text-caption text-text-muted">
-          {plan.lastChanged
-            ? `Last changed ${relativeTime(plan.lastChanged.at)}${plan.lastChanged.by ? ` by ${plan.lastChanged.by}` : ''}`
-            : 'No plan changes yet'}
+        <div className="flex items-center justify-between border-b border-border px-8 py-3 text-caption text-text-muted">
+          <span>
+            {plan.lastChanged
+              ? `Last changed ${relativeTime(plan.lastChanged.at)}${plan.lastChanged.by ? ` by ${plan.lastChanged.by}` : ''}`
+              : 'No plan changes yet'}
+          </span>
+          {editable && !activeDraftId && (
+            <Button size="sm" onClick={() => void action.run(startDraft)}>
+              Draft plan from brief
+            </Button>
+          )}
         </div>
+        {activeDraftId && draftQuery.data && (
+          <section
+            aria-label="Plan draft"
+            className="border-b border-border bg-bg-subtle px-8 py-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">
+                  {draftQuery.data.draft.status === 'ready'
+                    ? 'Draft from the brief is ready for review'
+                    : draftQuery.data.draft.status === 'failed'
+                      ? 'Draft could not be created'
+                      : 'Drafting plan from the brief…'}
+                </h2>
+                {draftQuery.data.draft.status === 'ready' && (
+                  <p className="text-caption text-text-muted">
+                    {
+                      draftQuery.data.draft.changes.filter((item) => item.status !== 'pending')
+                        .length
+                    }{' '}
+                    of 6 sections reviewed. Nothing changes until you accept a section.
+                  </p>
+                )}
+                {draftQuery.data.draft.status === 'failed' && (
+                  <p className="mt-1 text-ui text-danger">
+                    {draftQuery.data.draft.error ?? 'The plan could not be drafted. Try again.'}
+                  </p>
+                )}
+              </div>
+              {editable &&
+                (draftQuery.data.draft.status === 'ready' ||
+                  draftQuery.data.draft.status === 'failed') && (
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => void action.run(discardDraft)}>
+                      Discard draft
+                    </Button>
+                    {draftQuery.data.draft.status === 'ready' && (
+                      <Button onClick={() => void action.run(acceptRemaining)}>
+                        Accept remaining
+                      </Button>
+                    )}
+                  </div>
+                )}
+            </div>
+          </section>
+        )}
         <div className="grid min-h-[calc(100vh-220px)] gap-8 px-8 lg:grid-cols-[minmax(0,760px)_180px] lg:justify-between">
           <main className="min-w-0">
             {drawSection('requirements')}
@@ -571,6 +811,7 @@ function ProjectPlan() {
                   </Button>
                 </div>
               )}
+              {drawChange('milestones')}
             </section>
             <section id="risks" className="scroll-mt-24 border-b border-border py-6">
               <div className="mb-3 flex items-center justify-between">
@@ -816,6 +1057,7 @@ function ProjectPlan() {
                   </Button>
                 </div>
               )}
+              {drawChange('risks')}
             </section>
             {drawSection('stack')}
             {drawSection('estimate')}
@@ -834,14 +1076,58 @@ function ProjectPlan() {
                 <a
                   key={item.id}
                   href={`#${item.id}`}
-                  className="block border-l-2 border-transparent py-1 pl-3 text-text-muted hover:border-accent hover:text-text"
+                  className="block border-l-2 border-transparent py-1 pl-3 text-text-muted capitalize hover:border-accent hover:text-text"
                 >
-                  {item.label}
+                  <span className="flex items-center justify-between gap-2">
+                    {item.label}
+                    {activeDraftId &&
+                      draftQuery.data?.draft.status === 'ready' &&
+                      (() => {
+                        const change = draftQuery.data.draft.changes.find(
+                          (entry) => entry.kind === item.id,
+                        )
+                        return change ? <span>{change.status}</span> : null
+                      })()}
+                  </span>
                 </a>
               ))}
             </nav>
           </aside>
         </div>
+        {decisionsQuery.data?.decisions.length ? (
+          <section className="border-t border-border px-8 py-6">
+            <h2 className="mb-3 font-semibold">Decision log</h2>
+            <div className="max-w-[760px] divide-y divide-border">
+              {decisionsQuery.data.decisions.map((decision) => (
+                <div
+                  key={decision.id}
+                  className="flex items-center justify-between gap-3 py-3 text-ui"
+                >
+                  <span>
+                    {decision.actorName} {decision.outcome} {decision.kind}
+                  </span>
+                  {editable && decision.outcome === 'accepted' && !decision.reversesDecisionId && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void action.run(() => undoDecision(decision.id))}
+                    >
+                      Undo
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        <ToastRegion
+          message={toast?.message ?? null}
+          action={toast?.decisionId ? 'Undo' : undefined}
+          onAction={() => {
+            const decisionId = toast?.decisionId
+            if (decisionId) void action.run(() => undoDecision(decisionId))
+          }}
+        />
         <ActionError error={action.error} />
       </div>
     </WorkspaceShell>
