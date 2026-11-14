@@ -38,6 +38,8 @@ async function mockTasks(page: import('@playwright/test').Page, role = 'owner') 
     assigneeId: null,
     assigneeName: null,
     dueDate: null,
+    milestoneId: 'milestone-1',
+    milestoneCode: 'M1',
     position: 0,
     createdBy: 'owner',
     createdAt: '2026-11-13T00:00:00.000Z',
@@ -56,6 +58,17 @@ async function mockTasks(page: import('@playwright/test').Page, role = 'owner') 
   ]
   const comments: Array<Record<string, unknown>> = []
   const writes: Array<{ method: string; path: string; body?: Record<string, unknown> }> = []
+  const milestones = [
+    {
+      id: 'milestone-1',
+      projectId,
+      code: 'M1',
+      title: 'Private beta',
+      status: 'planning',
+      dueDate: '2026-12-01',
+      position: 0,
+    },
+  ]
   const headers = {
     'access-control-allow-origin': 'http://localhost:5199',
     'access-control-allow-credentials': 'true',
@@ -95,6 +108,11 @@ async function mockTasks(page: import('@playwright/test').Page, role = 'owner') 
         },
       })
     if (path === `/projects/${projectId}`) return route.fulfill({ headers, json: { project } })
+    if (path === `/projects/${projectId}/plan`)
+      return route.fulfill({
+        headers,
+        json: { sections: [], milestones, risks: [], lastChanged: null },
+      })
     if (path === `/projects/${projectId}/tasks` && req.method() === 'GET')
       return route.fulfill({
         headers,
@@ -156,11 +174,13 @@ test('task list, dialog, side panel, board drag, and viewer read-only state', as
   await page.goto(`/northwind/projects/${projectId}/tasks`)
   await expect(page.getByRole('heading', { name: 'Customer portal' })).toBeVisible()
   await expect(page.getByText('PORT-1')).toBeVisible()
+  await expect(page.getByLabel('Filter by milestone')).toBeVisible()
   await page.getByRole('button', { name: 'Build billing form', exact: true }).click()
   await page.getByRole('button', { name: 'Close task' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()
   await page.getByLabel('Task title').fill('Add invoice export')
   await page.getByLabel('New task priority').selectOption('medium')
+  await page.getByLabel('New task milestone').selectOption('milestone-1')
   await page.getByRole('button', { name: 'Create task' }).click()
   await expect(page.getByText('Add invoice export')).toBeVisible()
   expect(
@@ -168,9 +188,13 @@ test('task list, dialog, side panel, board drag, and viewer read-only state', as
       (write) => write.method === 'POST' && write.path === `/projects/${projectId}/tasks`,
     ),
   ).toBe(true)
+  expect(state.writes.find((write) => write.method === 'POST')?.body?.milestoneId).toBe(
+    'milestone-1',
+  )
   await page.getByRole('button', { name: 'Build billing form', exact: true }).click()
   await page.getByLabel('Task status', { exact: true }).selectOption('in_progress')
   await expect.poll(() => state.tasks[0]?.status).toBe('in_progress')
+  await expect(page.getByLabel('Task milestone', { exact: true })).toHaveValue('milestone-1')
   await page.getByLabel('Task comment').fill('Reviewed')
   await page.getByRole('button', { name: 'Post comment' }).click()
   expect(state.writes.some((write) => write.body?.target === `task:${taskId}`)).toBe(true)
@@ -194,5 +218,6 @@ test('viewer can read and comment but sees no task write controls', async ({ pag
   await expect(page.getByRole('button', { name: 'New task', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Build billing form', exact: true }).click()
   await expect(page.getByLabel('Task status', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Task milestone', { exact: true })).toHaveCount(0)
   await expect(page.getByLabel('Task comment')).toBeVisible()
 })

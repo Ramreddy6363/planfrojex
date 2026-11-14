@@ -92,6 +92,7 @@ function ProjectTasks() {
   const editable = workspace.role === 'owner' || workspace.role === 'editor'
   const [assignee, setAssignee] = useState('')
   const [priority, setPriority] = useState('')
+  const [milestoneFilter, setMilestoneFilter] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<TaskStatus[]>(['done'])
@@ -104,8 +105,12 @@ function ProjectTasks() {
     queryKey: ['members', workspace.slug],
     queryFn: () => call(api.workspaces[':ws'].members.$get({ param: { ws: workspace.slug } })),
   })
+  const planQuery = useQuery({
+    queryKey: ['plan', projectId],
+    queryFn: () => call(api.projects[':id'].plan.$get({ param: { id: projectId } })),
+  })
   const tasksQuery = useQuery({
-    queryKey: ['tasks', projectId, { assignee, priority }],
+    queryKey: ['tasks', projectId, { assignee, priority, milestoneFilter }],
     queryFn: () =>
       call(
         projectTasksClient.projects[':id'].tasks.$get({
@@ -113,6 +118,7 @@ function ProjectTasks() {
           query: {
             ...(assignee ? { assignee } : {}),
             ...(priority ? { priority: priority as TaskPriority } : {}),
+            ...(milestoneFilter ? { milestone: milestoneFilter } : {}),
           },
         }),
       ),
@@ -154,6 +160,7 @@ function ProjectTasks() {
       assigneeId: string | null
       priority: TaskPriority
       dueDate: string | null
+      milestoneId: string | null
     },
     keepOpen: boolean,
   ) => {
@@ -172,6 +179,7 @@ function ProjectTasks() {
   const [createAssignee, setCreateAssignee] = useState('')
   const [createPriority, setCreatePriority] = useState<TaskPriority>('medium')
   const [createDueDate, setCreateDueDate] = useState('')
+  const [createMilestone, setCreateMilestone] = useState('')
   const [createAnotherChecked, setCreateAnotherChecked] = useState(false)
 
   const openCreate = (status: TaskStatus = 'todo') => {
@@ -181,6 +189,7 @@ function ProjectTasks() {
     setCreateAssignee('')
     setCreatePriority('medium')
     setCreateDueDate('')
+    setCreateMilestone('')
     setCreateAnotherChecked(false)
     setCreateOpen(true)
   }
@@ -298,10 +307,15 @@ function ProjectTasks() {
                     to: '/$ws/projects/$projectId',
                     params: { ws: workspace.slug, projectId },
                   })
+                if (tab === 'plan')
+                  void navigate({
+                    to: '/$ws/projects/$projectId/plan',
+                    params: { ws: workspace.slug, projectId },
+                  })
               }}
               tabs={[
                 { id: 'brief', label: 'Brief' },
-                { id: 'plan', label: 'Plan', disabled: true },
+                { id: 'plan', label: 'Plan' },
                 {
                   id: 'tasks',
                   label: `Tasks ${tasksQuery.data ? tasksQuery.data.counts.todo + tasksQuery.data.counts.inProgress + tasksQuery.data.counts.done : 0}`,
@@ -349,6 +363,20 @@ function ProjectTasks() {
                   {members.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.name}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  aria-label="Filter by milestone"
+                  className="h-8 w-auto min-w-32 rounded-control text-caption"
+                  value={milestoneFilter}
+                  onChange={(event) => setMilestoneFilter(event.target.value)}
+                >
+                  <option value="">＋ Milestone</option>
+                  <option value="unassigned">No milestone</option>
+                  {planQuery.data?.milestones.map((milestone) => (
+                    <option key={milestone.id} value={milestone.id}>
+                      {milestone.code} · {milestone.title}
                     </option>
                   ))}
                 </Select>
@@ -442,6 +470,11 @@ function ProjectTasks() {
                             {task.key}
                           </span>
                           <span className="mt-1 block text-ui leading-5">{task.title}</span>
+                          {task.milestoneCode && (
+                            <span className="mt-2 inline-flex rounded-control border border-border px-1.5 py-0.5 text-micro text-text-muted">
+                              {task.milestoneCode}
+                            </span>
+                          )}
                           <span className="mt-2 flex items-center gap-2 text-caption text-text-muted">
                             <PriorityGlyph priority={task.priority} />
                             {task.dueDate && (
@@ -520,6 +553,7 @@ function ProjectTasks() {
                         key={selectedTask.id}
                         task={selectedTask}
                         members={members}
+                        milestones={planQuery.data?.milestones ?? []}
                         editable={editable}
                         busy={action.busy}
                         onPatch={async (patch) => {
@@ -596,6 +630,7 @@ function ProjectTasks() {
                               />
                               <button
                                 type="button"
+                                aria-label={task.title}
                                 onClick={() => selectTask(task.id)}
                                 className="text-left font-mono text-caption text-text-muted hover:text-text"
                               >
@@ -607,6 +642,11 @@ function ProjectTasks() {
                                 className="truncate text-left text-ui"
                               >
                                 {task.title}
+                                {task.milestoneCode && (
+                                  <span className="rounded-control border border-border px-1.5 py-0.5 text-micro text-text-muted">
+                                    {task.milestoneCode}
+                                  </span>
+                                )}
                               </button>
                               <PriorityGlyph priority={task.priority} />
                               <span className="flex justify-center">
@@ -698,6 +738,7 @@ function ProjectTasks() {
                         key={selectedTask.id}
                         task={selectedTask}
                         members={members}
+                        milestones={planQuery.data?.milestones ?? []}
                         editable={editable}
                         busy={action.busy}
                         onPatch={async (patch) => {
@@ -734,8 +775,10 @@ function ProjectTasks() {
             assignee={createAssignee}
             priority={createPriority}
             dueDate={createDueDate}
+            milestoneId={createMilestone}
             createAnother={createAnotherChecked}
             members={members}
+            milestones={planQuery.data?.milestones ?? []}
             projectName={project.name}
             busy={action.busy}
             error={action.error}
@@ -746,6 +789,7 @@ function ProjectTasks() {
             setAssignee={setCreateAssignee}
             setPriority={setCreatePriority}
             setDueDate={setCreateDueDate}
+            setMilestoneId={setCreateMilestone}
             setCreateAnother={setCreateAnotherChecked}
             onCreate={() =>
               action.run(async () => {
@@ -757,6 +801,7 @@ function ProjectTasks() {
                     assigneeId: createAssignee || null,
                     priority: createPriority,
                     dueDate: createDueDate || null,
+                    milestoneId: createMilestone || null,
                   },
                   createAnotherChecked,
                 )
@@ -811,18 +856,22 @@ type TaskData = {
   assigneeId: string | null
   assigneeName: string | null
   dueDate: string | null
+  milestoneId: string | null
+  milestoneCode: string | null
   position: number
 }
 
 function TaskPanel({
   task,
   members,
+  milestones,
   editable,
   busy,
   onPatch,
 }: {
   task: TaskData
   members: Member[]
+  milestones: { id: string; code: string; title: string }[]
   editable: boolean
   busy: boolean
   onPatch: (patch: {
@@ -832,6 +881,7 @@ function TaskPanel({
     assigneeId?: string | null
     priority?: TaskPriority
     dueDate?: string | null
+    milestoneId?: string | null
   }) => Promise<void>
 }) {
   const [titleEditing, setTitleEditing] = useState(false)
@@ -953,6 +1003,26 @@ function TaskPanel({
             formatProjectDate(task.dueDate)
           )}
         </PropertyRow>
+        <PropertyRow label="Milestone">
+          {editable ? (
+            <Select
+              aria-label="Task milestone"
+              value={task.milestoneId ?? ''}
+              onChange={(event) => void onPatch({ milestoneId: event.target.value || null })}
+              className="w-40"
+            >
+              <option value="">No milestone</option>
+              {milestones.map((milestone) => (
+                <option key={milestone.id} value={milestone.id}>
+                  {milestone.code} · {milestone.title}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            (milestones.find((milestone) => milestone.id === task.milestoneId)?.code ??
+            'No milestone')
+          )}
+        </PropertyRow>
       </dl>
       <section className="border-t border-border pt-4" aria-labelledby="task-description">
         <div className="mb-2 flex items-center justify-between">
@@ -1021,8 +1091,10 @@ function CreateTaskDialog({
   assignee,
   priority,
   dueDate,
+  milestoneId,
   createAnother,
   members,
+  milestones,
   projectName,
   busy,
   error,
@@ -1033,6 +1105,7 @@ function CreateTaskDialog({
   setAssignee,
   setPriority,
   setDueDate,
+  setMilestoneId,
   setCreateAnother,
   onCreate,
 }: {
@@ -1043,8 +1116,10 @@ function CreateTaskDialog({
   assignee: string
   priority: TaskPriority
   dueDate: string
+  milestoneId: string
   createAnother: boolean
   members: Member[]
+  milestones: { id: string; code: string; title: string }[]
   projectName: string
   busy: boolean
   error: string
@@ -1055,6 +1130,7 @@ function CreateTaskDialog({
   setAssignee: (value: string) => void
   setPriority: (value: TaskPriority) => void
   setDueDate: (value: string) => void
+  setMilestoneId: (value: string) => void
   setCreateAnother: (value: boolean) => void
   onCreate: () => void
 }) {
@@ -1136,6 +1212,18 @@ function CreateTaskDialog({
             value={dueDate}
             onChange={(event) => setDueDate(event.target.value)}
           />
+          <Select
+            aria-label="New task milestone"
+            value={milestoneId}
+            onChange={(event) => setMilestoneId(event.target.value)}
+          >
+            <option value="">No milestone</option>
+            {milestones.map((milestone) => (
+              <option key={milestone.id} value={milestone.id}>
+                {milestone.code} · {milestone.title}
+              </option>
+            ))}
+          </Select>
         </div>
         <ActionError error={error} />
       </div>

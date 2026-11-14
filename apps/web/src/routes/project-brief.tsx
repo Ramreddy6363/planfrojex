@@ -334,6 +334,11 @@ function ProjectBrief() {
             <Tabs
               value="brief"
               onChange={(tab) => {
+                if (tab === 'plan')
+                  void navigate({
+                    to: '/$ws/projects/$projectId/plan',
+                    params: { ws: workspace.slug, projectId },
+                  })
                 if (tab === 'tasks')
                   void navigate({
                     to: '/$ws/projects/$projectId/tasks',
@@ -343,7 +348,7 @@ function ProjectBrief() {
               }}
               tabs={[
                 { id: 'brief', label: 'Brief' },
-                { id: 'plan', label: 'Plan', disabled: true },
+                { id: 'plan', label: 'Plan' },
                 { id: 'tasks', label: 'Tasks' },
                 { id: 'diagrams', label: 'Diagrams', disabled: true },
                 { id: 'activity', label: 'Activity', disabled: true },
