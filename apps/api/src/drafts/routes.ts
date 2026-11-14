@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { TriggerClient } from '@trigger.dev/sdk'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { recordActivity } from '../activity/service'
 import {
   decisions,
   diagrams,
@@ -401,6 +402,68 @@ async function restoreTaskMilestones(tx: Tx, projectId: string, snapshot: TaskMi
       .where(and(eq(tasks.id, task.id), eq(tasks.projectId, projectId)))
 }
 
+async function recordMilestoneTaskChanges(
+  tx: Tx,
+  workspaceId: string,
+  projectId: string,
+  actorId: string,
+  before: TaskMilestoneSnapshot,
+  after: TaskMilestoneSnapshot,
+  planSnapshots: unknown[],
+) {
+  const previous = new Map(before.map((task) => [task.id, task.milestoneId]))
+  const next = new Map(after.map((task) => [task.id, task.milestoneId]))
+  const changed = after.filter(
+    (task) => previous.has(task.id) && previous.get(task.id) !== task.milestoneId,
+  )
+  if (!changed.length) return
+  const names = new Map<string, string>()
+  for (const snapshot of planSnapshots)
+    if (Array.isArray(snapshot))
+      for (const row of snapshot) {
+        if (
+          row &&
+          typeof row === 'object' &&
+          typeof row.id === 'string' &&
+          typeof row.title === 'string'
+        )
+          names.set(row.id, row.title)
+      }
+  const metadata = await tx
+    .select({ id: tasks.id, title: tasks.title, number: tasks.number, projectKey: projects.key })
+    .from(tasks)
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .where(
+      and(
+        eq(tasks.projectId, projectId),
+        eq(projects.workspaceId, workspaceId),
+        inArray(
+          tasks.id,
+          changed.map((task) => task.id),
+        ),
+      ),
+    )
+  for (const task of metadata) {
+    const beforeId = previous.get(task.id) ?? null,
+      afterId = next.get(task.id) ?? null
+    await recordActivity(tx, {
+      workspaceId,
+      projectId,
+      actorId,
+      type: 'task.milestone_changed',
+      subject: task.id,
+      payload: {
+        taskKey: `${task.projectKey}-${task.number}`,
+        title: task.title,
+        before: beforeId,
+        after: afterId,
+        beforeName: beforeId ? (names.get(beforeId) ?? null) : null,
+        afterName: afterId ? (names.get(afterId) ?? null) : null,
+      },
+    })
+  }
+}
+
 async function applyValue(
   tx: Tx,
   projectId: string,
@@ -611,6 +674,18 @@ async function acceptChange(
       return { kind: 'invalid-owner' as const }
     const beforeTaskMilestones =
       change.kind === 'milestones' ? await currentTaskMilestones(tx, projectId) : null
+    const [diagramBefore] =
+      change.kind === 'diagram' && diagramIdOf(change)
+        ? await tx
+            .select({ name: diagrams.name, version: diagrams.currentVersion })
+            .from(diagrams)
+            .where(
+              and(
+                eq(diagrams.id, diagramIdOf(change) as string),
+                eq(diagrams.projectId, projectId),
+              ),
+            )
+        : []
     await applyValue(
       tx,
       projectId,
@@ -625,13 +700,12 @@ async function acceptChange(
       change.kind,
       diagramIdOf(change),
     )
+    const afterTaskMilestones = beforeTaskMilestones
+      ? await currentTaskMilestones(tx, projectId)
+      : null
     const appliedSnapshot =
       change.kind === 'milestones'
-        ? {
-            plan: appliedPlanSnapshot,
-            taskMilestones: await currentTaskMilestones(tx, projectId),
-            beforeTaskMilestones,
-          }
+        ? { plan: appliedPlanSnapshot, taskMilestones: afterTaskMilestones, beforeTaskMilestones }
         : appliedPlanSnapshot
     const [decision] = await tx
       .insert(decisions)
@@ -653,6 +727,31 @@ async function acceptChange(
         .update(projects)
         .set({ planUpdatedAt: new Date(), planUpdatedBy: actorId })
         .where(eq(projects.id, projectId))
+    if (beforeTaskMilestones && afterTaskMilestones)
+      await recordMilestoneTaskChanges(
+        tx,
+        workspaceId,
+        projectId,
+        actorId,
+        beforeTaskMilestones,
+        afterTaskMilestones,
+        [current, appliedPlanSnapshot],
+      )
+    await recordActivity(tx, {
+      workspaceId,
+      projectId,
+      actorId,
+      type: change.kind === 'diagram' ? 'diagram.draft_accepted' : 'draft.accepted',
+      subject: diagramIdOf(change) ?? change.id,
+      payload: diagramBefore
+        ? {
+            name: diagramBefore.name,
+            before: diagramBefore.version,
+            after: diagramBefore.version + 1,
+            decisionId: decision?.id,
+          }
+        : { section: change.kind, before: 'pending', after: 'accepted', decisionId: decision?.id },
+    })
     return { kind: 'accepted' as const, decisionId: decision?.id }
   })
 }
@@ -723,18 +822,29 @@ export function createProjectDraftRoutes(
           !options.draftModel &&
           !options.diagramDraftModel,
       )
-      const [draft] = await db
-        .insert(drafts)
-        .values({
+      const draft = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(drafts)
+          .values({
+            projectId,
+            kind: input?.kind ?? 'plan',
+            diagramId: input?.kind === 'diagram' ? input.diagramId : null,
+            prompt: input?.kind === 'diagram' ? input.prompt : null,
+            model: hasKeys ? 'claude-opus-5-5' : 'fake',
+            createdBy: actorId,
+          })
+          .returning({ id: drafts.id })
+        if (!created) throw new Error('Draft insert failed')
+        await recordActivity(tx, {
+          workspaceId: project.workspaceId,
           projectId,
-          kind: input?.kind ?? 'plan',
-          diagramId: input?.kind === 'diagram' ? input.diagramId : null,
-          prompt: input?.kind === 'diagram' ? input.prompt : null,
-          model: hasKeys ? 'claude-opus-5-5' : 'fake',
-          createdBy: actorId,
+          actorId,
+          type: 'draft.started',
+          subject: created.id,
+          payload: { kind: input?.kind ?? 'plan', before: null, after: 'queued' },
         })
-        .returning({ id: drafts.id })
-      if (!draft) throw new Error('Draft insert failed')
+        return created
+      })
       const run = async () => {
         try {
           if (hasKeys) {
@@ -861,6 +971,19 @@ export function createProjectDraftRoutes(
           .update(draftChanges)
           .set({ status: 'rejected', updatedAt: new Date() })
           .where(eq(draftChanges.id, change.id))
+        await recordActivity(tx, {
+          workspaceId: draft.workspaceId,
+          projectId: draft.projectId,
+          actorId,
+          type: 'draft.rejected',
+          subject: change.id,
+          payload: {
+            section: change.kind,
+            before: 'pending',
+            after: 'rejected',
+            decisionId: decision?.id,
+          },
+        })
         return [decision]
       })
       if (!result) return c.json({ error: 'Draft change not found' }, 404)
@@ -905,6 +1028,9 @@ export function createProjectDraftRoutes(
             .for('update')
           pending.sort((a, b) => allDraftKinds.indexOf(a.kind) - allDraftKinds.indexOf(b.kind))
           const decisionIds: string[] = []
+          let acceptedDiagram:
+            | { name: string; before: number; after: number; id: string }
+            | undefined
           for (const change of pending) {
             const current = await currentSnapshot(
               tx,
@@ -922,6 +1048,24 @@ export function createProjectDraftRoutes(
               change.kind === 'milestones'
                 ? await currentTaskMilestones(tx, visible.projectId)
                 : null
+            if (change.kind === 'diagram' && diagramIdOf(change)) {
+              const [diagram] = await tx
+                .select({ id: diagrams.id, name: diagrams.name, version: diagrams.currentVersion })
+                .from(diagrams)
+                .where(
+                  and(
+                    eq(diagrams.id, diagramIdOf(change) as string),
+                    eq(diagrams.projectId, visible.projectId),
+                  ),
+                )
+              if (diagram)
+                acceptedDiagram = {
+                  id: diagram.id,
+                  name: diagram.name,
+                  before: diagram.version,
+                  after: diagram.version + 1,
+                }
+            }
             await applyValue(
               tx,
               visible.projectId,
@@ -936,14 +1080,27 @@ export function createProjectDraftRoutes(
               change.kind,
               diagramIdOf(change),
             )
+            const afterTaskMilestones = beforeTaskMilestones
+              ? await currentTaskMilestones(tx, visible.projectId)
+              : null
             const appliedSnapshot =
               change.kind === 'milestones'
                 ? {
                     plan: appliedPlanSnapshot,
-                    taskMilestones: await currentTaskMilestones(tx, visible.projectId),
+                    taskMilestones: afterTaskMilestones,
                     beforeTaskMilestones,
                   }
                 : appliedPlanSnapshot
+            if (beforeTaskMilestones && afterTaskMilestones)
+              await recordMilestoneTaskChanges(
+                tx,
+                visible.workspaceId,
+                visible.projectId,
+                actorId,
+                beforeTaskMilestones,
+                afterTaskMilestones,
+                [current, appliedPlanSnapshot],
+              )
             const [decision] = await tx
               .insert(decisions)
               .values({
@@ -966,6 +1123,27 @@ export function createProjectDraftRoutes(
               .update(projects)
               .set({ planUpdatedAt: new Date(), planUpdatedBy: actorId })
               .where(eq(projects.id, visible.projectId))
+          if (pending.length)
+            await recordActivity(tx, {
+              workspaceId: visible.workspaceId,
+              projectId: visible.projectId,
+              actorId,
+              type: acceptedDiagram ? 'diagram.draft_accepted' : 'draft.accepted_all',
+              subject: acceptedDiagram?.id ?? id,
+              payload: acceptedDiagram
+                ? {
+                    name: acceptedDiagram.name,
+                    before: acceptedDiagram.before,
+                    after: acceptedDiagram.after,
+                    decisionIds,
+                  }
+                : {
+                    sections: pending.map((change) => change.kind),
+                    before: 'pending',
+                    after: 'accepted',
+                    decisionIds,
+                  },
+            })
           return { kind: 'accepted' as const, accepted: pending.length, decisionIds }
         })
       } catch (cause) {
@@ -1091,6 +1269,9 @@ export function createProjectDraftRoutes(
           !(await riskOwnersAreMembers(tx, visible.workspaceId, change.before))
         )
           return { kind: 'stale' as const }
+        const beforeUndoTasks = milestoneSnapshot
+          ? await currentTaskMilestones(tx, visible.projectId)
+          : null
         await applyValue(
           tx,
           visible.projectId,
@@ -1135,6 +1316,30 @@ export function createProjectDraftRoutes(
           .update(projects)
           .set({ planUpdatedAt: new Date(), planUpdatedBy: actorId })
           .where(eq(projects.id, visible.projectId))
+        if (beforeUndoTasks)
+          await recordMilestoneTaskChanges(
+            tx,
+            visible.workspaceId,
+            visible.projectId,
+            actorId,
+            beforeUndoTasks,
+            await currentTaskMilestones(tx, visible.projectId),
+            [current, restored],
+          )
+        await recordActivity(tx, {
+          workspaceId: visible.workspaceId,
+          projectId: visible.projectId,
+          actorId,
+          type: 'draft.undone',
+          subject: change.id,
+          payload: {
+            section: change.kind,
+            before: 'accepted',
+            after: 'pending',
+            decisionId: reversal?.id,
+            reversesDecisionId: id,
+          },
+        })
         return { kind: 'reversed' as const, decisionId: reversal?.id }
       })
       if (result.kind === 'missing') return c.json({ error: 'Decision not found' }, 404)

@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { recordActivity } from '../activity/service'
 import { memberships, milestones, projects, tasks, user, workspaces } from '../db/schema'
 import type { Env } from '../env'
 import {
@@ -351,7 +352,7 @@ export function createProjectTaskRoutes(
               ),
             )
           const [project] = await tx
-            .select({ id: projects.id })
+            .select({ id: projects.id, key: projects.key })
             .from(projects)
             .where(
               and(
@@ -403,6 +404,25 @@ export function createProjectTaskRoutes(
             })
             .returning({ id: tasks.id })
           if (!created) throw new Error('Task was not created')
+          await recordActivity(tx, {
+            workspaceId: visible.workspaceId,
+            projectId,
+            actorId,
+            type: 'task.created',
+            subject: created.id,
+            payload: {
+              taskKey: `${project.key}-${number}`,
+              title: input.title,
+              before: null,
+              after: {
+                status: input.status,
+                priority: input.priority,
+                assigneeId: input.assigneeId ?? null,
+                dueDate: input.dueDate ?? null,
+                milestoneId: input.milestoneId ?? null,
+              },
+            },
+          })
           return { kind: 'created' as const, id: created.id }
         })
         if (result.kind === 'missing') return c.json({ error: 'Project not found' }, 404)
@@ -460,7 +480,18 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
           if (!actor) return 'missing' as const
           if (!isWritable(actor.role)) return 'forbidden' as const
           const [task] = await tx
-            .select({ id: tasks.id, projectId: tasks.projectId, status: tasks.status })
+            .select({
+              id: tasks.id,
+              projectId: tasks.projectId,
+              status: tasks.status,
+              title: tasks.title,
+              number: tasks.number,
+              priority: tasks.priority,
+              assigneeId: tasks.assigneeId,
+              dueDate: tasks.dueDate,
+              milestoneId: tasks.milestoneId,
+              projectKey: projects.key,
+            })
             .from(tasks)
             .innerJoin(projects, eq(projects.id, tasks.projectId))
             .where(
@@ -550,6 +581,71 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
                 )
                 .where(eq(tasks.id, row.id))
           }
+          for (const [field, type] of [
+            ['status', 'task.status_changed'],
+            ['assigneeId', 'task.assignee_changed'],
+            ['priority', 'task.priority_changed'],
+            ['dueDate', 'task.due_date_changed'],
+            ['milestoneId', 'task.milestone_changed'],
+          ] as const) {
+            if (input[field] === undefined || input[field] === task[field]) continue
+            let beforeName: string | null | undefined, afterName: string | null | undefined
+            if (field === 'assigneeId') {
+              const [before] = task.assigneeId
+                ? await tx
+                    .select({ name: user.name })
+                    .from(user)
+                    .where(eq(user.id, task.assigneeId))
+                : []
+              const [after] = input.assigneeId
+                ? await tx
+                    .select({ name: user.name })
+                    .from(user)
+                    .where(eq(user.id, input.assigneeId))
+                : []
+              beforeName = before?.name ?? null
+              afterName = after?.name ?? null
+            } else if (field === 'milestoneId') {
+              const [before] = task.milestoneId
+                ? await tx
+                    .select({ name: milestones.title })
+                    .from(milestones)
+                    .where(
+                      and(
+                        eq(milestones.id, task.milestoneId),
+                        eq(milestones.projectId, task.projectId),
+                      ),
+                    )
+                : []
+              const [after] = input.milestoneId
+                ? await tx
+                    .select({ name: milestones.title })
+                    .from(milestones)
+                    .where(
+                      and(
+                        eq(milestones.id, input.milestoneId),
+                        eq(milestones.projectId, task.projectId),
+                      ),
+                    )
+                : []
+              beforeName = before?.name ?? null
+              afterName = after?.name ?? null
+            }
+            await recordActivity(tx, {
+              workspaceId: visible.workspaceId,
+              projectId: task.projectId,
+              actorId,
+              type,
+              subject: id,
+              payload: {
+                taskKey: `${task.projectKey}-${task.number}`,
+                title: input.title ?? task.title,
+                before: task[field],
+                after: input[field],
+                ...(beforeName !== undefined ? { beforeName, afterName } : {}),
+              },
+            })
+          }
           return 'updated' as const
         })
         if (result === 'missing') return c.json({ error: 'Task not found' }, 404)
@@ -591,7 +687,13 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
           if (!actor) return 'missing' as const
           if (!isWritable(actor.role)) return 'forbidden' as const
           const [task] = await tx
-            .select({ id: tasks.id })
+            .select({
+              id: tasks.id,
+              projectId: tasks.projectId,
+              number: tasks.number,
+              title: tasks.title,
+              projectKey: projects.key,
+            })
             .from(tasks)
             .innerJoin(projects, eq(projects.id, tasks.projectId))
             .where(
@@ -604,6 +706,19 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
             .for('no key update')
           if (!task) return 'missing' as const
           await tx.delete(tasks).where(eq(tasks.id, id))
+          await recordActivity(tx, {
+            workspaceId: visible.workspaceId,
+            projectId: task.projectId,
+            actorId,
+            type: 'task.deleted',
+            subject: id,
+            payload: {
+              taskKey: `${task.projectKey}-${task.number}`,
+              title: task.title,
+              before: { title: task.title },
+              after: null,
+            },
+          })
           return 'deleted' as const
         })
         if (result === 'missing') return c.json({ error: 'Task not found' }, 404)

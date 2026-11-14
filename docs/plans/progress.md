@@ -133,6 +133,20 @@ Screen: 407. Tables/API: boards 1004/1005 (diagrams, diagram_versions). Uses the
 4. Sequence diagrams: recommend drawing them with the same node/edge canvas (actors + arrows) rather than a separate sequence renderer.
 - **Out of scope:** pen tool, R2 storage, export to PNG/SVG, comments on diagrams, real-time co-editing, Share.
 
+## 2026-11-14: Feature 9 Activity — approved 2026-11-14 (with the three recommendations)
+Screen: 408 (Activity tab). Table/API: boards 1004 (`activity`) and 1005 (GET /projects/:id/activity). No new dependencies.
+- **Page:** filters "Everyone" (workspace members) and "All changes" (Comments, Tasks, Plan and drafts, Diagrams, Project details); timeline grouped Today / Yesterday / date, each row = avatar, name, sentence, time, and an optional detail line (comment quote, `v2 → v3`, status glyph → glyph, `Nov 28 → Dec 12`). Load more at the bottom (cursor). Everyone in the workspace can read it (O/E/V).
+- **What gets recorded** (written in the same transaction as the change, so activity never lies): project status/lead/target date/name/brief section edits; task created, status/assignee/priority/due/milestone changed, deleted ("took PORT-36" when someone assigns themselves); comment added on brief or task; plan section, milestone and risk changes; draft started, section accepted/rejected, accept-all, undo; diagram created, version saved, restored, draft accepted, deleted.
+- **Table (migration 0007, additive):** `activity` (id uuid v7, workspace_id, project_id, actor_id, type, subject (e.g. task id), payload jsonb with before/after, created_at). Index (project_id, created_at desc, id). Autosaves of a diagram's working copy are not recorded (only versions).
+- **Endpoint:** GET /projects/:id/activity?actor=&category=&cursor=&limit≤100 (O/E/V); member of another workspace gets 404; actor filter must be a workspace member.
+- **Header tab:** Activity tab becomes live.
+
+**Open questions**
+1. History before this ships is not backfilled; the timeline starts empty for existing projects (recommended; the decision log already covers plan history).
+2. Comments: the row stores the comment id and shows the current text; a deleted comment's row shows "deleted a comment" with no quote, so deleted text never lingers (recommended).
+3. Brief/plan text edits show only "edited the Problem section", not the full before/after text (recommended, keeps rows short and payloads small).
+- **Out of scope:** Inbox and notifications (11, which will read this table), workspace-wide activity feed, realtime updates, export.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
@@ -147,7 +161,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 6 | Tasks | List, board, New task dialog, task side panel | shipped 2026-11-13 |
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | shipped 2026-11-14 |
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | shipped 2026-11-14 |
-| 9 | Activity | Timeline, filters | |
+| 9 | Activity | Timeline, filters | shipped 2026-11-14 |
 | 10 | My tasks | My tasks | |
 | 11 | Inbox | Mentions, assignments, replies | |
 | 12 | ⌘K search | Search overlay | |

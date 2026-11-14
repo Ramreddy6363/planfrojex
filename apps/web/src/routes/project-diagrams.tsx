@@ -438,6 +438,11 @@ function ProjectDiagrams() {
           <Tabs
             value="diagrams"
             onChange={(tab) => {
+              if (tab === 'activity')
+                void navigate({
+                  to: '/$ws/projects/$projectId/activity',
+                  params: { ws: workspace.slug, projectId },
+                })
               if (tab === 'brief')
                 void navigate({
                   to: '/$ws/projects/$projectId',
@@ -460,7 +465,7 @@ function ProjectDiagrams() {
               { id: 'plan', label: 'Plan' },
               { id: 'tasks', label: `Tasks ${project.taskProgress.total}` },
               { id: 'diagrams', label: `Diagrams ${diagrams.length}` },
-              { id: 'activity', label: 'Activity', disabled: true },
+              { id: 'activity', label: 'Activity' },
             ]}
           />
         </div>

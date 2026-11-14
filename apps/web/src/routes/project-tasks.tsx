@@ -306,6 +306,11 @@ function ProjectTasks() {
             <Tabs
               value="tasks"
               onChange={(tab) => {
+                if (tab === 'activity')
+                  void navigate({
+                    to: '/$ws/projects/$projectId/activity',
+                    params: { ws: workspace.slug, projectId },
+                  })
                 if (tab === 'diagrams')
                   void navigate({
                     to: '/$ws/projects/$projectId/diagrams',
@@ -330,7 +335,7 @@ function ProjectTasks() {
                   label: `Tasks ${tasksQuery.data ? tasksQuery.data.counts.todo + tasksQuery.data.counts.inProgress + tasksQuery.data.counts.done : 0}`,
                 },
                 { id: 'diagrams', label: `Diagrams ${diagramsQuery.data?.diagrams.length ?? 0}` },
-                { id: 'activity', label: 'Activity', disabled: true },
+                { id: 'activity', label: 'Activity' },
               ]}
             />
           </div>

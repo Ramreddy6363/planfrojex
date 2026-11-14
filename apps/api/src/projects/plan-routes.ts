@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { recordActivity } from '../activity/service'
 import { memberships, milestones, planSections, projects, risks, tasks, user } from '../db/schema'
 import type { Env } from '../env'
 import {
@@ -373,6 +374,14 @@ export function createProjectPlanRoutes(
           .update(projects)
           .set({ planUpdatedAt: now, planUpdatedBy: actor })
           .where(and(eq(projects.id, id), eq(projects.workspaceId, project.workspaceId)))
+        await recordActivity(tx, {
+          workspaceId: project.workspaceId,
+          projectId: id,
+          actorId: actor,
+          type: 'plan.section_edited',
+          subject: id,
+          payload: { section: kind },
+        })
         return row
       })
       if (!updated) return c.json({ error: 'Section changed since it was loaded' }, 409)
@@ -430,6 +439,24 @@ export function createProjectPlanRoutes(
           .update(projects)
           .set({ planUpdatedAt: now, planUpdatedBy: actor })
           .where(and(eq(projects.id, projectId), eq(projects.workspaceId, project.workspaceId)))
+        await recordActivity(tx, {
+          workspaceId: project.workspaceId,
+          projectId,
+          actorId: actor,
+          type: 'plan.milestone_created',
+          subject: created?.id ?? null,
+          payload: {
+            before: null,
+            after: created
+              ? {
+                  code: created.code,
+                  title: created.title,
+                  status: created.status,
+                  dueDate: created.dueDate,
+                }
+              : null,
+          },
+        })
         return created
       })
       if (!row) throw new Error('Milestone insert failed')
@@ -462,6 +489,12 @@ export function createProjectPlanRoutes(
           .from(projects)
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
           .for('no key update')
+        const [before] = await tx
+          .select()
+          .from(milestones)
+          .where(and(eq(milestones.id, id), eq(milestones.projectId, row.projectId)))
+          .for('update')
+        if (!before) return null
         const [milestone] = await tx
           .update(milestones)
           .set({ ...input, updatedAt: new Date() })
@@ -472,6 +505,27 @@ export function createProjectPlanRoutes(
           .update(projects)
           .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+        await recordActivity(tx, {
+          workspaceId: row.workspaceId,
+          projectId: row.projectId,
+          actorId: actor,
+          type: 'plan.milestone_updated',
+          subject: id,
+          payload: {
+            before: {
+              code: before.code,
+              title: before.title,
+              status: before.status,
+              dueDate: before.dueDate,
+            },
+            after: {
+              code: milestone.code,
+              title: milestone.title,
+              status: milestone.status,
+              dueDate: milestone.dueDate,
+            },
+          },
+        })
         return milestone
       })
       if (!updated) return c.json({ error: 'Milestone not found' }, 404)
@@ -503,6 +557,24 @@ export function createProjectPlanRoutes(
           .from(projects)
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
           .for('no key update')
+        const [before] = await tx
+          .select()
+          .from(milestones)
+          .where(and(eq(milestones.id, id), eq(milestones.projectId, row.projectId)))
+          .for('update')
+        if (!before) return
+        const linkedTasks = await tx
+          .select({
+            id: tasks.id,
+            number: tasks.number,
+            title: tasks.title,
+            milestoneId: tasks.milestoneId,
+            projectKey: projects.key,
+          })
+          .from(tasks)
+          .innerJoin(projects, eq(projects.id, tasks.projectId))
+          .where(and(eq(tasks.milestoneId, id), eq(tasks.projectId, row.projectId)))
+          .for('update', { of: tasks })
         await tx
           .update(tasks)
           .set({ milestoneId: null, updatedAt: new Date() })
@@ -514,6 +586,38 @@ export function createProjectPlanRoutes(
           .update(projects)
           .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+        for (const task of linkedTasks)
+          await recordActivity(tx, {
+            workspaceId: row.workspaceId,
+            projectId: row.projectId,
+            actorId: actor,
+            type: 'task.milestone_changed',
+            subject: task.id,
+            payload: {
+              taskKey: `${task.projectKey}-${task.number}`,
+              title: task.title,
+              before: task.milestoneId,
+              after: null,
+              beforeName: before.title,
+              afterName: null,
+            },
+          })
+        await recordActivity(tx, {
+          workspaceId: row.workspaceId,
+          projectId: row.projectId,
+          actorId: actor,
+          type: 'plan.milestone_deleted',
+          subject: id,
+          payload: {
+            before: {
+              code: before.code,
+              title: before.title,
+              status: before.status,
+              dueDate: before.dueDate,
+            },
+            after: null,
+          },
+        })
       })
       return c.json({ ok: true as const }, 200)
     })
@@ -566,6 +670,25 @@ export function createProjectPlanRoutes(
           .update(projects)
           .set({ planUpdatedAt: now, planUpdatedBy: actor })
           .where(and(eq(projects.id, projectId), eq(projects.workspaceId, project.workspaceId)))
+        await recordActivity(tx, {
+          workspaceId: project.workspaceId,
+          projectId,
+          actorId: actor,
+          type: 'plan.risk_created',
+          subject: created?.id ?? null,
+          payload: {
+            before: null,
+            after: created
+              ? {
+                  code: created.code,
+                  title: created.title,
+                  severity: created.severity,
+                  ownerId: created.ownerId,
+                  decideBy: created.decideBy,
+                }
+              : null,
+          },
+        })
         return created
       })
       if (!row) throw new Error('Risk insert failed')
@@ -613,6 +736,12 @@ export function createProjectPlanRoutes(
           .from(projects)
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
           .for('no key update')
+        const [before] = await tx
+          .select()
+          .from(risks)
+          .where(and(eq(risks.id, id), eq(risks.projectId, row.projectId)))
+          .for('update')
+        if (!before) return null
         const [risk] = await tx
           .update(risks)
           .set({ ...input, updatedAt: new Date() })
@@ -623,6 +752,29 @@ export function createProjectPlanRoutes(
           .update(projects)
           .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+        await recordActivity(tx, {
+          workspaceId: row.workspaceId,
+          projectId: row.projectId,
+          actorId: actor,
+          type: 'plan.risk_updated',
+          subject: id,
+          payload: {
+            before: {
+              code: before.code,
+              title: before.title,
+              severity: before.severity,
+              ownerId: before.ownerId,
+              decideBy: before.decideBy,
+            },
+            after: {
+              code: risk.code,
+              title: risk.title,
+              severity: risk.severity,
+              ownerId: risk.ownerId,
+              decideBy: risk.decideBy,
+            },
+          },
+        })
         return risk
       })
       if (!updated) return c.json({ error: 'Risk not found' }, 404)
@@ -654,11 +806,34 @@ export function createProjectPlanRoutes(
           .from(projects)
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
           .for('no key update')
+        const [before] = await tx
+          .select()
+          .from(risks)
+          .where(and(eq(risks.id, id), eq(risks.projectId, row.projectId)))
+          .for('update')
+        if (!before) return
         await tx.delete(risks).where(and(eq(risks.id, id), eq(risks.projectId, row.projectId)))
         await tx
           .update(projects)
           .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
           .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+        await recordActivity(tx, {
+          workspaceId: row.workspaceId,
+          projectId: row.projectId,
+          actorId: actor,
+          type: 'plan.risk_deleted',
+          subject: id,
+          payload: {
+            before: {
+              code: before.code,
+              title: before.title,
+              severity: before.severity,
+              ownerId: before.ownerId,
+              decideBy: before.decideBy,
+            },
+            after: null,
+          },
+        })
       })
       return c.json({ ok: true as const }, 200)
     })
