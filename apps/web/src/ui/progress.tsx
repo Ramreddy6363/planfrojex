@@ -1,4 +1,12 @@
-export const Progress = ({ value: raw, label }: { value: number; label: string }) => {
+export const Progress = ({
+  value: raw,
+  label,
+  className = 'w-30',
+}: {
+  value: number
+  label: string
+  className?: string
+}) => {
   const value = Math.min(100, Math.max(0, raw))
   return (
     <div
@@ -7,7 +15,7 @@ export const Progress = ({ value: raw, label }: { value: number; label: string }
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={value}
-      className="h-1 w-30 overflow-hidden rounded-xs bg-bg-muted"
+      className={`h-1 overflow-hidden rounded-xs bg-bg-muted ${className}`}
     >
       <div className="h-full bg-accent" style={{ width: `${value}%` }} />
     </div>

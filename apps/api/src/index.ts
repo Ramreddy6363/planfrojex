@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { z } from 'zod'
+import { createActivityRoutes } from './activity/routes'
 import { createAuth } from './auth'
 import { connect } from './db'
 import { createDiagramRoutes, createProjectDiagramRoutes } from './diagrams/routes'
@@ -67,6 +68,7 @@ export function createApp(
     .route('/', createWorkspaceRoutes(options))
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
+    .route('/', createActivityRoutes(options))
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
     .route('/', createProjectDraftRoutes(options))

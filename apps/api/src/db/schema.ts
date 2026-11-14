@@ -397,6 +397,27 @@ export const decisions = pgTable(
   ],
 )
 
+export const activity = pgTable(
+  'activity',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => user.id),
+    type: text('type').notNull(),
+    subject: text('subject'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('activity_project_created_idx').on(t.projectId, t.createdAt.desc(), t.id)],
+)
+
 export const stars = pgTable(
   'stars',
   {

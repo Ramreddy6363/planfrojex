@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, desc, eq, isNull } from 'drizzle-orm'
+import { recordActivity } from '../activity/service'
 import { diagrams, diagramVersions, memberships, projects, user } from '../db/schema'
 import type { Env } from '../env'
 import {
@@ -246,11 +247,26 @@ export function createProjectDiagramRoutes(
         project = await visibleProject(db, c.req.valid('param').id, actorId)
       if (!project) return c.json({ error: 'Project not found' }, 404)
       if (!canWrite(project.role)) return c.json({ error: 'Owner or editor required' }, 403)
-      const [diagram] = await db
-        .insert(diagrams)
-        .values({ ...c.req.valid('json'), projectId: project.id, createdBy: actorId })
-        .returning()
-      if (!diagram) throw new Error('Diagram could not be created')
+      const diagram = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(diagrams)
+          .values({ ...c.req.valid('json'), projectId: project.id, createdBy: actorId })
+          .returning()
+        if (!created) throw new Error('Diagram could not be created')
+        await recordActivity(tx, {
+          workspaceId: project.workspaceId,
+          projectId: project.id,
+          actorId,
+          type: 'diagram.created',
+          subject: created.id,
+          payload: {
+            name: created.name,
+            before: null,
+            after: { name: created.name, type: created.type },
+          },
+        })
+        return created
+      })
       return c.json({ diagram: encodeDiagram(diagram) }, 201)
     })
 }
@@ -303,15 +319,34 @@ export function createDiagramRoutes(
         visible = await visibleDiagram(db, c.req.valid('param').id, c.get('user').id)
       if (!visible) return c.json({ error: 'Diagram not found' }, 404)
       if (!canWrite(visible.role)) return c.json({ error: 'Owner or editor required' }, 403)
-      await db
-        .update(diagrams)
-        .set({ deletedAt: new Date(), updatedAt: new Date() })
-        .where(
-          and(
-            eq(diagrams.id, visible.diagram.id),
-            eq(diagrams.projectId, visible.diagram.projectId),
-          ),
-        )
+      const deleted = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(diagrams)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(
+              eq(diagrams.id, visible.diagram.id),
+              eq(diagrams.projectId, visible.diagram.projectId),
+              isNull(diagrams.deletedAt),
+            ),
+          )
+          .returning()
+        if (!row) return false
+        await recordActivity(tx, {
+          workspaceId: visible.workspaceId,
+          projectId: row.projectId,
+          actorId: c.get('user').id,
+          type: 'diagram.deleted',
+          subject: row.id,
+          payload: {
+            name: row.name,
+            before: { name: row.name, version: row.currentVersion },
+            after: null,
+          },
+        })
+        return true
+      })
+      if (!deleted) return c.json({ error: 'Diagram not found' }, 404)
       return c.json({ ok: true as const }, 200)
     })
     .openapi(versionsRoute, async (c) => {
@@ -347,13 +382,26 @@ export function createDiagramRoutes(
           )
           .for('update')
         if (!locked) return null
-        return createDiagramVersion(
+        const saved = await createDiagramVersion(
           tx,
           locked,
           locked.scene,
           c.req.valid('json')?.label ?? null,
           c.get('user').id,
         )
+        await recordActivity(tx, {
+          workspaceId: visible.workspaceId,
+          projectId: locked.projectId,
+          actorId: c.get('user').id,
+          type: 'diagram.version_saved',
+          subject: locked.id,
+          payload: {
+            name: locked.name,
+            before: locked.currentVersion,
+            after: saved.diagram.currentVersion,
+          },
+        })
+        return saved
       })
       if (!result) return c.json({ error: 'Diagram not found' }, 404)
       return c.json({ version: encodeVersion(result.version, c.get('user').name ?? null) }, 201)
@@ -386,7 +434,28 @@ export function createDiagramRoutes(
             ),
           )
         if (!old) return null
-        return createDiagramVersion(tx, locked, old.scene, null, c.get('user').id, true)
+        const restored = await createDiagramVersion(
+          tx,
+          locked,
+          old.scene,
+          null,
+          c.get('user').id,
+          true,
+        )
+        await recordActivity(tx, {
+          workspaceId: visible.workspaceId,
+          projectId: locked.projectId,
+          actorId: c.get('user').id,
+          type: 'diagram.restored',
+          subject: locked.id,
+          payload: {
+            name: locked.name,
+            before: locked.currentVersion,
+            after: restored.diagram.currentVersion,
+            restoredFrom: old.version,
+          },
+        })
+        return restored
       })
       if (!result) return c.json({ error: 'Diagram version not found' }, 404)
       return c.json(

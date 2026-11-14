@@ -9,6 +9,7 @@ import { createWorkspaceRoute } from './routes/create-workspace'
 import { inviteRoute } from './routes/invite'
 import { membersRoute } from './routes/members'
 import { onboardingRoute } from './routes/onboarding'
+import { projectActivityRoute } from './routes/project-activity'
 import { projectBriefRoute } from './routes/project-brief'
 import { projectDiagramsRoute } from './routes/project-diagrams'
 import { projectPlanRoute } from './routes/project-plan'
@@ -40,6 +41,7 @@ const router = createRouter({
     projectPlanRoute,
     projectTasksRoute,
     projectDiagramsRoute,
+    projectActivityRoute,
   ]),
   defaultPendingComponent: Loading,
 })

@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { recordActivity } from '../activity/service'
 import { comments, memberships, projects, stars, tasks, user, workspaces } from '../db/schema'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
@@ -407,7 +408,7 @@ export function createProjectBriefRoutes(
               ),
             )
           const [project] = await tx
-            .select({ id: projects.id, brief: projects.brief })
+            .select()
             .from(projects)
             .where(
               and(
@@ -447,6 +448,50 @@ export function createProjectBriefRoutes(
             }
           if (input.tags !== undefined) values.tags = input.tags
           await tx.update(projects).set(values).where(eq(projects.id, id))
+          for (const [field, type] of [
+            ['name', 'project.name_changed'],
+            ['status', 'project.status_changed'],
+            ['leadId', 'project.lead_changed'],
+            ['targetDate', 'project.target_date_changed'],
+          ] as const) {
+            if (input[field] === undefined || input[field] === project[field]) continue
+            let names: Record<string, string> = {}
+            if (field === 'leadId') {
+              const people = await tx
+                .select({ id: user.id, name: user.name })
+                .from(user)
+                .where(inArray(user.id, [project.leadId, input.leadId as string]))
+              names = Object.fromEntries(people.map((person) => [person.id, person.name]))
+            }
+            await recordActivity(tx, {
+              workspaceId: visible.workspaceId,
+              projectId: id,
+              actorId,
+              type,
+              subject: id,
+              payload: {
+                before: project[field],
+                after: input[field],
+                ...(field === 'leadId'
+                  ? { beforeName: names[project.leadId], afterName: names[input.leadId as string] }
+                  : {}),
+              },
+            })
+          }
+          if (input.brief)
+            for (const section of ['problem', 'goals', 'constraints', 'outOfScope'] as const) {
+              if (input.brief[section] === undefined) continue
+              const before = project.brief[section] ?? (section === 'goals' ? [] : '')
+              if (JSON.stringify(before) === JSON.stringify(input.brief[section])) continue
+              await recordActivity(tx, {
+                workspaceId: visible.workspaceId,
+                projectId: id,
+                actorId,
+                type: 'project.brief_edited',
+                subject: id,
+                payload: { section },
+              })
+            }
           return { kind: 'updated' as const }
         })
         if (result.kind === 'missing') return c.json({ error: 'Project not found' }, 404)
@@ -554,6 +599,25 @@ export function createProjectBriefRoutes(
             })
             .returning({ id: comments.id })
           if (!row) throw new Error('Comment was not created')
+          let taskKey: string | undefined
+          if (target.kind === 'task') {
+            const [task] = await tx
+              .select({ key: projects.key, number: tasks.number })
+              .from(tasks)
+              .innerJoin(projects, eq(projects.id, tasks.projectId))
+              .where(
+                and(eq(tasks.id, target.id), eq(projects.workspaceId, stillVisible.workspaceId)),
+              )
+            if (task) taskKey = `${task.key}-${task.number}`
+          }
+          await recordActivity(tx, {
+            workspaceId: stillVisible.workspaceId,
+            projectId: stillVisible.projectId,
+            actorId,
+            type: 'comment.added',
+            subject: row.id,
+            payload: { target: target.kind, ...(taskKey ? { taskKey } : {}) },
+          })
           return { kind: 'created' as const, id: row.id }
         })
         if (created.kind === 'missing') return c.json({ error: 'Project not found' }, 404)
