@@ -162,6 +162,30 @@ Screen: 305. API: board 1005 (GET /me/tasks). No new tables, no new dependencies
 3. Group by Project and Priority are in the dropdown on the screen; build all three (recommended).
 - **Out of scope:** Inbox (11), editing other task fields from this page, drag to reorder, time-zone setting (14).
 
+## 2026-11-15: Feature 11 Inbox — approved 2026-11-15 (with the three recommendations)
+Screen: 306. Table/API: boards 1004 (`notifications`) and 1005 (GET /inbox, POST /inbox/:id/read, POST /inbox/read-all). No new dependencies.
+- **Page `/:ws/inbox`:** left list, newest first: avatar, "<name> mentioned you" / "assigned you" / "replied to your comment" / "accepted your plan draft", time, context line (task key + title, or project + Brief/Plan section), and a one-line quote. Unread rows bold, read rows grey. "Mark all as read" top right; Load more.
+- **Right panel:** breadcrumb (project, task key), title, task status and due (for task items), the comment thread with the triggering comment highlighted, a reply box ("Reply to <name>", posts a normal comment on the same brief or task, with @mentions), "Mark as read", and "Open task" / "Open brief" / "Open plan". Opening an item marks it read.
+- **Sidebar:** Inbox unread count becomes live.
+- **What creates a notification** (written in the same transaction as the change, through the feature 9 activity helper so they can't drift):
+  - **mention:** a comment @mentions you (also when an edit adds you; never twice for the same comment).
+  - **assigned:** someone else assigns a task to you (not when you take it yourself).
+  - **reply:** someone comments on a brief or task where you commented before (skipped if that same comment already mentions you).
+  - **draft decision:** someone else accepts or rejects a section of a draft you started.
+  Never notify yourself. Members only: a person removed from the workspace stops seeing its items.
+- **Table (migration 0009, additive):** `notifications` (id uuid v7, user_id, workspace_id, type mention|assigned|reply|draft_decision, activity_id → activity, read_at nullable, created_at). Unique (user_id, activity_id, type). Index (user_id, workspace_id, read_at, created_at desc).
+- **Endpoints:** GET /inbox?ws=<slug>&cursor=&limit≤100 (returns items + unread count); POST /inbox/:id/read; POST /inbox/read-all?ws=. Only the owner of a notification can see or mark it (others get 404). A deleted comment's notification shows "deleted a comment" with no quote (same rule as Activity).
+
+**Open questions**
+1. "Reply" means a later comment in a thread you took part in, because comments have no reply-to field (recommended; no schema change to comments).
+2. Inbox scope is the current workspace (recommended, same as My tasks).
+3. Email and Slack notifications and notification settings wait for later features (recommended); in-app only now.
+- **Out of scope:** email/Slack delivery, GET/PUT /me/notification-settings, drift notifications (20), push/realtime updates (the count refreshes on navigation and every 60 s).
+
+## Still open before production
+- Apply migrations 0001–0008 (0009 after this feature) to Neon before the first deploy.
+- Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
