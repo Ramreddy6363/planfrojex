@@ -43,6 +43,13 @@
       "when": 1794663024868,
       "tag": "0005_jittery_eddie_brock",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794666586008,
+      "tag": "0006_yellow_bruce_banner",
+      "breakpoints": true
     }
   ]
 }

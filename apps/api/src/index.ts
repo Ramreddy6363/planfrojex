@@ -3,6 +3,8 @@ import { cors } from 'hono/cors'
 import { z } from 'zod'
 import { createAuth } from './auth'
 import { connect } from './db'
+import { createDiagramRoutes, createProjectDiagramRoutes } from './diagrams/routes'
+import type { DiagramDraftModel } from './drafts/diagram-service'
 import { createProjectDraftRoutes } from './drafts/routes'
 import type { DraftModel } from './drafts/service'
 import type { Env } from './env'
@@ -15,7 +17,12 @@ import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
 
 export function createApp(
-  options: { database?: DatabaseFactory; auth?: AuthFactory; draftModel?: DraftModel } = {},
+  options: {
+    database?: DatabaseFactory
+    auth?: AuthFactory
+    draftModel?: DraftModel
+    diagramDraftModel?: DiagramDraftModel
+  } = {},
 ) {
   const database = options.database ?? connect
   const auth = options.auth ?? createAuth
@@ -63,6 +70,8 @@ export function createApp(
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
     .route('/', createProjectDraftRoutes(options))
+    .route('/', createProjectDiagramRoutes(options))
+    .route('/', createDiagramRoutes(options))
     .route('/', createTaskRoutes(options))
 }
 
@@ -70,5 +79,7 @@ const app = createApp()
 
 export type AppType = typeof app
 export type ProjectTaskRoutes = ReturnType<typeof createProjectTaskRoutes>
+export type ProjectDiagramRoutes = ReturnType<typeof createProjectDiagramRoutes>
+export type DiagramRoutes = ReturnType<typeof createDiagramRoutes>
 export type TaskRoutes = ReturnType<typeof createTaskRoutes>
 export default app

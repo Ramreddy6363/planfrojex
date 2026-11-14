@@ -6,6 +6,7 @@ import { Avatar, AvatarStack } from './ui/avatar'
 import { Brand, LogoMark, WorkspaceMark } from './ui/brand'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
+import { DiagramCanvas } from './ui/diagram-canvas'
 import { Dialog } from './ui/dialog'
 import { EmailListInput } from './ui/email-list-input'
 import { EmptyState } from './ui/empty-state'
@@ -56,6 +57,30 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
       className="relative flex flex-1 flex-col gap-8 bg-bg p-8 text-text"
     >
       <h1 className="text-title font-semibold">Components ({theme})</h1>
+      <Section title="Diagram canvas">
+        <div className="h-64 w-full border border-border">
+          <DiagramCanvas
+            readOnly
+            scene={{
+              nodes: [
+                {
+                  id: 'gallery-start',
+                  type: 'rectangle',
+                  position: { x: 40, y: 30 },
+                  data: { label: 'Start' },
+                },
+                {
+                  id: 'gallery-end',
+                  type: 'rectangle',
+                  position: { x: 40, y: 150 },
+                  data: { label: 'Complete' },
+                },
+              ],
+              edges: [{ id: 'gallery-edge', source: 'gallery-start', target: 'gallery-end' }],
+            }}
+          />
+        </div>
+      </Section>
       <Section title="Buttons">
         <Button variant="primary">Primary</Button>
         <Button>Secondary</Button>

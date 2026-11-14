@@ -85,6 +85,10 @@ function ProjectPlan() {
     queryKey: ['plan', projectId],
     queryFn: () => call(api.projects[':id'].plan.$get({ param: { id: projectId } })),
   })
+  const diagramsQuery = useQuery({
+    queryKey: ['diagrams', projectId],
+    queryFn: () => call(api.projects[':id'].diagrams.$get({ param: { id: projectId } })),
+  })
   const projectQuery = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => call(api.projects[':id'].$get({ param: { id: projectId } })),
@@ -172,7 +176,9 @@ function ProjectPlan() {
     setEditing(kind)
   }
   const startDraft = async () => {
-    const result = await call(api.projects[':id'].drafts.$post({ param: { id: projectId } }))
+    const result = await call(
+      api.projects[':id'].drafts.$post({ param: { id: projectId }, json: { kind: 'plan' } }),
+    )
     setActiveDraftId(result.draft.id)
     setToast({ message: 'Drafting plan from the brief…' })
   }
@@ -527,6 +533,11 @@ function ProjectPlan() {
           <Tabs
             value="plan"
             onChange={(tab) => {
+              if (tab === 'diagrams')
+                void navigate({
+                  to: '/$ws/projects/$projectId/diagrams',
+                  params: { ws: workspace.slug, projectId },
+                })
               if (tab === 'brief')
                 void navigate({
                   to: '/$ws/projects/$projectId',
@@ -543,7 +554,7 @@ function ProjectPlan() {
               { id: 'brief', label: 'Brief' },
               { id: 'plan', label: 'Plan' },
               { id: 'tasks', label: `Tasks ${project.taskProgress.total}` },
-              { id: 'diagrams', label: 'Diagrams', disabled: true },
+              { id: 'diagrams', label: `Diagrams ${diagramsQuery.data?.diagrams.length ?? 0}` },
               { id: 'activity', label: 'Activity', disabled: true },
             ]}
           />

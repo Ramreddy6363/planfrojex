@@ -97,6 +97,10 @@ function ProjectTasks() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<TaskStatus[]>(['done'])
   const action = useAction()
+  const diagramsQuery = useQuery({
+    queryKey: ['diagrams', projectId],
+    queryFn: () => call(api.projects[':id'].diagrams.$get({ param: { id: projectId } })),
+  })
   const projectQuery = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => call(api.projects[':id'].$get({ param: { id: projectId } })),
@@ -302,6 +306,11 @@ function ProjectTasks() {
             <Tabs
               value="tasks"
               onChange={(tab) => {
+                if (tab === 'diagrams')
+                  void navigate({
+                    to: '/$ws/projects/$projectId/diagrams',
+                    params: { ws: workspace.slug, projectId },
+                  })
                 if (tab === 'brief')
                   void navigate({
                     to: '/$ws/projects/$projectId',
@@ -320,7 +329,7 @@ function ProjectTasks() {
                   id: 'tasks',
                   label: `Tasks ${tasksQuery.data ? tasksQuery.data.counts.todo + tasksQuery.data.counts.inProgress + tasksQuery.data.counts.done : 0}`,
                 },
-                { id: 'diagrams', label: 'Diagrams', disabled: true },
+                { id: 'diagrams', label: `Diagrams ${diagramsQuery.data?.diagrams.length ?? 0}` },
                 { id: 'activity', label: 'Activity', disabled: true },
               ]}
             />

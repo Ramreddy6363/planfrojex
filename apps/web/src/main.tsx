@@ -10,6 +10,7 @@ import { inviteRoute } from './routes/invite'
 import { membersRoute } from './routes/members'
 import { onboardingRoute } from './routes/onboarding'
 import { projectBriefRoute } from './routes/project-brief'
+import { projectDiagramsRoute } from './routes/project-diagrams'
 import { projectPlanRoute } from './routes/project-plan'
 import { projectTasksRoute } from './routes/project-tasks'
 import { projectsRoute } from './routes/projects'
@@ -38,6 +39,7 @@ const router = createRouter({
     projectBriefRoute,
     projectPlanRoute,
     projectTasksRoute,
+    projectDiagramsRoute,
   ]),
   defaultPendingComponent: Loading,
 })
