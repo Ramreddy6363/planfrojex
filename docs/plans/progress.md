@@ -96,6 +96,27 @@ Screens: 404 list + side panel, 405 board, 406 New task dialog. Tasks tab and "x
 - **Open questions:** (1) Milestone chip, filter and field wait for feature 7 (milestones table comes with Plan), recommend hiding them until then. (2) Board 1007 says owners may edit/delete any comment; feature 5 shipped author-only. Recommend fixing that here for both brief and task comments. (3) Delete task is a hard delete (board has no soft delete for tasks).
 - **Out of scope:** milestones, My tasks page (10), assignment notifications (11), tracker sync (19), bulk actions on checked rows beyond toggling done.
 
+## 2026-11-14: Feature 7 Project › Plan + drafts — approved 2026-11-14 (split 7a/7b, both deps approved for 7b, polling, undo as reverse decision)
+Screen: 402 (Plan tab). Flow: board 1006 A. Tables/endpoints: boards 1004/1005. Recommend shipping in two PRs on separate branches.
+
+**7a: Plan (no drafting), branch `feat/plan`**
+- **Page:** "Last changed <date> by <name>", "On this page" outline. Sections: Requirements (R1…), User stories (S1…), Milestones (M1…, status planning|in-progress|completed, due date), Risks (R1…, severity, owner, decide-by), Tech stack (tags), Estimate (big number + note). Owners/editors edit in place (same pattern as the brief); viewers read.
+- **Tasks link-up:** tasks get `milestone_id` (nullable, same project); the Milestone chip, filter and field hidden in feature 6 come back.
+- **Tables (migration 0004, additive):** `plan_sections` (project_id, kind requirements|stories|stack|estimate, content jsonb, version int, updated_by), `milestones` (project_id, code, title, status, due_date, position), `risks` (project_id, code, title, severity low..critical, owner_id, decide_by), `tasks.milestone_id`.
+- **Endpoints:** GET /projects/:id/plan (O/E/V); PATCH /projects/:id/plan/sections/:kind (O/E, `version` check so two editors can't overwrite each other: 409 on stale); POST /projects/:id/milestones, PATCH/DELETE /milestones/:id; same for risks (O/E). Cross-workspace 404 tests on all.
+
+**7b: Drafts and decision log, branch `feat/plan-drafts`**
+- **UI:** "Draft plan from brief" button (O/E), draft banner ("x of 6 sections reviewed. Nothing changes until you accept a section", Discard draft, Accept remaining), per-section diff card (− removed / + added lines, Accept / Reject), outline shows Accepted/Pending, toast with Undo after accept. Decision log readable by all roles.
+- **Flow (rule 3):** POST /projects/:id/drafts saves a queued draft and returns 202; a job asks the model for the plan as JSON, validates it with Zod, compares with the current plan and saves `draft_changes`. Accepting runs one transaction: apply change, mark accepted, write `decisions` row.
+- **Tables (migration 0005):** `drafts`, `draft_changes`, `decisions` as on board 1004. Endpoints as board 1005 (drafts, changes accept/reject, accept-all, delete, decisions). Limit 20 drafts/hour/workspace.
+
+**Open questions**
+1. Split into 7a and 7b as above? (recommended)
+2. 7b needs two new dependencies: `@anthropic-ai/sdk` (claude-opus-5-5, structured output) and Trigger.dev for the job (board 1001). Approve both? Without keys (local dev, tests) a built-in fake drafter returns a fixed plan, so the app still runs (rule 9).
+3. Progress updates: board says SSE stream; recommend simple polling of GET /drafts/:id every 2s first (SSE later if needed).
+4. Undo after accept: recommend it writes a reverse decision rather than deleting history.
+- **Out of scope:** Export, plan drift (403 → feature 20), diagram drafts (8), Share.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
