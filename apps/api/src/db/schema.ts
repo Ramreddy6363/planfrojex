@@ -256,6 +256,8 @@ export const tasks = pgTable(
     uniqueIndex('tasks_project_number_idx').on(t.projectId, t.number),
     index('tasks_project_status_position_idx').on(t.projectId, t.status, t.position, t.id),
     index('tasks_assignee_idx').on(t.assigneeId),
+    index('tasks_assignee_status_due_date_idx').on(t.assigneeId, t.status, t.dueDate),
+    index('tasks_created_by_status_idx').on(t.createdBy, t.status),
   ],
 )
 

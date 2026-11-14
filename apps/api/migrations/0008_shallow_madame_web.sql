@@ -1,0 +1,2 @@
+CREATE INDEX "tasks_assignee_status_due_date_idx" ON "tasks" USING btree ("assignee_id","status","due_date");--> statement-breakpoint
+CREATE INDEX "tasks_created_by_status_idx" ON "tasks" USING btree ("created_by","status");

@@ -177,7 +177,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 7 | Project › Plan + drafts | Plan, draft diff accept/reject, decision log | shipped 2026-11-14 |
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | shipped 2026-11-14 |
 | 9 | Activity | Timeline, filters | shipped 2026-11-14 |
-| 10 | My tasks | My tasks | |
+| 10 | My tasks | My tasks | shipped 2026-11-15 |
 | 11 | Inbox | Mentions, assignments, replies | |
 | 12 | ⌘K search | Search overlay | |
 | 13 | Workspace settings | General, share links, danger zone | |

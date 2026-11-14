@@ -15,6 +15,7 @@ import {
 import type { ReactNode } from 'react'
 import { api, call } from './api'
 import { auth } from './auth-client'
+import { getMyTasks, myTasksKey } from './my-tasks'
 import type { getMe, getWorkspace } from './session'
 import { Avatar } from './ui/avatar'
 import { WorkspaceMark } from './ui/brand'
@@ -32,12 +33,16 @@ export function WorkspaceShell({
 }: {
   workspace: Awaited<ReturnType<typeof getWorkspace>>['workspace']
   me: Awaited<ReturnType<typeof getMe>>
-  active: 'home' | 'members' | 'projects'
+  active: 'home' | 'members' | 'projects' | 'my-tasks'
   children: ReactNode
 }) {
   const navigate = useNavigate()
   const { busy, error, run } = useAction()
   const displayName = me.user.name || me.user.email
+  const myTasks = useQuery({
+    queryKey: [...myTasksKey(workspace.slug), 'sidebar'],
+    queryFn: () => getMyTasks(workspace.slug, 'assigned', '', null, '1'),
+  })
   const starred = useQuery({
     queryKey: ['projects', workspace.slug, 'sidebar'],
     queryFn: async () => {
@@ -84,7 +89,7 @@ export function WorkspaceShell({
             current: item.slug === workspace.slug,
             onSelect: () =>
               void navigate({
-                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : ''}`,
+                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : ''}`,
               }),
           }))}
         />
@@ -106,8 +111,19 @@ export function WorkspaceShell({
         >
           Home
         </Button>
-        <Button variant="ghost" disabled icon={CheckCircle2} className="justify-start font-normal">
+        <Button
+          variant="ghost"
+          icon={CheckCircle2}
+          aria-current={active === 'my-tasks' ? 'page' : undefined}
+          className={`justify-start font-normal ${active === 'my-tasks' ? '!bg-accent-subtle !text-accent' : ''}`}
+          onClick={() => void navigate({ to: `/${workspace.slug}/my-tasks` })}
+        >
           My tasks
+          {myTasks.data?.counts ? (
+            <span className="ml-auto text-caption text-text-muted">
+              {myTasks.data.counts.assigned}
+            </span>
+          ) : null}
         </Button>
         <Button variant="ghost" disabled icon={Inbox} className="justify-start font-normal">
           Inbox

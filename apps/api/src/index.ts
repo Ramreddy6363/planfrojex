@@ -10,6 +10,7 @@ import { createProjectDraftRoutes } from './drafts/routes'
 import type { DraftModel } from './drafts/service'
 import type { Env } from './env'
 import { createProjectBriefRoutes } from './projects/brief-routes'
+import { createMyTaskRoutes } from './projects/my-task-routes'
 import { createProjectPlanRoutes } from './projects/plan-routes'
 import { createProjectRoutes } from './projects/routes'
 import { createProjectTaskRoutes, createTaskRoutes } from './projects/task-routes'
@@ -69,6 +70,7 @@ export function createApp(
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
     .route('/', createActivityRoutes(options))
+    .route('/', createMyTaskRoutes(options))
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
     .route('/', createProjectDraftRoutes(options))
@@ -83,5 +85,6 @@ export type AppType = typeof app
 export type ProjectTaskRoutes = ReturnType<typeof createProjectTaskRoutes>
 export type ProjectDiagramRoutes = ReturnType<typeof createProjectDiagramRoutes>
 export type DiagramRoutes = ReturnType<typeof createDiagramRoutes>
+export type MyTaskRoutes = ReturnType<typeof createMyTaskRoutes>
 export type TaskRoutes = ReturnType<typeof createTaskRoutes>
 export default app

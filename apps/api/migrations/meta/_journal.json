@@ -57,6 +57,13 @@
       "when": 1794672250340,
       "tag": "0007_watery_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794683610341,
+      "tag": "0008_shallow_madame_web",
+      "breakpoints": true
     }
   ]
 }
