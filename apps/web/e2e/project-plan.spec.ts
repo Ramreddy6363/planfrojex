@@ -2,7 +2,11 @@ import { expect, test } from '@playwright/test'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 
-async function mockPlan(page: import('@playwright/test').Page, role = 'owner') {
+async function mockPlan(
+  page: import('@playwright/test').Page,
+  role = 'owner',
+  initialDraftStatus = 'ready',
+) {
   const headers = {
     'access-control-allow-origin': 'http://localhost:5199',
     'access-control-allow-credentials': 'true',
@@ -25,6 +29,37 @@ async function mockPlan(page: import('@playwright/test').Page, role = 'owner') {
   const milestones: Array<Record<string, unknown>> = []
   let lastChanged: { at: string; by: string } | null = null
   const writes: Array<{ path: string; method: string; body?: Record<string, unknown> }> = []
+  const draftId = 'd4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
+  const kinds = ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate']
+  const changes = kinds.map((kind, index) => ({
+    id: `c4a3a1d9-9f71-4d75-9b9d-6b7e8f21c71${index}`,
+    kind,
+    before:
+      kind === 'milestones' || kind === 'risks'
+        ? []
+        : {
+            version: 0,
+            content: kind === 'requirements' ? ['Customers can sign in using a code.'] : null,
+          },
+    after: {
+      requirements: ['Customers can sign in using a code.', 'Invites are accepted by email.'],
+      stories: ['As a teammate, I can accept an invite.'],
+      milestones: [{ title: 'First release', status: 'planning', dueDate: '2027-01-15' }],
+      risks: [
+        {
+          title: 'Email delivery may be delayed',
+          severity: 'medium',
+          ownerId: 'editor',
+          decideBy: null,
+        },
+      ],
+      stack: ['React', 'PostgreSQL'],
+      estimate: { value: '4 weeks', note: 'One engineer and a designer.' },
+    }[kind],
+    status: 'pending',
+  }))
+  const decisions: Array<Record<string, unknown>> = []
+  let draftStatus = initialDraftStatus
   const project = {
     id: projectId,
     key: 'PORT',
@@ -90,6 +125,93 @@ async function mockPlan(page: import('@playwright/test').Page, role = 'owner') {
         headers,
         json: { sections, milestones, risks: [], lastChanged },
       })
+    if (path === `/projects/${projectId}/drafts` && req.method() === 'POST') {
+      if (draftStatus === 'discarded') draftStatus = 'ready'
+      return route.fulfill({
+        headers,
+        status: 202,
+        json: { draft: { id: draftId, status: 'queued' } },
+      })
+    }
+    if (path === `/drafts/${draftId}` && req.method() === 'GET')
+      return route.fulfill({
+        headers,
+        json: {
+          draft: {
+            id: draftId,
+            projectId,
+            status: draftStatus,
+            model: 'fake',
+            error: null,
+            createdAt: new Date().toISOString(),
+            changes,
+          },
+        },
+      })
+    if (path === `/drafts/${draftId}` && req.method() === 'DELETE') {
+      draftStatus = 'discarded'
+      return route.fulfill({ headers, json: { ok: true } })
+    }
+    if (path === `/projects/${projectId}/decisions` && req.method() === 'GET')
+      return route.fulfill({ headers, json: { decisions } })
+    const changeMatch = path.match(
+      new RegExp(`^/drafts/${draftId}/changes/([^/]+)/(accept|reject)$`),
+    )
+    if (changeMatch && req.method() === 'POST') {
+      const change = changes.find((item) => item.id === changeMatch[1])
+      if (!change) return route.fulfill({ headers, status: 404 })
+      change.status = changeMatch[2] === 'accept' ? 'accepted' : 'rejected'
+      const decisionId = `e4a3a1d9-9f71-4d75-9b9d-6b7e8f21c7${decisions.length}`
+      decisions.push({
+        id: decisionId,
+        kind: change.kind,
+        outcome: change.status,
+        actorId: 'owner',
+        actorName: 'Maya Chen',
+        reversesDecisionId: null,
+        createdAt: new Date().toISOString(),
+      })
+      if (change.status === 'accepted' && change.kind === 'requirements') {
+        const requirement = sections[0]
+        if (requirement) {
+          requirement.content = change.after as string[]
+          requirement.version += 1
+        }
+      }
+      return route.fulfill({
+        headers,
+        json: { decision: { id: decisionId, outcome: change.status } },
+      })
+    }
+    if (path === `/drafts/${draftId}/accept-all` && req.method() === 'POST') {
+      const pending = changes.filter((item) => item.status === 'pending')
+      for (const change of pending) {
+        change.status = 'accepted'
+        decisions.push({
+          id: `e4a3a1d9-9f71-4d75-9b9d-6b7e8f21c7${decisions.length}`,
+          kind: change.kind,
+          outcome: 'accepted',
+          actorId: 'owner',
+          actorName: 'Maya Chen',
+          reversesDecisionId: null,
+          createdAt: new Date().toISOString(),
+        })
+      }
+      return route.fulfill({ headers, json: { accepted: pending.length, decisionIds: [] } })
+    }
+    const undoMatch = path.match(/^\/decisions\/([^/]+)\/undo$/)
+    if (undoMatch && req.method() === 'POST') {
+      const item = decisions.find((decision) => decision.id === undoMatch[1])
+      if (item) {
+        const change = changes.find((candidate) => candidate.kind === item.kind)
+        if (change) change.status = 'pending'
+        item.outcome = 'reversed'
+      }
+      return route.fulfill({
+        headers,
+        json: { decision: { id: 'f4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715', outcome: 'reversed' } },
+      })
+    }
     if (path === `/projects/${projectId}/plan/sections/requirements` && req.method() === 'PATCH') {
       const body = req.postDataJSON()
       writes.push({ path, method: req.method(), body })
@@ -125,6 +247,8 @@ async function mockPlan(page: import('@playwright/test').Page, role = 'owner') {
     sections,
     milestones,
     writes,
+    changes,
+    decisions,
     get lastChanged() {
       return lastChanged
     },
@@ -169,5 +293,51 @@ test('owner edits plan sections and adds milestones; viewer reads without write 
   await page.goto(`/northwind/projects/${projectId}/plan`)
   await expect(page.getByText('Customers can sign in using a code.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Edit Requirements' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Draft plan from brief' })).toHaveCount(0)
   await expect(page.getByLabel('Milestone title')).toHaveCount(0)
+})
+
+test('owner reviews a plan draft, accepts and rejects changes, then undoes an acceptance', async ({
+  page,
+}) => {
+  const state = await mockPlan(page)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  await page.getByRole('button', { name: 'Draft plan from brief' }).click()
+  await expect(page.getByRole('region', { name: 'Plan draft' })).toContainText('ready for review')
+  await expect(page.getByRole('region', { name: 'Plan draft' })).not.toContainText(
+    '[object Object]',
+  )
+  await expect(page.locator('#requirements')).not.toContainText('version: 0')
+  await expect(page.locator('#milestones')).toContainText('First release')
+  await expect(page.locator('#risks')).toContainText('Jordan Lee')
+  await page.getByRole('button', { name: 'Accept', exact: true }).first().click()
+  await expect.poll(() => state.changes[0]?.status).toBe('accepted')
+  await page.getByRole('button', { name: 'Reject', exact: true }).first().click()
+  await expect.poll(() => state.changes[1]?.status).toBe('rejected')
+  await page.getByRole('button', { name: 'Accept remaining' }).click()
+  await expect
+    .poll(() => state.changes.filter((change) => change.status === 'accepted').length)
+    .toBe(5)
+  await page
+    .getByRole('heading', { name: 'Decision log' })
+    .locator('..')
+    .getByRole('button', { name: 'Undo' })
+    .first()
+    .click()
+  await expect
+    .poll(() => state.decisions.some((decision) => decision.outcome === 'reversed'))
+    .toBe(true)
+})
+
+test('failed drafts can be discarded and started again', async ({ page }) => {
+  await mockPlan(page, 'owner', 'failed')
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  await page.getByRole('button', { name: 'Draft plan from brief' }).click()
+  await expect(page.getByRole('heading', { name: 'Draft could not be created' })).toBeVisible()
+  await page.getByRole('button', { name: 'Discard draft' }).click()
+  await page.getByRole('button', { name: 'Draft plan from brief' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Draft from the brief is ready for review' }),
+  ).toBeVisible()
 })

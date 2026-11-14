@@ -342,6 +342,11 @@ export function createProjectPlanRoutes(
       }
       const now = new Date()
       const updated = await db.transaction(async (tx) => {
+        await tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, id), eq(projects.workspaceId, project.workspaceId)))
+          .for('no key update')
         const [row] = await tx
           .insert(planSections)
           .values({
@@ -451,16 +456,25 @@ export function createProjectPlanRoutes(
       const row = await visibleRecord(db, milestones, id, actor)
       if (!row) return c.json({ error: 'Milestone not found' }, 404)
       if (!writable(row.role)) return c.json({ error: 'Owner or editor required' }, 403)
-      const [updated] = await db
-        .update(milestones)
-        .set({ ...input, updatedAt: new Date() })
-        .where(eq(milestones.id, id))
-        .returning()
+      const updated = await db.transaction(async (tx) => {
+        await tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+          .for('no key update')
+        const [milestone] = await tx
+          .update(milestones)
+          .set({ ...input, updatedAt: new Date() })
+          .where(and(eq(milestones.id, id), eq(milestones.projectId, row.projectId)))
+          .returning()
+        if (!milestone) return null
+        await tx
+          .update(projects)
+          .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
+          .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+        return milestone
+      })
       if (!updated) return c.json({ error: 'Milestone not found' }, 404)
-      await db
-        .update(projects)
-        .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
-        .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
       return c.json(
         {
           milestone: {
@@ -484,6 +498,11 @@ export function createProjectPlanRoutes(
       if (!row) return c.json({ error: 'Milestone not found' }, 404)
       if (!writable(row.role)) return c.json({ error: 'Owner or editor required' }, 403)
       await db.transaction(async (tx) => {
+        await tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+          .for('no key update')
         await tx
           .update(tasks)
           .set({ milestoneId: null, updatedAt: new Date() })
@@ -588,16 +607,25 @@ export function createProjectPlanRoutes(
         ).length
       )
         return c.json({ error: 'Risk owner must be a workspace member' }, 400)
-      const [updated] = await db
-        .update(risks)
-        .set({ ...input, updatedAt: new Date() })
-        .where(eq(risks.id, id))
-        .returning()
+      const updated = await db.transaction(async (tx) => {
+        await tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+          .for('no key update')
+        const [risk] = await tx
+          .update(risks)
+          .set({ ...input, updatedAt: new Date() })
+          .where(and(eq(risks.id, id), eq(risks.projectId, row.projectId)))
+          .returning()
+        if (!risk) return null
+        await tx
+          .update(projects)
+          .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
+          .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+        return risk
+      })
       if (!updated) return c.json({ error: 'Risk not found' }, 404)
-      await db
-        .update(projects)
-        .set({ planUpdatedAt: new Date(), planUpdatedBy: actor })
-        .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
       return c.json(
         {
           risk: {
@@ -621,6 +649,11 @@ export function createProjectPlanRoutes(
       if (!row) return c.json({ error: 'Risk not found' }, 404)
       if (!writable(row.role)) return c.json({ error: 'Owner or editor required' }, 403)
       await db.transaction(async (tx) => {
+        await tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, row.projectId), eq(projects.workspaceId, row.workspaceId)))
+          .for('no key update')
         await tx.delete(risks).where(and(eq(risks.id, id), eq(risks.projectId, row.projectId)))
         await tx
           .update(projects)
