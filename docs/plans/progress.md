@@ -117,6 +117,22 @@ Screen: 402 (Plan tab). Flow: board 1006 A. Tables/endpoints: boards 1004/1005. 
 4. Undo after accept: recommend it writes a reverse decision rather than deleting history.
 - **Out of scope:** Export, plan drift (403 → feature 20), diagram drafts (8), Share.
 
+## 2026-11-14: Feature 8 Diagrams — approved 2026-11-14 (with the four recommendations)
+Screen: 407. Tables/API: boards 1004/1005 (diagrams, diagram_versions). Uses the installed @xyflow/react 12.12.0 and elkjs 0.12.1; no new dependencies.
+- **Layout:** left list of diagrams (name, type, vN, "+" to create: name + type flowchart|architecture|sequence|entity relationship); canvas with toolbar Select, Pan, Rectangle, Diamond, Arrow, Text; "Saved hh:mm", zoom %, Save version; right panel "Draft a diagram" + Versions (vN, author, date, Current / Restore). Diagrams tab count goes live.
+- **Canvas:** shapes are our own React Flow node components built from tokens (rectangle, diamond, cylinder, actor, entity table, text); edges with arrows; ELK auto-layout for drafts and a "Tidy up" action. Owners/editors edit; viewers get a read-only canvas (pan and zoom only).
+- **Saving:** the working copy autosaves (debounced PUT /diagrams/:id with a version check, 409 on stale so two editors can't overwrite each other). "Save version" creates a named version. Restore creates a new version from an old one (history is never rewritten). Keep the last 50 unnamed versions plus all named ones; older unnamed ones are pruned on save.
+- **Draft a diagram:** reuses the 7b draft pipeline (drafts kind `diagram`, draft_changes, decisions, fake drafter without keys, 20/hour limit). The model returns nodes and edges as JSON, validated by Zod and laid out with ELK. It opens as a preview with Accept (becomes a new version, decision logged) or Discard; nothing is saved to the diagram until accepted (rule 3).
+- **Tables (migration 0006, additive):** `diagrams` (project_id, name, type, current_version, scene jsonb working copy, scene_version int, created_by, deleted_at), `diagram_versions` (diagram_id, version, scene jsonb, label nullable, created_by, created_at; unique (diagram_id, version)). Scene size capped at 1 MB.
+- **Endpoints (board 1005):** GET/POST /projects/:id/diagrams; GET/PUT/DELETE /diagrams/:id; GET/POST /diagrams/:id/versions; POST /diagrams/:id/versions/:v/restore. Diagram drafts through POST /projects/:id/drafts with kind `diagram`. Reads O/E/V, writes O/E; other-workspace member gets 404 on all.
+
+**Open questions**
+1. Freehand pen tool (last toolbar icon): recommend leaving it out; it doesn't fit node/edge diagrams or ELK. Add later if wanted.
+2. Large scenes in R2 (over 1 MB): recommend a 1 MB cap now and R2 later; no R2 setup needed yet.
+3. Delete diagram: recommend soft delete (deleted_at), restore UI later.
+4. Sequence diagrams: recommend drawing them with the same node/edge canvas (actors + arrows) rather than a separate sequence renderer.
+- **Out of scope:** pen tool, R2 storage, export to PNG/SVG, comments on diagrams, real-time co-editing, Share.
+
 ## Feature order (agreed 2026-10-29)
 Each feature: plan → worktree → build → verify → review + security → ship. Empty, loading and error states ship inside each feature.
 
