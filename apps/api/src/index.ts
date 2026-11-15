@@ -9,6 +9,7 @@ import type { DiagramDraftModel } from './drafts/diagram-service'
 import { createProjectDraftRoutes } from './drafts/routes'
 import type { DraftModel } from './drafts/service'
 import type { Env } from './env'
+import { createInboxRoutes } from './inbox/routes'
 import { createProjectBriefRoutes } from './projects/brief-routes'
 import { createMyTaskRoutes } from './projects/my-task-routes'
 import { createProjectPlanRoutes } from './projects/plan-routes'
@@ -71,6 +72,7 @@ export function createApp(
     .route('/', createProjectBriefRoutes(options))
     .route('/', createActivityRoutes(options))
     .route('/', createMyTaskRoutes(options))
+    .route('/', createInboxRoutes(options))
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
     .route('/', createProjectDraftRoutes(options))

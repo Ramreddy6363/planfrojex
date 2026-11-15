@@ -133,6 +133,15 @@ function activityContent(
     </span>
   )
   switch (entry.type) {
+    case 'comment.mentioned':
+      return entry.comment
+        ? {
+            sentence:
+              entry.comment.target === 'task'
+                ? `added mentions to a comment on ${task}`
+                : 'added mentions to a comment on the brief',
+          }
+        : { sentence: 'deleted a comment' }
     case 'comment.added':
       return entry.comment
         ? {

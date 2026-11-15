@@ -420,6 +420,34 @@ export const activity = pgTable(
   (t) => [index('activity_project_created_idx').on(t.projectId, t.createdAt.desc(), t.id)],
 )
 
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    type: text('type', { enum: ['mention', 'assigned', 'reply', 'draft_decision'] }).notNull(),
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activity.id, { onDelete: 'cascade' }),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('notifications_user_activity_type_idx').on(t.userId, t.activityId, t.type),
+    index('notifications_user_workspace_read_created_idx').on(
+      t.userId,
+      t.workspaceId,
+      t.readAt,
+      t.createdAt.desc(),
+    ),
+  ],
+)
+
 export const stars = pgTable(
   'stars',
   {

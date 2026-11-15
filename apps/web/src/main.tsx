@@ -6,6 +6,7 @@ import { indexRoute } from './routes'
 import { acceptInviteRoute } from './routes/accept-invite'
 import { authCallbackRoute } from './routes/auth-callback'
 import { createWorkspaceRoute } from './routes/create-workspace'
+import { inboxRoute } from './routes/inbox'
 import { inviteRoute } from './routes/invite'
 import { membersRoute } from './routes/members'
 import { myTasksRoute } from './routes/my-tasks'
@@ -38,6 +39,7 @@ const router = createRouter({
     workspaceRoute,
     membersRoute,
     myTasksRoute,
+    inboxRoute,
     projectsRoute,
     projectBriefRoute,
     projectPlanRoute,

@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
-import { recordActivity } from '../activity/service'
+import { recordActivity, refreshCommentMentions } from '../activity/service'
 import { comments, memberships, projects, stars, tasks, user, workspaces } from '../db/schema'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
@@ -322,6 +322,7 @@ async function visibleComment(db: Db, id: string, userId: string) {
       projectId: comments.projectId,
       workspaceId: projects.workspaceId,
       authorId: comments.authorId,
+      mentions: comments.mentions,
       role: memberships.role,
     })
     .from(comments)
@@ -616,7 +617,11 @@ export function createProjectBriefRoutes(
             actorId,
             type: 'comment.added',
             subject: row.id,
-            payload: { target: target.kind, ...(taskKey ? { taskKey } : {}) },
+            payload: {
+              target: target.kind,
+              ...(target.kind === 'task' ? { taskId: target.id } : {}),
+              ...(taskKey ? { taskKey } : {}),
+            },
           })
           return { kind: 'created' as const, id: row.id }
         })
@@ -659,6 +664,14 @@ export function createProjectBriefRoutes(
               updatedAt: new Date(),
             })
             .where(eq(comments.id, id))
+          if (input.mentions !== undefined)
+            await refreshCommentMentions(
+              tx,
+              current.workspaceId,
+              id,
+              actorId,
+              input.mentions.filter((mentioned) => !current.mentions.includes(mentioned)),
+            )
           return 'updated' as const
         })
         if (result === 'missing') return c.json({ error: 'Comment not found' }, 404)
