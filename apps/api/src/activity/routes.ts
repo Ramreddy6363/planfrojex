@@ -133,7 +133,7 @@ export function createActivityRoutes(
           and(
             eq(sql<string>`${comments.id}::text`, activity.subject),
             eq(comments.projectId, activity.projectId),
-            eq(activity.type, 'comment.added'),
+            inArray(activity.type, ['comment.added', 'comment.mentioned']),
           ),
         )
         .where(

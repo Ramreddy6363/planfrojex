@@ -183,7 +183,7 @@ Screen: 306. Table/API: boards 1004 (`notifications`) and 1005 (GET /inbox, POST
 - **Out of scope:** email/Slack delivery, GET/PUT /me/notification-settings, drift notifications (20), push/realtime updates (the count refreshes on navigation and every 60 s).
 
 ## Still open before production
-- Apply migrations 0001–0008 (0009 after this feature) to Neon before the first deploy.
+- Apply migrations 0001–0009 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -202,7 +202,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 8 | Diagrams | React Flow + ELK canvas, versions, draft diagram | shipped 2026-11-14 |
 | 9 | Activity | Timeline, filters | shipped 2026-11-14 |
 | 10 | My tasks | My tasks | shipped 2026-11-15 |
-| 11 | Inbox | Mentions, assignments, replies | |
+| 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
 | 12 | ⌘K search | Search overlay | |
 | 13 | Workspace settings | General, share links, danger zone | |
 | 14 | Account settings | Account | |

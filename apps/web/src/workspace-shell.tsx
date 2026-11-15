@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import {
   CheckCircle2,
   ChevronsUpDown,
@@ -15,6 +15,7 @@ import {
 import type { ReactNode } from 'react'
 import { api, call } from './api'
 import { auth } from './auth-client'
+import { getInbox, inboxKey } from './inbox'
 import { getMyTasks, myTasksKey } from './my-tasks'
 import type { getMe, getWorkspace } from './session'
 import { Avatar } from './ui/avatar'
@@ -33,15 +34,21 @@ export function WorkspaceShell({
 }: {
   workspace: Awaited<ReturnType<typeof getWorkspace>>['workspace']
   me: Awaited<ReturnType<typeof getMe>>
-  active: 'home' | 'members' | 'projects' | 'my-tasks'
+  active: 'home' | 'members' | 'projects' | 'my-tasks' | 'inbox'
   children: ReactNode
 }) {
   const navigate = useNavigate()
+  const pathname = useLocation({ select: (location) => location.pathname })
   const { busy, error, run } = useAction()
   const displayName = me.user.name || me.user.email
   const myTasks = useQuery({
     queryKey: [...myTasksKey(workspace.slug), 'sidebar'],
     queryFn: () => getMyTasks(workspace.slug, 'assigned', '', null, '1'),
+  })
+  const inbox = useQuery({
+    queryKey: [...inboxKey(workspace.slug), 'sidebar', pathname],
+    queryFn: () => getInbox(workspace.slug, null, '1'),
+    refetchInterval: 60_000,
   })
   const starred = useQuery({
     queryKey: ['projects', workspace.slug, 'sidebar'],
@@ -89,7 +96,7 @@ export function WorkspaceShell({
             current: item.slug === workspace.slug,
             onSelect: () =>
               void navigate({
-                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : ''}`,
+                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : active === 'inbox' ? '/inbox' : ''}`,
               }),
           }))}
         />
@@ -125,8 +132,17 @@ export function WorkspaceShell({
             </span>
           ) : null}
         </Button>
-        <Button variant="ghost" disabled icon={Inbox} className="justify-start font-normal">
+        <Button
+          variant="ghost"
+          icon={Inbox}
+          aria-current={active === 'inbox' ? 'page' : undefined}
+          className={`justify-start font-normal ${active === 'inbox' ? '!bg-accent-subtle !text-accent' : ''}`}
+          onClick={() => void navigate({ to: `/${workspace.slug}/inbox` })}
+        >
           Inbox
+          {inbox.data ? (
+            <span className="ml-auto text-caption text-text-muted">{inbox.data.unreadCount}</span>
+          ) : null}
         </Button>
         <p className="mt-6 px-2 text-caption text-text-muted">Starred</p>
         {starred.data?.projects.length ? (

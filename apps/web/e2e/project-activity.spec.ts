@@ -235,3 +235,32 @@ test('activity and people failures can be retried', async ({ page }) => {
     page.getByLabel('Filter by person').getByRole('option', { name: 'Daniel Okafor' }),
   ).toHaveCount(1)
 })
+
+test('mention edits use truthful activity copy without repeating comment text', async ({
+  page,
+}) => {
+  await mockActivity(page)
+  await page.route(`http://localhost:8787/projects/${projectId}/activity*`, (route) =>
+    route.fulfill({
+      headers,
+      json: {
+        activity: [
+          {
+            ...entries[0],
+            id: 'mention-edit',
+            type: 'comment.mentioned',
+            comment: { text: 'Private edited comment body', target: 'task', taskId: 'task-1' },
+          },
+          { ...entries[0], id: 'deleted-mention-edit', type: 'comment.mentioned', comment: null },
+        ],
+        nextCursor: null,
+      },
+    }),
+  )
+  await page.goto(`/northwind/projects/${projectId}/activity`)
+  await expect(
+    page.getByText('added mentions to a comment on PORT-36', { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText('deleted a comment', { exact: true })).toBeVisible()
+  await expect(page.getByText('Private edited comment body', { exact: false })).toHaveCount(0)
+})
