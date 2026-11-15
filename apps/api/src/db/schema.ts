@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
+  customType,
   date,
   foreignKey,
   index,
@@ -14,6 +15,8 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' })
 
 const timestamps = () => ({
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -151,6 +154,9 @@ export const projects = pgTable(
       .$type<{ problem: string; goals?: string[]; constraints?: string; outOfScope?: string }>()
       .notNull(),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    search: tsvector('search').generatedAlwaysAs(
+      sql`setweight(to_tsvector('simple', coalesce("title", '') || ' ' || coalesce("key", '')), 'A') || setweight(to_tsvector('simple', coalesce("brief", '{}'::jsonb)), 'B') || setweight(to_tsvector('simple', planfrojex_search_tags("tags")), 'C')`,
+    ),
     createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
     planUpdatedAt: timestamp('plan_updated_at', { withTimezone: true }),
     planUpdatedBy: text('plan_updated_by').references(() => user.id, { onDelete: 'set null' }),
@@ -160,6 +166,7 @@ export const projects = pgTable(
   (t) => [
     uniqueIndex('projects_workspace_key_idx').on(t.workspaceId, t.key),
     index('projects_workspace_updated_idx').on(t.workspaceId, t.updatedAt, t.id),
+    index('projects_search_idx').using('gin', t.search),
   ],
 )
 
@@ -233,6 +240,9 @@ export const tasks = pgTable(
     number: integer('number').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    search: tsvector('search').generatedAlwaysAs(
+      sql`setweight(to_tsvector('simple', coalesce("title", '')), 'A') || setweight(to_tsvector('simple', coalesce("description", '')), 'B')`,
+    ),
     status: text('status', { enum: ['todo', 'in_progress', 'done'] })
       .notNull()
       .default('todo'),
@@ -258,6 +268,7 @@ export const tasks = pgTable(
     index('tasks_assignee_idx').on(t.assigneeId),
     index('tasks_assignee_status_due_date_idx').on(t.assigneeId, t.status, t.dueDate),
     index('tasks_created_by_status_idx').on(t.createdBy, t.status),
+    index('tasks_search_idx').using('gin', t.search),
   ],
 )
 

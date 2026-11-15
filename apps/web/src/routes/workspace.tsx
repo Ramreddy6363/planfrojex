@@ -137,12 +137,14 @@ function Workspace() {
           <EmptyState title="No activity yet" body="Workspace activity will appear here." />
         </section>
       </div>
-      <NewProjectDialog
-        open={newProjectOpen}
-        onClose={() => setNewProjectOpen(false)}
-        slug={workspace.slug}
-        userId={me.user.id}
-      />
+      {newProjectOpen ? (
+        <NewProjectDialog
+          open
+          onClose={() => setNewProjectOpen(false)}
+          slug={workspace.slug}
+          userId={me.user.id}
+        />
+      ) : null}
     </WorkspaceShell>
   )
 }

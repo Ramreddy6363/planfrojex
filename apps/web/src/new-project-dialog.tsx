@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Cpu, File, LayoutGrid, ShoppingCart, Smartphone, UserRound } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { api, call } from './api'
 import { queryClient } from './session'
 import { Button } from './ui/button'
@@ -31,6 +31,7 @@ export function NewProjectDialog({
   slug: string
   userId: string
 }) {
+  const formId = useId()
   const [name, setName] = useState('')
   const [brief, setBrief] = useState('')
   const [leadId, setLeadId] = useState(userId)
@@ -121,22 +122,22 @@ export function NewProjectDialog({
     >
       <div className="space-y-4 text-text">
         <div>
-          <label htmlFor="project-name" className="mb-1 block">
+          <label htmlFor={`${formId}-name`} className="mb-1 block">
             Name
           </label>
           <Input
-            id="project-name"
+            id={`${formId}-name`}
             value={name}
             maxLength={200}
             onChange={(e) => setName(e.target.value)}
           />
         </div>
         <div>
-          <label htmlFor="project-brief" className="mb-1 block">
+          <label htmlFor={`${formId}-brief`} className="mb-1 block">
             Brief
           </label>
           <Textarea
-            id="project-brief"
+            id={`${formId}-brief`}
             value={brief}
             maxLength={20000}
             className="h-36"
@@ -148,11 +149,11 @@ export function NewProjectDialog({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="project-lead" className="mb-1 block">
+            <label htmlFor={`${formId}-lead`} className="mb-1 block">
               Lead
             </label>
             <Select
-              id="project-lead"
+              id={`${formId}-lead`}
               value={leadId}
               onChange={(e) => setLeadId(e.target.value)}
               disabled={members.isPending || members.isError}
@@ -168,11 +169,11 @@ export function NewProjectDialog({
             )}
           </div>
           <div>
-            <label htmlFor="project-date" className="mb-1 block">
+            <label htmlFor={`${formId}-date`} className="mb-1 block">
               Target date
             </label>
             <Input
-              id="project-date"
+              id={`${formId}-date`}
               type="date"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}

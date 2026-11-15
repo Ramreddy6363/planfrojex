@@ -12,7 +12,7 @@ import {
   Settings,
   UsersRound,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { api, call } from './api'
 import { auth } from './auth-client'
 import { getInbox, inboxKey } from './inbox'
@@ -25,6 +25,7 @@ import { Icon } from './ui/icon'
 import { Menu } from './ui/menu'
 import { ActionError, useAction } from './use-action'
 import { UserError } from './user-error'
+import { WorkspaceSearch } from './workspace-search'
 
 export function WorkspaceShell({
   workspace,
@@ -41,6 +42,7 @@ export function WorkspaceShell({
   const pathname = useLocation({ select: (location) => location.pathname })
   const { busy, error, run } = useAction()
   const displayName = me.user.name || me.user.email
+  const [searchOpen, setSearchOpen] = useState(false)
   const myTasks = useQuery({
     queryKey: [...myTasksKey(workspace.slug), 'sidebar'],
     queryFn: () => getMyTasks(workspace.slug, 'assigned', '', null, '1'),
@@ -102,8 +104,8 @@ export function WorkspaceShell({
         />
         <Button
           variant="secondary"
-          disabled
           icon={Search}
+          onClick={() => setSearchOpen(true)}
           className="mt-3 justify-start font-normal"
         >
           Search
@@ -206,6 +208,12 @@ export function WorkspaceShell({
         <ActionError error={error} />
       </nav>
       <main className="min-w-0 flex-1">{children}</main>
+      <WorkspaceSearch
+        workspace={workspace}
+        userId={me.user.id}
+        open={searchOpen}
+        setOpen={setSearchOpen}
+      />
     </div>
   )
 }

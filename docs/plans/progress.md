@@ -197,7 +197,7 @@ Screen: 304. API: board 1005 (GET /workspaces/:ws/search?q=). Postgres full-text
 - **Out of scope:** searching comments, plan, diagrams or people; search across workspaces; a full search results page.
 
 ## Still open before production
-- Apply migrations 0001–0009 to Neon before the first deploy.
+- Apply migrations 0001–0010 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -217,7 +217,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 9 | Activity | Timeline, filters | shipped 2026-11-14 |
 | 10 | My tasks | My tasks | shipped 2026-11-15 |
 | 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
-| 12 | ⌘K search | Search overlay | |
+| 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
 | 13 | Workspace settings | General, share links, danger zone | |
 | 14 | Account settings | Account | |
 | 15 | Share links + public share page | Share dialog, public page | |
