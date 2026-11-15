@@ -240,6 +240,11 @@ Screens: 409 (Share dialog), 601 (public page), 503 (Settings › Share links ta
 3. Views count every page load, no unique-visitor tracking (recommended; no cookies or IP storage).
 - **Out of scope:** approvals and reviewer emails (18), mobile layout (16), password-protected or expiring links, comments on the public page.
 
+## 2026-11-15: Fix search shortcut flake — approved 2026-11-15
+Screen: existing search overlay 304. Endpoints: none. Tables: none. Open questions: none.
+- Keep the workspace shortcut listener attached across renders and ready before a navigated screen is visible. Preserve editable-field guards and all existing shortcuts.
+- Verify the full Playwright suite three times consecutively, then run `pnpm check`.
+
 ## Still open before production
 - Apply migrations 0001–0011 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
