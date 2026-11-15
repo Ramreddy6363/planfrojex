@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import { ArrowRight, Folder, House, Inbox, Plus, UsersRound } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api, call } from './api'
 import { NewProjectDialog } from './new-project-dialog'
 import type { getWorkspace } from './session'
@@ -25,11 +25,21 @@ export function WorkspaceSearch({
   setOpen: (open: boolean) => void
 }) {
   const navigate = useNavigate()
+  const pathname = useLocation({ select: (location) => location.pathname })
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
   const [newProject, setNewProject] = useState(false)
   const prefix = useRef(0)
   const editable = workspace.role !== 'viewer'
+  const shortcutState = useRef({
+    open,
+    newProject,
+    editable,
+    slug: workspace.slug,
+    navigate,
+    setOpen,
+  })
+  shortcutState.current = { open, newProject, editable, slug: workspace.slug, navigate, setOpen }
   const close = () => setOpen(false)
   const go = (path: string) => {
     close()
@@ -49,16 +59,17 @@ export function WorkspaceSearch({
     const timeout = setTimeout(() => setDebounced(query.trim()), 150)
     return () => clearTimeout(timeout)
   }, [query])
-  useEffect(() => {
+  useLayoutEffect(() => {
     const listener = (event: KeyboardEvent) => {
+      const state = shortcutState.current
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setOpen(!open)
+        state.setOpen(!state.open)
         return
       }
       if (
-        open ||
-        newProject ||
+        state.open ||
+        state.newProject ||
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
@@ -84,19 +95,31 @@ export function WorkspaceSearch({
         )[key]
         if (path !== undefined) {
           event.preventDefault()
-          go(path)
+          state.setOpen(false)
+          void state.navigate({ to: `/${state.slug}${path}` })
         }
         return
       }
       prefix.current = 0
-      if (key === 'c' && editable) {
+      if (key === 'c' && state.editable) {
         event.preventDefault()
-        create()
+        state.setOpen(false)
+        setNewProject(true)
       }
     }
     document.addEventListener('keydown', listener)
-    return () => document.removeEventListener('keydown', listener)
-  })
+    document.documentElement.dataset.shortcutsReady = 'true'
+    return () => {
+      document.removeEventListener('keydown', listener)
+      delete document.documentElement.dataset.shortcutsReady
+    }
+  }, [])
+  useLayoutEffect(() => {
+    document.documentElement.dataset.shortcutsRoute = pathname
+    return () => {
+      delete document.documentElement.dataset.shortcutsRoute
+    }
+  }, [pathname])
   const search = useQuery({
     queryKey: ['search', workspace.slug, debounced],
     enabled: open && debounced.length > 0,

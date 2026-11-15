@@ -226,6 +226,11 @@ Screen: 505. API: board 1005 (GET/PATCH /me, GET/PUT /me/notification-settings, 
 3. Deleting an account keeps your comments as "Deleted user" instead of deleting them (recommended; threads stay readable).
 - **Out of scope:** photo upload, Security tab (sessions list, sign out everywhere), email delivery of notifications (20–21), data export.
 
+## 2026-11-15: Fix search shortcut flake — approved 2026-11-15
+Screen: existing search overlay 304. Endpoints: none. Tables: none. Open questions: none.
+- Keep the workspace shortcut listener attached across renders and ready before a navigated screen is visible. Preserve editable-field guards and all existing shortcuts.
+- Verify the full Playwright suite three times consecutively, then run `pnpm check`.
+
 ## Still open before production
 - Apply migrations 0001–0011 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
