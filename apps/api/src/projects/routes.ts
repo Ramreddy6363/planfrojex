@@ -55,7 +55,7 @@ const project = z.object({
   key: z.string(),
   name: z.string(),
   status,
-  leadId: z.string(),
+  leadId: z.string().nullable(),
   leadName: z.string(),
   targetDate: z.string().nullable(),
   brief: z.object({ problem: z.string() }),
@@ -213,14 +213,14 @@ export function createProjectRoutes(
             name: projects.name,
             status: projects.status,
             leadId: projects.leadId,
-            leadName: user.name,
+            leadName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
             targetDate: projects.targetDate,
             brief: projects.brief,
             updatedAt: projects.updatedAt,
             starredId: stars.projectId,
           })
           .from(projects)
-          .innerJoin(user, eq(user.id, projects.leadId))
+          .leftJoin(user, eq(user.id, projects.leadId))
           .leftJoin(stars, and(eq(stars.projectId, projects.id), eq(stars.userId, userId)))
           .where(
             and(

@@ -108,7 +108,7 @@ suite('email code authentication against PostgreSQL', () => {
       ).status,
     ).toBe(200)
     const wrong = code === '000000' ? '000001' : '000000'
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       await client.query('DELETE FROM rate_limits')
       expect(
         (await call('sign-in/email-otp', { email: 'attempts@example.com', otp: wrong })).status,

@@ -31,7 +31,7 @@ const itemSchema = z.object({
   type: z.enum(['mention', 'assigned', 'reply', 'draft_decision']),
   readAt: z.string().nullable(),
   createdAt: z.string(),
-  actor: z.object({ id: z.string(), name: z.string(), image: z.string().nullable() }),
+  actor: z.object({ id: z.string().nullable(), name: z.string(), image: z.string().nullable() }),
   project: z.object({ id: z.uuid(), name: z.string() }),
   task: z
     .object({
@@ -148,7 +148,7 @@ export function createInboxRoutes(
             createdAt: notifications.createdAt,
             cursorTime: sql<string>`to_char(${notifications.createdAt} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
             actorId: user.id,
-            actorName: user.name,
+            actorName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
             actorImage: user.image,
             projectId: projects.id,
             projectName: projects.name,
@@ -169,7 +169,7 @@ export function createInboxRoutes(
           .from(notifications)
           .innerJoin(activity, eq(activity.id, notifications.activityId))
           .innerJoin(projects, eq(projects.id, activity.projectId))
-          .innerJoin(user, eq(user.id, activity.actorId))
+          .leftJoin(user, eq(user.id, activity.actorId))
           .leftJoin(
             comments,
             and(

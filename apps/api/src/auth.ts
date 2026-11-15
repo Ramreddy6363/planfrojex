@@ -20,6 +20,8 @@ export function createAuth(env: Env['Bindings'], database?: Parameters<typeof dr
       '/forget-password/email-otp',
       '/email-otp/reset-password',
       '/email-otp/check-verification-otp',
+      '/email-otp/request-email-change',
+      '/email-otp/change-email',
     ],
     // Better Auth expects an unused password column even when password auth is disabled.
     advanced: {
@@ -38,7 +40,8 @@ export function createAuth(env: Env['Bindings'], database?: Parameters<typeof dr
       emailOTP({
         otpLength: 6,
         expiresIn: 600,
-        allowedAttempts: 3,
+        allowedAttempts: 5,
+        changeEmail: { enabled: true },
         storeOTP: 'hashed',
         async sendVerificationOTP({ email, otp }) {
           await sendCode(env, email, otp)

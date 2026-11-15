@@ -232,11 +232,24 @@ async function mockInbox(page: import('@playwright/test').Page) {
       const first = items[0]
       if (first) first.task = null
     },
+    deleteFirstActor: () => {
+      Object.assign(actor, { id: null, name: null })
+      Object.assign(comments[1] ?? {}, { authorId: null, authorName: null })
+    },
   }
 }
 
 test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date('2026-11-15T12:00:00Z') })
+})
+
+test('a deleted actor stays visible in inbox and its comment thread', async ({ page }) => {
+  const state = await mockInbox(page)
+  state.deleteFirstActor()
+  await page.goto('/northwind/inbox')
+  await page.getByRole('button', { name: /Deleted user mentioned you/ }).click()
+  await expect(page.getByText('Deleted user', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Reply to Deleted user' })).toBeVisible()
 })
 
 test('list, opening marks read, reply mentions, mark all read and load more', async ({ page }) => {

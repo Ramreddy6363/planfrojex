@@ -83,7 +83,11 @@ const entries = [
     createdAt: '2026-10-08T12:00:00.000Z',
   },
 ]
-async function mockActivity(page: import('@playwright/test').Page, role = 'owner') {
+async function mockActivity(
+  page: import('@playwright/test').Page,
+  role = 'owner',
+  deletedActor = false,
+) {
   const queries: URLSearchParams[] = []
   const workspace = { id: '1', name: 'Northwind', slug: 'northwind', role, isPersonal: false }
   const project = {
@@ -157,6 +161,7 @@ async function mockActivity(page: import('@playwright/test').Page, role = 'owner
             comment: null,
             category: categoryOf(row.type),
             ...row,
+            ...(deletedActor ? { actorId: null, actorName: null } : {}),
           })),
           nextCursor: !next && filtered.length > 7 ? 'next' : null,
         },
@@ -168,6 +173,13 @@ async function mockActivity(page: import('@playwright/test').Page, role = 'owner
   })
   return queries
 }
+
+test('keeps activity visible when the actor account was deleted', async ({ page }) => {
+  await mockActivity(page, 'viewer', true)
+  await page.goto(`/northwind/projects/${projectId}/activity`)
+  await expect(page.getByText('Deleted user', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('“@Maya can we confirm by Friday?”')).toBeVisible()
+})
 
 test('activity groups timeline entries, renders details, filters and loads more', async ({
   page,

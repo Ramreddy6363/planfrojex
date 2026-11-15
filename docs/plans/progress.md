@@ -210,8 +210,24 @@ Screen: 503. API: board 1005 (PATCH/DELETE /workspaces/:ws). No new dependencies
 3. Old slugs don't redirect after a rename (recommended; the hint already warns).
 - **Out of scope:** logo upload, transfer ownership, billing, Integrations tab (feature 19), deleting the personal workspace.
 
+## 2026-11-15: Feature 14 Account settings — approved 2026-11-15 (with the three recommendations)
+Screen: 505. API: board 1005 (GET/PATCH /me, GET/PUT /me/notification-settings, DELETE /me). No new dependencies.
+- **Page:** /:ws/account, opened from the sidebar user menu ("..." next to the name). Tabs Profile / Notifications jump to their sections on the one page. One "Save changes" bar at the bottom for name, time zone and notification toggles, disabled until something changes.
+- **Profile:** avatar with initials (or the Google photo), Full name (1–80), Email with Change, Time zone Select (browser list via `Intl.supportedValuesOf('timeZone')`, defaults to the browser's zone).
+- **Change email:** Dialog asks for the new address, sends a 6-digit code to it through the existing email-code sender (dev: logged locally), and switches only after the code is entered. Code stored as a hash, 10 minutes, 5 tries; taken address shows "That email is already in use". Other sessions are signed out after the change.
+- **Notifications:** five rows × Email / In app as drawn (mention, assigned, draft ready, drift, weekly summary). In-app toggles take effect now (inbox skips turned-off types); email toggles are saved for features 20–21. Defaults match the drawing.
+- **Delete account:** confirm Dialog (type "delete"). Blocked with a list while you are the only owner of a workspace that has other members ("Make someone else owner first"). Otherwise: memberships and sessions removed, workspaces where you were the only member deleted, and your name shows as "Deleted user" on comments, activity and tasks. Signs you out to the sign-in page.
+- **Database (migration 0011):** `notification_settings` (user_id, type, email, in_app; PK user+type). Change user FKs that block deletion: invites.invited_by → cascade; projects.lead_id → set null; activity.actor_id and comments.author_id → nullable, set null (comments kept, shown as "Deleted user"). Not applied to Neon.
+- **Endpoints:** PATCH /me {name?, timezone?}; POST /me/email/start {email}, POST /me/email/verify {code}; GET/PUT /me/notification-settings; DELETE /me {confirm}. All act only on the session user. Rate limits: email start 3/hour, verify 5 tries per code, others 20/min.
+
+**Open questions**
+1. "Change photo" waits until file storage exists (feature 15+); now we show initials or the Google photo, and Remove clears it (recommended; no storage provider yet).
+2. The Security tab isn't drawn; hide it until it is (recommended).
+3. Deleting an account keeps your comments as "Deleted user" instead of deleting them (recommended; threads stay readable).
+- **Out of scope:** photo upload, Security tab (sessions list, sign out everywhere), email delivery of notifications (20–21), data export.
+
 ## Still open before production
-- Apply migrations 0001–0010 to Neon before the first deploy.
+- Apply migrations 0001–0011 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -233,7 +249,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
 | 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
 | 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
-| 14 | Account settings | Account | |
+| 14 | Account settings | Account | shipped 2026-11-15 |
 | 15 | Share links + public share page | Share dialog, public page | |
 | 16 | Mobile | Projects, Brief, Share page (390px) | |
 | 17 | Landing page | Landing | |

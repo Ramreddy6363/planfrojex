@@ -517,8 +517,12 @@ function ProjectPlan() {
               {project.status.replace('-', ' ')}
             </span>
             <span className="flex items-center gap-2">
-              <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-              {project.leadName}
+              <Avatar
+                id={project.leadId}
+                name={project.leadName ?? 'Deleted user'}
+                className="!size-5"
+              />
+              {project.leadName ?? 'Deleted user'}
             </span>
             <span className="flex items-center gap-2 text-text-muted">
               <CalendarDays className="size-4" />
@@ -1120,7 +1124,7 @@ function ProjectPlan() {
                   className="flex items-center justify-between gap-3 py-3 text-ui"
                 >
                   <span>
-                    {decision.actorName} {decision.outcome} {decision.kind}
+                    {decision.actorName ?? 'Deleted user'} {decision.outcome} {decision.kind}
                   </span>
                   {editable && decision.outcome === 'accepted' && !decision.reversesDecisionId && (
                     <Button

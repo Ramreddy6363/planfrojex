@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { z } from 'zod'
+import { createAccountRoutes } from './account/routes'
 import { createActivityRoutes } from './activity/routes'
 import { createAuth } from './auth'
 import { connect } from './db'
@@ -69,6 +70,7 @@ export function createApp(
     })
     .on(['GET', 'POST'], '/api/auth/*', (c) => auth(c.env).handler(c.req.raw))
     .get('/health', (c) => c.json({ ok: true }))
+    .route('/', createAccountRoutes(options))
     .route('/', createWorkspaceRoutes(options))
     .route('/', createWorkspaceSettingsRoutes(options))
     .route('/', createSearchRoutes(options))

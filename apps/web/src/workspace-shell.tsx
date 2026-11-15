@@ -10,6 +10,7 @@ import {
   LogOut,
   Search,
   Settings,
+  UserRound,
   UsersRound,
 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
@@ -35,7 +36,7 @@ export function WorkspaceShell({
 }: {
   workspace: Awaited<ReturnType<typeof getWorkspace>>['workspace']
   me: Awaited<ReturnType<typeof getMe>>
-  active: 'home' | 'members' | 'projects' | 'my-tasks' | 'inbox' | 'settings'
+  active: 'home' | 'members' | 'projects' | 'my-tasks' | 'inbox' | 'settings' | 'account'
   children: ReactNode
 }) {
   const navigate = useNavigate()
@@ -98,7 +99,7 @@ export function WorkspaceShell({
             current: item.slug === workspace.slug,
             onSelect: () =>
               void navigate({
-                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : active === 'inbox' ? '/inbox' : active === 'settings' ? '/settings' : ''}`,
+                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : active === 'inbox' ? '/inbox' : active === 'settings' ? '/settings' : active === 'account' ? '/account' : ''}`,
               }),
           }))}
         />
@@ -190,13 +191,20 @@ export function WorkspaceShell({
         >
           Settings
         </Button>
-        <div className="mt-auto flex items-center gap-2 border-t border-border px-1 pt-3">
-          <Avatar id={me.user.id} name={displayName} />
+        <div
+          className={`mt-auto flex items-center gap-2 border-t border-border px-1 pt-3 ${active === 'account' ? 'bg-accent-subtle' : ''}`}
+        >
+          <Avatar id={me.user.id} name={displayName} image={me.user.image} />
           <span className="min-w-0 flex-1 truncate">{displayName}</span>
           <Menu
             label="Account"
             iconOnly
             items={[
+              {
+                label: 'Account settings',
+                icon: UserRound,
+                onSelect: () => void navigate({ to: `/${workspace.slug}/account` }),
+              },
               {
                 label: busy ? 'Signing out…' : 'Sign out',
                 icon: LogOut,

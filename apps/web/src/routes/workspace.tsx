@@ -82,7 +82,11 @@ function YourProjects({ slug }: { slug: string }) {
                 <StatusLabel status={project.status} />
               </span>
               <span className="w-36 text-text-muted">No plan yet</span>
-              <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
+              <Avatar
+                id={project.leadId}
+                name={project.leadName ?? 'Deleted user'}
+                className="!size-5"
+              />
               <span className="w-14 text-right font-mono text-text-muted">
                 {project.targetDate
                   ? new Intl.DateTimeFormat(undefined, {

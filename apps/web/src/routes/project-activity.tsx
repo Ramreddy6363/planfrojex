@@ -124,7 +124,7 @@ function activityContent(
       ? label
       : value == null
         ? 'Unassigned'
-        : (memberNames.get(String(value)) ?? 'Former member')
+        : (memberNames.get(String(value)) ?? 'Deleted user')
   const changes = (before: ReactNode, after: ReactNode) => (
     <span className="inline-flex flex-wrap items-center gap-2">
       <span>{before}</span>
@@ -363,8 +363,12 @@ function ProjectActivity() {
               {statusInfo(project.status).label}
             </span>
             <span className="flex items-center gap-2">
-              <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-              {project.leadName}
+              <Avatar
+                id={project.leadId}
+                name={project.leadName ?? 'Deleted user'}
+                className="!size-5"
+              />
+              {project.leadName ?? 'Deleted user'}
             </span>
             <span className="flex items-center gap-2 text-text-muted">
               <Icon icon={CalendarDays} />
@@ -477,11 +481,17 @@ function ProjectActivity() {
                   const content = activityContent(entry, memberNames)
                   return (
                     <li key={entry.id} className="flex gap-2 border-b border-border py-3">
-                      <Avatar id={entry.actorId} name={entry.actorName} className="!size-5.5" />
+                      <Avatar
+                        id={entry.actorId}
+                        name={entry.actorName ?? 'Deleted user'}
+                        className="!size-5.5"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-3">
                           <p className="min-w-0 flex-1">
-                            <span className="mr-2 font-medium">{entry.actorName}</span>
+                            <span className="mr-2 font-medium">
+                              {entry.actorName ?? 'Deleted user'}
+                            </span>
                             <span className="text-text-muted">{content.sentence}</span>
                           </p>
                           <time

@@ -188,7 +188,7 @@ const getDecisionsRoute = createRoute({
             kind: z.enum(allDraftKinds),
             outcome: z.enum(['accepted', 'rejected', 'reversed']),
             reason: z.string().nullable(),
-            actorId: z.string(),
+            actorId: z.string().nullable(),
             actorName: z.string(),
             reversesDecisionId: z.uuid().nullable(),
             createdAt: z.string(),
@@ -1194,11 +1194,17 @@ export function createProjectDraftRoutes(
           createdAt: decisions.createdAt,
         })
         .from(decisions)
-        .innerJoin(user, eq(user.id, decisions.actorId))
+        .leftJoin(user, eq(user.id, decisions.actorId))
         .where(eq(decisions.projectId, id))
         .orderBy(asc(decisions.createdAt), asc(decisions.id))
       return c.json(
-        { decisions: rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })) },
+        {
+          decisions: rows.map((row) => ({
+            ...row,
+            actorName: row.actorName ?? 'Deleted user',
+            createdAt: row.createdAt.toISOString(),
+          })),
+        },
         200,
       )
     })

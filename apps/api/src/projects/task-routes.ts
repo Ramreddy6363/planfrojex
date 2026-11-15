@@ -27,12 +27,13 @@ const taskResponse = z.object({
   status,
   priority,
   assigneeId: z.string().nullable(),
+  assigneeDeleted: z.boolean(),
   assigneeName: z.string().nullable(),
   milestoneId: z.uuid().nullable(),
   milestoneCode: z.string().nullable(),
   dueDate: z.string().nullable(),
   position: z.number().int(),
-  createdBy: z.string(),
+  createdBy: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -180,6 +181,7 @@ async function taskDetails(db: Db, id: string, userId: string) {
       status: tasks.status,
       priority: tasks.priority,
       assigneeId: tasks.assigneeId,
+      assigneeDeleted: tasks.assigneeDeleted,
       assigneeName: user.name,
       milestoneId: tasks.milestoneId,
       milestoneCode: milestones.code,
@@ -212,7 +214,8 @@ async function taskDetails(db: Db, id: string, userId: string) {
         status: row.status,
         priority: row.priority,
         assigneeId: row.assigneeId,
-        assigneeName: row.assigneeName,
+        assigneeDeleted: row.assigneeDeleted,
+        assigneeName: row.assigneeDeleted ? 'Deleted user' : row.assigneeName,
         milestoneId: row.milestoneId,
         milestoneCode: row.milestoneCode,
         dueDate: row.dueDate,
@@ -527,7 +530,10 @@ export function createTaskRoutes(options: { database?: DatabaseFactory; auth?: A
           if (input.title !== undefined) values.title = input.title
           if (input.description !== undefined) values.description = input.description
           if (input.priority !== undefined) values.priority = input.priority
-          if (input.assigneeId !== undefined) values.assigneeId = input.assigneeId
+          if (input.assigneeId !== undefined) {
+            values.assigneeId = input.assigneeId
+            values.assigneeDeleted = false
+          }
           if (input.dueDate !== undefined) values.dueDate = input.dueDate
           if (input.milestoneId !== undefined) values.milestoneId = input.milestoneId
           const nextStatus = input.status ?? task.status

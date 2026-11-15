@@ -37,7 +37,7 @@ const projectResponse = z.object({
   key: z.string(),
   name: z.string(),
   status,
-  leadId: z.string(),
+  leadId: z.string().nullable(),
   leadName: z.string(),
   targetDate: z.string().nullable(),
   brief: briefSchema,
@@ -105,7 +105,7 @@ const getCommentsRoute = createRoute({
         comments: z.array(
           z.object({
             id: z.uuid(),
-            authorId: z.string(),
+            authorId: z.string().nullable(),
             authorName: z.string(),
             body: z.string(),
             mentions: z.array(z.string()),
@@ -141,7 +141,7 @@ const postCommentRoute = createRoute({
       z.object({
         comment: z.object({
           id: z.uuid(),
-          authorId: z.string(),
+          authorId: z.string().nullable(),
           authorName: z.string(),
           body: z.string(),
           mentions: z.array(z.string()),
@@ -176,7 +176,7 @@ const patchCommentInput = z
 const commentResponse = z.object({
   comment: z.object({
     id: z.uuid(),
-    authorId: z.string(),
+    authorId: z.string().nullable(),
     authorName: z.string(),
     body: z.string(),
     mentions: z.array(z.string()),
@@ -258,7 +258,7 @@ async function projectDetails(db: Db, id: string, userId: string) {
       name: projects.name,
       status: projects.status,
       leadId: projects.leadId,
-      leadName: user.name,
+      leadName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
       targetDate: projects.targetDate,
       brief: projects.brief,
       tags: projects.tags,
@@ -267,7 +267,7 @@ async function projectDetails(db: Db, id: string, userId: string) {
       starredId: stars.projectId,
     })
     .from(projects)
-    .innerJoin(user, eq(user.id, projects.leadId))
+    .leftJoin(user, eq(user.id, projects.leadId))
     .innerJoin(
       memberships,
       and(eq(memberships.workspaceId, projects.workspaceId), eq(memberships.userId, userId)),
@@ -339,14 +339,14 @@ async function commentDetails(db: Db, id: string) {
     .select({
       id: comments.id,
       authorId: comments.authorId,
-      authorName: user.name,
+      authorName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
       body: comments.body,
       mentions: comments.mentions,
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
     })
     .from(comments)
-    .innerJoin(user, eq(user.id, comments.authorId))
+    .leftJoin(user, eq(user.id, comments.authorId))
     .where(eq(comments.id, id))
   return row
     ? {
@@ -461,7 +461,14 @@ export function createProjectBriefRoutes(
               const people = await tx
                 .select({ id: user.id, name: user.name })
                 .from(user)
-                .where(inArray(user.id, [project.leadId, input.leadId as string]))
+                .where(
+                  inArray(
+                    user.id,
+                    [project.leadId, input.leadId as string].filter(
+                      (id): id is string => id !== null,
+                    ),
+                  ),
+                )
               names = Object.fromEntries(people.map((person) => [person.id, person.name]))
             }
             await recordActivity(tx, {
@@ -474,7 +481,10 @@ export function createProjectBriefRoutes(
                 before: project[field],
                 after: input[field],
                 ...(field === 'leadId'
-                  ? { beforeName: names[project.leadId], afterName: names[input.leadId as string] }
+                  ? {
+                      beforeName: project.leadId ? names[project.leadId] : 'Deleted user',
+                      afterName: names[input.leadId as string],
+                    }
                   : {}),
               },
             })
@@ -525,14 +535,14 @@ export function createProjectBriefRoutes(
           .select({
             id: comments.id,
             authorId: comments.authorId,
-            authorName: user.name,
+            authorName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
             body: comments.body,
             mentions: comments.mentions,
             createdAt: comments.createdAt,
             updatedAt: comments.updatedAt,
           })
           .from(comments)
-          .innerJoin(user, eq(user.id, comments.authorId))
+          .leftJoin(user, eq(user.id, comments.authorId))
           .where(
             and(
               eq(comments.projectId, visible.projectId),

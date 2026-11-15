@@ -5,6 +5,7 @@ import {
   draftChanges,
   drafts,
   memberships,
+  notificationSettings,
   notifications,
   projects,
   tasks,
@@ -194,6 +195,37 @@ suite('inbox notifications', () => {
     ).toBe(200)
     actor = 'editor'
     expect((await inbox()).items.map((i) => i.type)).toEqual(['draft_decision', 'draft_decision'])
+  })
+  it('skips disabled in-app notifications in the shared fan-out helper', async () => {
+    await db.db.insert(notificationSettings).values([
+      { userId: 'editor', type: 'mention', email: true, inApp: false },
+      { userId: 'editor', type: 'assigned', email: true, inApp: false },
+      { userId: 'editor', type: 'draft_ready', email: true, inApp: false },
+    ])
+    actor = 'editor'
+    await comment()
+    actor = 'owner'
+    await comment(['editor'])
+    await request(`/tasks/${taskId}`, 'PATCH', { assigneeId: 'editor' })
+    const [draft] = await db.db
+      .insert(drafts)
+      .values({ projectId, model: 'fake', createdBy: 'editor', status: 'ready' })
+      .returning()
+    if (!draft) throw new Error('draft')
+    const [change] = await db.db
+      .insert(draftChanges)
+      .values({ draftId: draft.id, kind: 'requirements', after: ['One'] })
+      .returning()
+    if (!change) throw new Error('change')
+    expect(
+      (await request(`/drafts/${draft.id}/changes/${change.id}/reject`, 'POST', {})).status,
+    ).toBe(200)
+    actor = 'editor'
+    expect((await inbox()).items).toEqual([])
+    actor = 'owner'
+    await comment(['viewer'])
+    actor = 'viewer'
+    expect((await inbox()).items.map((item) => item.type)).toEqual(['mention'])
   })
   it('rolls back notifications with their domain change', async () => {
     await db.client.query(
