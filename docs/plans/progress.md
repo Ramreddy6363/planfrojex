@@ -232,7 +232,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 10 | My tasks | My tasks | shipped 2026-11-15 |
 | 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
 | 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
-| 13 | Workspace settings | General, share links, danger zone | |
+| 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
 | 14 | Account settings | Account | |
 | 15 | Share links + public share page | Share dialog, public page | |
 | 16 | Mobile | Projects, Brief, Share page (390px) | |

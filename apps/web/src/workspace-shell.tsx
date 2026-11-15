@@ -35,7 +35,7 @@ export function WorkspaceShell({
 }: {
   workspace: Awaited<ReturnType<typeof getWorkspace>>['workspace']
   me: Awaited<ReturnType<typeof getMe>>
-  active: 'home' | 'members' | 'projects' | 'my-tasks' | 'inbox'
+  active: 'home' | 'members' | 'projects' | 'my-tasks' | 'inbox' | 'settings'
   children: ReactNode
 }) {
   const navigate = useNavigate()
@@ -98,7 +98,7 @@ export function WorkspaceShell({
             current: item.slug === workspace.slug,
             onSelect: () =>
               void navigate({
-                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : active === 'inbox' ? '/inbox' : ''}`,
+                to: `/${item.slug}${active === 'members' ? '/members' : active === 'projects' ? '/projects' : active === 'my-tasks' ? '/my-tasks' : active === 'inbox' ? '/inbox' : active === 'settings' ? '/settings' : ''}`,
               }),
           }))}
         />
@@ -181,7 +181,13 @@ export function WorkspaceShell({
         >
           Members
         </Button>
-        <Button variant="ghost" disabled icon={Settings} className="justify-start font-normal">
+        <Button
+          variant="ghost"
+          icon={Settings}
+          aria-current={active === 'settings' ? 'page' : undefined}
+          className={`justify-start font-normal ${active === 'settings' ? '!bg-accent-subtle !text-accent' : ''}`}
+          onClick={() => void navigate({ to: `/${workspace.slug}/settings` })}
+        >
           Settings
         </Button>
         <div className="mt-auto flex items-center gap-2 border-t border-border px-1 pt-3">

@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { validWorkspaceName, validWorkspaceSlug } from './rules'
 import { createWorkspaceSchema, inviteSchema } from './validation'
 
 describe('workspace request validation', () => {
+  it('shares workspace name and slug rules', () => {
+    expect(validWorkspaceName('Northwind')).toBe(true)
+    expect(validWorkspaceName('x'.repeat(61), 60)).toBe(false)
+    expect(validWorkspaceSlug('northwind')).toBe(true)
+    expect(validWorkspaceSlug('bad--url')).toBe(false)
+    expect(validWorkspaceSlug('api')).toBe(false)
+  })
+
   it('accepts a valid workspace and rejects invalid or reserved slugs', () => {
     expect(
       createWorkspaceSchema.safeParse({ name: 'Northwind', slug: 'northwind', isPersonal: false })

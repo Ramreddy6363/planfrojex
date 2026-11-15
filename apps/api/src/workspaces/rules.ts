@@ -11,3 +11,12 @@ export const reservedSlugs = new Set([
 
 // Names are shown in emails, so links and line breaks are not allowed.
 export const nameHasLink = (name: string) => /:\/\/|www\.|[\r\n]/i.test(name)
+
+export const validWorkspaceName = (name: string, maxLength = 100) =>
+  name.length >= 1 && name.length <= maxLength && !nameHasLink(name)
+
+export const validWorkspaceSlug = (slug: string) =>
+  slug.length >= 3 &&
+  slug.length <= 40 &&
+  /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) &&
+  !reservedSlugs.has(slug)
