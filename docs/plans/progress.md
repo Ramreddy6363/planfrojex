@@ -196,6 +196,20 @@ Screen: 304. API: board 1005 (GET /workspaces/:ws/search?q=). Postgres full-text
 3. Results update as you type, waiting 150 ms after the last key (recommended).
 - **Out of scope:** searching comments, plan, diagrams or people; search across workspaces; a full search results page.
 
+## 2026-11-15: Feature 13 Workspace settings — approved 2026-11-15 (with the three recommendations)
+Screen: 503. API: board 1005 (PATCH/DELETE /workspaces/:ws). No new dependencies, no migration.
+- **Page:** /:ws/settings, sidebar "Settings" item (exists in the drawing, link it). Three blocks as drawn: General, Share links, Delete workspace. Owners edit; editors and viewers see General read-only and no Delete block.
+- **General:** Workspace name (1–60, no links, same rules as onboarding) and Workspace URL (slug rules and reserved list reused from `workspaces/validation.ts`), hint "Changing the URL breaks links people have saved." Save changes is disabled until something changes. Taken slug: inline "That URL is taken". After a slug change the app moves to the new URL.
+- **Share links:** the share links table arrives in feature 15. Now: the heading, description and an EmptyState "No share links yet". Feature 15 fills the table and Revoke.
+- **Delete workspace:** confirm Dialog that asks the owner to type the workspace name; text shows the real project count. Hard delete in one statement (every workspace-owned table cascades). Personal workspace can't be deleted (button hidden, API 409). Afterwards go to the person's next workspace, or onboarding if none.
+- **Endpoints:** PATCH /workspaces/:ws {name?, slug?} owner only (editor/viewer 403, other workspace 404, taken slug 409). DELETE /workspaces/:ws owner only, body {confirm: name} must match (400). No activity entries (activity belongs to projects, which are deleted too). Rate limit 10/min per person on both.
+
+**Open questions**
+1. Share links block shows an empty state now and is filled in feature 15 (recommended).
+2. Delete is a hard delete with type-the-name confirmation, no undo window (recommended; matches "This can't be undone").
+3. Old slugs don't redirect after a rename (recommended; the hint already warns).
+- **Out of scope:** logo upload, transfer ownership, billing, Integrations tab (feature 19), deleting the personal workspace.
+
 ## Still open before production
 - Apply migrations 0001–0010 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
@@ -218,7 +232,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 10 | My tasks | My tasks | shipped 2026-11-15 |
 | 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
 | 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
-| 13 | Workspace settings | General, share links, danger zone | |
+| 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
 | 14 | Account settings | Account | |
 | 15 | Share links + public share page | Share dialog, public page | |
 | 16 | Mobile | Projects, Brief, Share page (390px) | |

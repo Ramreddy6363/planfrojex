@@ -19,6 +19,7 @@ import { consumeRateLimit } from './rate-limit'
 import { createSearchRoutes } from './search-routes'
 import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
+import { createWorkspaceSettingsRoutes } from './workspaces/settings-routes'
 
 export function createApp(
   options: {
@@ -69,6 +70,7 @@ export function createApp(
     .on(['GET', 'POST'], '/api/auth/*', (c) => auth(c.env).handler(c.req.raw))
     .get('/health', (c) => c.json({ ok: true }))
     .route('/', createWorkspaceRoutes(options))
+    .route('/', createWorkspaceSettingsRoutes(options))
     .route('/', createSearchRoutes(options))
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))

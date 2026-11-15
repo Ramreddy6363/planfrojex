@@ -22,6 +22,7 @@ import { signInRoute } from './routes/sign-in'
 import { signUpRoute } from './routes/sign-up'
 import { verifyRoute } from './routes/verify'
 import { workspaceRoute } from './routes/workspace'
+import { workspaceSettingsRoute } from './routes/workspace-settings'
 import { queryClient } from './session'
 import './styles.css'
 
@@ -37,6 +38,7 @@ const router = createRouter({
     inviteRoute,
     acceptInviteRoute,
     workspaceRoute,
+    workspaceSettingsRoute,
     membersRoute,
     myTasksRoute,
     inboxRoute,
