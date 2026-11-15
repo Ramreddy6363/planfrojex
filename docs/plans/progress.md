@@ -182,8 +182,22 @@ Screen: 306. Table/API: boards 1004 (`notifications`) and 1005 (GET /inbox, POST
 3. Email and Slack notifications and notification settings wait for later features (recommended); in-app only now.
 - **Out of scope:** email/Slack delivery, GET/PUT /me/notification-settings, drift notifications (20), push/realtime updates (the count refreshes on navigation and every 60 s).
 
+## 2026-11-15: Feature 12 ⌘K search — approved 2026-11-15 (with the three recommendations)
+Screen: 304. API: board 1005 (GET /workspaces/:ws/search?q=). Postgres full-text search (board 1001). No new dependencies.
+- **Overlay:** opens with ⌘K / Ctrl+K or the sidebar Search box; input with "esc" hint; results in three groups: Projects (folder icon, name, status), Tasks (status glyph, key, title, project name), Commands (icon, label, shortcut). ↑/↓ move, ↵ opens, esc closes; footer shows those hints. Mouse hover and click work too. Empty query shows recent projects and the commands. "No results" state. Built as a new `ui/command-palette.tsx` primitive on the existing Dialog, added to the gallery.
+- **Commands (client-side, filtered by the query):** Create project (C, owners/editors only), Go to Home (G H), Go to My tasks (G T), Go to Inbox (G I), Go to Projects (G P), Go to Members (G M). The single-key shortcuts also work outside the overlay, but never while typing in an input.
+- **Search:** projects by name, key, brief text and tags; tasks by key ("BILL-12"), title and description. Prefix matching ("bill" finds "Billing"). Up to 5 projects and 8 tasks, best match first. Only the current workspace's non-deleted projects and their tasks.
+- **Database (migration 0010, additive):** generated `search` tsvector columns on projects and tasks (simple config, so names and keys match as typed) with GIN indexes. No data copied; existing rows are indexed automatically.
+- **Endpoint:** GET /workspaces/:ws/search?q= (1–100 chars, O/E/V); member of another workspace gets 404; query is passed as a parameter (no SQL building). Rate limit 60 requests/minute per person (board 1005 limits).
+
+**Open questions**
+1. Search results stay to projects and tasks (as drawn); comments, plan text and diagrams later (recommended).
+2. Keyboard shortcuts outside the overlay (C, G T…) ship now since the screen shows them (recommended).
+3. Results update as you type, waiting 150 ms after the last key (recommended).
+- **Out of scope:** searching comments, plan, diagrams or people; search across workspaces; a full search results page.
+
 ## Still open before production
-- Apply migrations 0001–0009 to Neon before the first deploy.
+- Apply migrations 0001–0010 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -203,7 +217,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 9 | Activity | Timeline, filters | shipped 2026-11-14 |
 | 10 | My tasks | My tasks | shipped 2026-11-15 |
 | 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
-| 12 | ⌘K search | Search overlay | |
+| 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
 | 13 | Workspace settings | General, share links, danger zone | |
 | 14 | Account settings | Account | |
 | 15 | Share links + public share page | Share dialog, public page | |

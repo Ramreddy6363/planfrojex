@@ -13,6 +13,7 @@ export const Dialog = ({
   wide = false,
   extraWide = false,
   sidebar,
+  plain = false,
 }: {
   open: boolean
   onClose: () => void
@@ -22,6 +23,7 @@ export const Dialog = ({
   wide?: boolean
   extraWide?: boolean
   sidebar?: ReactNode
+  plain?: boolean
 }) => {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -36,41 +38,51 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`m-auto ${extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110'} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
+      className={`${plain ? 'mx-auto mt-[120px] w-160' : `m-auto ${extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110'}`} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
     >
-      <div
-        className={
-          sidebar
-            ? `grid md:grid-cols-[250px_minmax(0,1fr)] ${extraWide ? 'md:min-h-[500px]' : ''}`
-            : ''
-        }
-      >
-        {sidebar && (
-          <aside className="border-b border-border bg-bg-subtle p-2 md:border-b-0 md:border-r">
-            {sidebar}
-          </aside>
-        )}
-        <div className="flex min-w-0 flex-col">
-          <div className="flex items-start justify-between px-5 py-4">
-            <h2 id={titleId} className="text-dialog font-semibold">
-              {title}
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Close"
-              onClick={() => ref.current?.close()}
-              className="-m-1 px-1.5"
-            >
-              <Icon icon={X} className="text-text-muted" />
-            </Button>
-          </div>
-          <div className="px-5 pb-5 text-body text-text-muted">{children}</div>
-          <div className="mt-auto flex justify-end gap-2 rounded-b-panel border-t border-border bg-bg-subtle px-5 py-3">
-            {footer}
+      {plain ? (
+        <>
+          <h2 id={titleId} className="sr-only">
+            {title}
+          </h2>
+          {children}
+          {footer}
+        </>
+      ) : (
+        <div
+          className={
+            sidebar
+              ? `grid md:grid-cols-[250px_minmax(0,1fr)] ${extraWide ? 'md:min-h-[500px]' : ''}`
+              : ''
+          }
+        >
+          {sidebar && (
+            <aside className="border-b border-border bg-bg-subtle p-2 md:border-b-0 md:border-r">
+              {sidebar}
+            </aside>
+          )}
+          <div className="flex min-w-0 flex-col">
+            <div className="flex items-start justify-between px-5 py-4">
+              <h2 id={titleId} className="text-dialog font-semibold">
+                {title}
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Close"
+                onClick={() => ref.current?.close()}
+                className="-m-1 px-1.5"
+              >
+                <Icon icon={X} className="text-text-muted" />
+              </Button>
+            </div>
+            <div className="px-5 pb-5 text-body text-text-muted">{children}</div>
+            <div className="mt-auto flex justify-end gap-2 rounded-b-panel border-t border-border bg-bg-subtle px-5 py-3">
+              {footer}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </dialog>
   )
 }

@@ -16,6 +16,7 @@ import { createProjectPlanRoutes } from './projects/plan-routes'
 import { createProjectRoutes } from './projects/routes'
 import { createProjectTaskRoutes, createTaskRoutes } from './projects/task-routes'
 import { consumeRateLimit } from './rate-limit'
+import { createSearchRoutes } from './search-routes'
 import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
 
@@ -68,6 +69,7 @@ export function createApp(
     .on(['GET', 'POST'], '/api/auth/*', (c) => auth(c.env).handler(c.req.raw))
     .get('/health', (c) => c.json({ ok: true }))
     .route('/', createWorkspaceRoutes(options))
+    .route('/', createSearchRoutes(options))
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
     .route('/', createActivityRoutes(options))

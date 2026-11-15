@@ -253,12 +253,9 @@ function Projects() {
         )}
         <ActionError error={action.error} />
       </div>
-      <NewProjectDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        slug={slug}
-        userId={me.user.id}
-      />
+      {open ? (
+        <NewProjectDialog open onClose={() => setOpen(false)} slug={slug} userId={me.user.id} />
+      ) : null}
     </WorkspaceShell>
   )
 }

@@ -6,6 +6,7 @@ import { Avatar, AvatarStack } from './ui/avatar'
 import { Brand, LogoMark, WorkspaceMark } from './ui/brand'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
+import { CommandPalette } from './ui/command-palette'
 import { DiagramCanvas } from './ui/diagram-canvas'
 import { Dialog } from './ui/dialog'
 import { EmailListInput } from './ui/email-list-input'
@@ -50,6 +51,8 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
   const [toast, setToast] = useState<string | null>(null)
   const [emailChips, setEmailChips] = useState<string[]>([])
   const [emailInput, setEmailInput] = useState('')
+  const [commandOpen, setCommandOpen] = useState(false)
+  const [commandQuery, setCommandQuery] = useState('')
   return (
     <div
       data-theme={theme}
@@ -57,6 +60,30 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
       className="relative flex flex-1 flex-col gap-8 bg-bg p-8 text-text"
     >
       <h1 className="text-title font-semibold">Components ({theme})</h1>
+      <Section title="Command palette">
+        <Button onClick={() => setCommandOpen(true)}>Open command palette</Button>
+        <CommandPalette
+          open={commandOpen}
+          onClose={() => setCommandOpen(false)}
+          query={commandQuery}
+          onQueryChange={setCommandQuery}
+          groups={[
+            {
+              label: 'Commands',
+              items: [
+                {
+                  id: 'create-project',
+                  label: 'Create project',
+                  leading: <span>+</span>,
+                  content: <span>Create project</span>,
+                  trailing: <kbd>C</kbd>,
+                  onSelect: () => setCommandOpen(false),
+                },
+              ],
+            },
+          ]}
+        />
+      </Section>
       <Section title="Diagram canvas">
         <div className="h-64 w-full border border-border">
           <DiagramCanvas
