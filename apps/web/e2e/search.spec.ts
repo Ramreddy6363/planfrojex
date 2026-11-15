@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const taskId = '83caa333-1604-43c5-8f15-61be120754e3'
@@ -154,28 +154,33 @@ test('opens search from keyboard and sidebar, searches with debounce, and naviga
   await expect(input).toBeHidden()
 })
 
+async function goShortcut(page: Page, key: string) {
+  await expect(page.locator('html')).toHaveAttribute('data-shortcuts-ready', 'true')
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-shortcuts-route',
+    new URL(page.url()).pathname,
+  )
+  await page.keyboard.press('g')
+  await page.keyboard.press(key)
+}
+
 test('commands, global shortcuts, and editable focus guards', async ({ page }) => {
   await mockSearch(page)
   await page.goto('/northwind')
   await expect(page.getByRole('heading', { name: 'Home', exact: true })).toBeVisible()
-  await page.keyboard.press('g')
-  await page.keyboard.press('t')
+  await goShortcut(page, 't')
   await expect(page).toHaveURL(/\/northwind\/my-tasks$/)
   await expect(page.getByRole('heading', { name: 'My tasks', exact: true })).toBeVisible()
-  await page.keyboard.press('g')
-  await page.keyboard.press('i')
+  await goShortcut(page, 'i')
   await expect(page).toHaveURL(/\/northwind\/inbox$/)
   await expect(page.getByRole('heading', { name: 'Inbox', exact: true })).toBeVisible()
-  await page.keyboard.press('g')
-  await page.keyboard.press('p')
+  await goShortcut(page, 'p')
   await expect(page).toHaveURL(/\/northwind\/projects$/)
   await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible()
-  await page.keyboard.press('g')
-  await page.keyboard.press('m')
+  await goShortcut(page, 'm')
   await expect(page).toHaveURL(/\/northwind\/members$/)
   await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
-  await page.keyboard.press('g')
-  await page.keyboard.press('h')
+  await goShortcut(page, 'h')
   await expect(page).toHaveURL(/\/northwind$/)
   await expect(page.getByRole('heading', { name: 'Home', exact: true })).toBeVisible()
   await page.keyboard.press('c')
