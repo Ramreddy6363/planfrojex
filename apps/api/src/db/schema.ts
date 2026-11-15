@@ -114,7 +114,7 @@ export const invites = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     invitedBy: text('invited_by')
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: 'cascade' }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     status: text('status', { enum: ['pending', 'accepted', 'revoked'] })
       .notNull()
@@ -146,9 +146,7 @@ export const projects = pgTable(
     status: text('status', { enum: ['draft', 'planning', 'in-progress', 'completed', 'archived'] })
       .notNull()
       .default('draft'),
-    leadId: text('lead_id')
-      .notNull()
-      .references(() => user.id),
+    leadId: text('lead_id').references(() => user.id, { onDelete: 'set null' }),
     targetDate: date('target_date'),
     brief: jsonb('brief')
       .$type<{ problem: string; goals?: string[]; constraints?: string; outOfScope?: string }>()
@@ -250,11 +248,10 @@ export const tasks = pgTable(
       .notNull()
       .default('medium'),
     assigneeId: text('assignee_id').references(() => user.id, { onDelete: 'set null' }),
+    assigneeDeleted: boolean('assignee_deleted').notNull().default(false),
     dueDate: date('due_date'),
     position: integer('position').notNull().default(0),
-    createdBy: text('created_by')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
     ...timestamps(),
   },
   (t) => [
@@ -283,9 +280,7 @@ export const comments = pgTable(
       .notNull()
       .default('project'),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
-    authorId: text('author_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    authorId: text('author_id').references(() => user.id, { onDelete: 'set null' }),
     body: text('body').notNull(),
     mentions: text('mentions').array().notNull().default(sql`'{}'::text[]`),
     ...timestamps(),
@@ -388,9 +383,7 @@ export const decisions = pgTable(
     draftChangeId: uuid('draft_change_id').references(() => draftChanges.id, {
       onDelete: 'set null',
     }),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    actorId: text('actor_id').references(() => user.id, { onDelete: 'set null' }),
     kind: text('kind', {
       enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate', 'diagram'],
     }).notNull(),
@@ -420,9 +413,7 @@ export const activity = pgTable(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => user.id),
+    actorId: text('actor_id').references(() => user.id, { onDelete: 'set null' }),
     type: text('type').notNull(),
     subject: text('subject'),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
@@ -470,4 +461,19 @@ export const stars = pgTable(
       .references(() => projects.id, { onDelete: 'cascade' }),
   },
   (t) => [primaryKey({ columns: [t.userId, t.projectId] })],
+)
+
+export const notificationSettings = pgTable(
+  'notification_settings',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    type: text('type', {
+      enum: ['mention', 'assigned', 'draft_ready', 'drift', 'weekly_summary'],
+    }).notNull(),
+    email: boolean('email').notNull(),
+    inApp: boolean('in_app').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.type] })],
 )

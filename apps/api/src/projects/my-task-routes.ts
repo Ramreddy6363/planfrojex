@@ -50,7 +50,7 @@ const listRoute = createRoute({
             status: z.enum(['todo', 'in_progress', 'done']),
             priority: z.enum(['low', 'medium', 'high']),
             dueDate: z.string().nullable(),
-            createdBy: z.string(),
+            createdBy: z.string().nullable(),
             assigneeId: z.string().nullable(),
             updatedAt: z.string(),
           }),

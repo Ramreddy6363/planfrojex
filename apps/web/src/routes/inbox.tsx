@@ -144,13 +144,17 @@ function Inbox() {
                     aria-pressed={selectedId === item.id}
                     className={`min-h-[72px] w-full !items-start !justify-start !gap-3 !rounded-none !border-0 !border-b !border-b-border !px-5 py-3 text-left !font-normal hover:!bg-bg-subtle ${selectedId === item.id ? '!bg-bg-subtle ring-1 ring-inset ring-accent' : ''}`}
                   >
-                    <Avatar id={item.actor.id} name={item.actor.name} className="!size-[22px]" />
+                    <Avatar
+                      id={item.actor.id}
+                      name={item.actor.name ?? 'Deleted user'}
+                      className="!size-[22px]"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <span
                           className={`min-w-0 truncate ${item.readAt ? 'text-text-muted' : 'font-semibold'}`}
                         >
-                          {item.actor.name} {description(item)}
+                          {item.actor.name ?? 'Deleted user'} {description(item)}
                         </span>
                         <time
                           dateTime={item.createdAt}
@@ -298,10 +302,12 @@ function Inbox() {
                           <div className="flex items-center gap-2">
                             <Avatar
                               id={comment.authorId}
-                              name={comment.authorName}
+                              name={comment.authorName ?? 'Deleted user'}
                               className="!size-5"
                             />
-                            <span className="font-medium">{comment.authorName}</span>
+                            <span className="font-medium">
+                              {comment.authorName ?? 'Deleted user'}
+                            </span>
                             <time
                               dateTime={comment.createdAt}
                               className="text-caption text-text-muted"
@@ -345,8 +351,8 @@ function Inbox() {
                       ) : null}
                       <Textarea
                         height="invite"
-                        aria-label={`Reply to ${selected.actor.name}`}
-                        placeholder={`Reply to ${selected.actor.name.split(' ')[0]}`}
+                        aria-label={`Reply to ${selected.actor.name ?? 'Deleted user'}`}
+                        placeholder={`Reply to ${selected.actor.name ? selected.actor.name.split(' ')[0] : 'Deleted user'}`}
                         maxLength={5000}
                         value={reply}
                         onChange={(event) => {
@@ -372,7 +378,7 @@ function Inbox() {
                 </>
               ) : (
                 <p className="text-text-muted">
-                  {selected.actor.name} {description(selected)}
+                  {selected.actor.name ?? 'Deleted user'} {description(selected)}
                   {selected.section ? `: ${selected.section}` : ''}.
                 </p>
               )}

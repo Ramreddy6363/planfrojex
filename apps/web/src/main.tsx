@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { Loading } from './layouts'
 import { indexRoute } from './routes'
 import { acceptInviteRoute } from './routes/accept-invite'
+import { accountSettingsRoute } from './routes/account-settings'
 import { authCallbackRoute } from './routes/auth-callback'
 import { createWorkspaceRoute } from './routes/create-workspace'
 import { inboxRoute } from './routes/inbox'
@@ -39,6 +40,7 @@ const router = createRouter({
     acceptInviteRoute,
     workspaceRoute,
     workspaceSettingsRoute,
+    accountSettingsRoute,
     membersRoute,
     myTasksRoute,
     inboxRoute,

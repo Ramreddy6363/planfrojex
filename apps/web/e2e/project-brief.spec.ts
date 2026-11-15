@@ -180,3 +180,20 @@ test('viewer can read the project and comment but cannot edit the brief or prope
   await expect(page.getByRole('textbox', { name: 'Comment' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Star project' })).toBeVisible()
 })
+
+test('a kept comment from a deleted account shows Deleted user', async ({ page }) => {
+  const state = await mockBrief(page, 'viewer')
+  state.comments.push({
+    id: 'deleted-author-comment',
+    authorId: null,
+    authorName: null,
+    body: 'This comment stays in the thread.',
+    mentions: [],
+    createdAt: '2026-11-13T10:00:00.000Z',
+    updatedAt: '2026-11-13T10:00:00.000Z',
+  })
+  await page.goto(`/northwind/projects/${projectId}`)
+  await expect(page.getByText('This comment stays in the thread.')).toBeVisible()
+  await expect(page.getByText('Deleted user', { exact: true })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Deleted user', exact: true })).toBeVisible()
+})

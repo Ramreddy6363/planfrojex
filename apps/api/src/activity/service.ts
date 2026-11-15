@@ -6,6 +6,7 @@ import {
   draftChanges,
   drafts,
   memberships,
+  notificationSettings,
   notifications,
   projects,
 } from '../db/schema'
@@ -125,7 +126,7 @@ async function createNotifications(
             ne(comments.id, value.id),
           ),
         )
-      for (const person of participants) recipients.set(person.id, 'reply')
+      for (const person of participants) if (person.id) recipients.set(person.id, 'reply')
     }
     const mentioned =
       event.type === 'comment.mentioned' && Array.isArray(event.payload.mentionedUserIds)
@@ -178,6 +179,15 @@ async function createNotifications(
   for (const person of members) {
     const type = recipients.get(person.id)
     if (!type) continue
+    const settingType =
+      type === 'reply' ? 'mention' : type === 'draft_decision' ? 'draft_ready' : type
+    const [setting] = await tx
+      .select({ inApp: notificationSettings.inApp })
+      .from(notificationSettings)
+      .where(
+        and(eq(notificationSettings.userId, person.id), eq(notificationSettings.type, settingType)),
+      )
+    if (setting?.inApp === false) continue
     if (type === 'mention') {
       const existing = await tx
         .select({ id: notifications.id, type: notifications.type })

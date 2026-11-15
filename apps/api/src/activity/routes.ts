@@ -39,7 +39,7 @@ const listRoute = createRoute({
         activity: z.array(
           z.object({
             id: z.uuid(),
-            actorId: z.string(),
+            actorId: z.string().nullable(),
             actorName: z.string(),
             actorImage: z.string().nullable(),
             type: z.string(),
@@ -115,7 +115,7 @@ export function createActivityRoutes(
         .select({
           id: activity.id,
           actorId: activity.actorId,
-          actorName: user.name,
+          actorName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
           actorImage: user.image,
           type: activity.type,
           subject: activity.subject,
@@ -127,7 +127,7 @@ export function createActivityRoutes(
           commentTaskId: comments.taskId,
         })
         .from(activity)
-        .innerJoin(user, eq(user.id, activity.actorId))
+        .leftJoin(user, eq(user.id, activity.actorId))
         .leftJoin(
           comments,
           and(

@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { and, asc, eq, gt, sql } from 'drizzle-orm'
 import type { Context, Next } from 'hono'
+import { createMiddleware } from 'hono/factory'
 import { invites, memberships, user as users, workspaces } from '../db/schema'
 import { sendInvite } from '../email'
 import type { Env } from '../env'
@@ -47,6 +48,13 @@ const invalid =
 const meRoute = createRoute({
   method: 'get',
   path: '/me',
+  middleware: [
+    createMiddleware<Env>(async (c, next) => {
+      if (!(await consumeRateLimit(c.get('db'), 'account-read', c.get('user').id, 1, 20, 60_000)))
+        return c.json({ error: 'Too many requests. Try again later.' }, 429)
+      return next()
+    }),
+  ] as const,
   responses: {
     200: json(
       z.object({
@@ -55,12 +63,15 @@ const meRoute = createRoute({
           email: z.string(),
           emailVerified: z.boolean(),
           name: z.string(),
+          image: z.string().nullable(),
+          timezone: z.string().nullable(),
         }),
         workspaces: z.array(workspaceMember),
       }),
       'The signed-in user and their workspaces',
     ),
     401: json(failure, 'Not signed in'),
+    429: json(failure, 'Too many requests'),
   },
 })
 const createWorkspaceRoute = createRoute({
@@ -232,7 +243,9 @@ export function createWorkspaceRoutes(
     app.use(path, guard, useDb(options.database), requireSession(options.auth))
   return app
     .openapi(meRoute, async (c) => {
-      const user = c.get('user')
+      const sessionUser = c.get('user')
+      const [stored] = await c.get('db').select().from(users).where(eq(users.id, sessionUser.id))
+      const user = stored ?? sessionUser
       const rows = await c
         .get('db')
         .select({
@@ -253,6 +266,8 @@ export function createWorkspaceRoutes(
             email: user.email,
             emailVerified: user.emailVerified,
             name: user.name,
+            image: stored?.image ?? null,
+            timezone: stored?.timezone ?? null,
           },
           workspaces: rows,
         },

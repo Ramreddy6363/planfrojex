@@ -227,7 +227,7 @@ Screen: 505. API: board 1005 (GET/PATCH /me, GET/PUT /me/notification-settings, 
 - **Out of scope:** photo upload, Security tab (sessions list, sign out everywhere), email delivery of notifications (20–21), data export.
 
 ## Still open before production
-- Apply migrations 0001–0010 to Neon before the first deploy.
+- Apply migrations 0001–0011 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -249,7 +249,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 11 | Inbox | Mentions, assignments, replies | shipped 2026-11-15 |
 | 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
 | 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
-| 14 | Account settings | Account | |
+| 14 | Account settings | Account | shipped 2026-11-15 |
 | 15 | Share links + public share page | Share dialog, public page | |
 | 16 | Mobile | Projects, Brief, Share page (390px) | |
 | 17 | Landing page | Landing | |

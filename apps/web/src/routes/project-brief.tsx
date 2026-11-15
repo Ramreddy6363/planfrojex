@@ -297,13 +297,21 @@ function ProjectBrief() {
               <StatusLabel status={project.status} />
               {editable ? (
                 <span className="flex items-center gap-2">
-                  <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-                  {project.leadName}
+                  <Avatar
+                    id={project.leadId}
+                    name={project.leadName ?? 'Deleted user'}
+                    className="!size-5"
+                  />
+                  {project.leadName ?? 'Deleted user'}
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-                  {project.leadName}
+                  <Avatar
+                    id={project.leadId}
+                    name={project.leadName ?? 'Deleted user'}
+                    className="!size-5"
+                  />
+                  {project.leadName ?? 'Deleted user'}
                 </span>
               )}
               <span className="flex items-center gap-2 text-text-muted">
@@ -550,7 +558,7 @@ function ProjectBrief() {
                       {editable && editingProperty === 'lead' ? (
                         <Select
                           aria-label="Project lead"
-                          value={project.leadId}
+                          value={project.leadId ?? ''}
                           onChange={(event) =>
                             void action.run(async () => {
                               await saveProject({ leadId: event.target.value })
@@ -559,6 +567,11 @@ function ProjectBrief() {
                           }
                           className="w-37"
                         >
+                          {!project.leadId && (
+                            <option value="" disabled>
+                              Deleted user
+                            </option>
+                          )}
                           {members.map((member) => (
                             <option key={member.id} value={member.id}>
                               {member.name}
@@ -573,13 +586,21 @@ function ProjectBrief() {
                           className="h-auto min-w-0 gap-2 px-0 font-normal hover:bg-transparent"
                           onClick={() => setEditingProperty('lead')}
                         >
-                          <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-                          <span className="truncate">{project.leadName}</span>
+                          <Avatar
+                            id={project.leadId}
+                            name={project.leadName ?? 'Deleted user'}
+                            className="!size-5"
+                          />
+                          <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
                         </Button>
                       ) : (
                         <span className="flex min-w-0 items-center gap-2">
-                          <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-                          <span className="truncate">{project.leadName}</span>
+                          <Avatar
+                            id={project.leadId}
+                            name={project.leadName ?? 'Deleted user'}
+                            className="!size-5"
+                          />
+                          <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
                         </span>
                       )}
                     </dd>
@@ -654,10 +675,12 @@ function ProjectBrief() {
                         <div className="flex items-center gap-2">
                           <Avatar
                             id={comment.authorId}
-                            name={comment.authorName}
+                            name={comment.authorName ?? 'Deleted user'}
                             className="!size-5"
                           />
-                          <span className="font-medium">{comment.authorName}</span>
+                          <span className="font-medium">
+                            {comment.authorName ?? 'Deleted user'}
+                          </span>
                           <time
                             className="text-caption text-text-muted"
                             dateTime={comment.createdAt}

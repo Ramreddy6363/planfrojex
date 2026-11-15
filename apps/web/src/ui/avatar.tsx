@@ -14,18 +14,29 @@ const initials = (name: string) =>
 export const Avatar = ({
   id,
   name,
+  image,
   className = '',
 }: {
-  id: string
-  name: string
+  id: string | null
+  name: string | null
+  image?: string | null
   className?: string
 }) => (
   <span
     role="img"
-    aria-label={name}
-    className={`inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-avatar-text ${tones[hash(id) % 3]} ${className}`}
+    aria-label={name ?? 'Deleted user'}
+    className={`inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-avatar-text ${tones[hash(id ?? 'deleted-user') % 3]} ${className}`}
   >
-    {initials(name)}
+    {image ? (
+      <img
+        src={image}
+        alt=""
+        className="size-full rounded-full object-cover"
+        referrerPolicy="no-referrer"
+      />
+    ) : (
+      initials(name ?? 'Deleted user')
+    )}
   </span>
 )
 
@@ -33,7 +44,7 @@ export const AvatarStack = ({
   people,
   max = 3,
 }: {
-  people: { id: string; name: string }[]
+  people: { id: string | null; name: string | null }[]
   max?: number
 }) => (
   <span className="inline-flex items-center">

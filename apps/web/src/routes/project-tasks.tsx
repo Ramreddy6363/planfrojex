@@ -247,7 +247,11 @@ function ProjectTasks() {
               ›
             </span>
             <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-            <Avatar id={project.leadId} name={project.leadName} className="!size-6" />
+            <Avatar
+              id={project.leadId}
+              name={project.leadName ?? 'Deleted user'}
+              className="!size-6"
+            />
             <Button variant="secondary" disabled aria-label="Share unavailable">
               Share
             </Button>
@@ -275,8 +279,12 @@ function ProjectTasks() {
             <div className="flex h-10 items-center gap-6 text-ui">
               <StatusLabel status={project.status} />
               <span className="flex items-center gap-2">
-                <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-                {project.leadName}
+                <Avatar
+                  id={project.leadId}
+                  name={project.leadName ?? 'Deleted user'}
+                  className="!size-5"
+                />
+                {project.leadName ?? 'Deleted user'}
               </span>
               <span className="flex items-center gap-2 text-text-muted">
                 <Icon icon={CalendarDays} />
@@ -497,7 +505,7 @@ function ProjectTasks() {
                               <span className="font-mono">{shortDate(task.dueDate)}</span>
                             )}
                             <span className="ml-auto">
-                              {task.assigneeId && task.assigneeName ? (
+                              {task.assigneeId ? (
                                 <Avatar
                                   id={task.assigneeId}
                                   name={task.assigneeName}
@@ -666,7 +674,7 @@ function ProjectTasks() {
                               </button>
                               <PriorityGlyph priority={task.priority} />
                               <span className="flex justify-center">
-                                {task.assigneeId && task.assigneeName ? (
+                                {task.assigneeId ? (
                                   <Avatar
                                     id={task.assigneeId}
                                     name={task.assigneeName}
@@ -871,6 +879,7 @@ type TaskData = {
   priority: TaskPriority
   assigneeId: string | null
   assigneeName: string | null
+  assigneeDeleted: boolean
   dueDate: string | null
   milestoneId: string | null
   milestoneCode: string | null
@@ -976,7 +985,7 @@ function TaskPanel({
               onChange={(event) => void onPatch({ assigneeId: event.target.value || null })}
               className="w-40"
             >
-              <option value="">Unassigned</option>
+              <option value="">{task.assigneeDeleted ? 'Deleted user' : 'Unassigned'}</option>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
@@ -984,7 +993,8 @@ function TaskPanel({
               ))}
             </Select>
           ) : (
-            (task.assigneeName ?? 'Unassigned')
+            (task.assigneeName ??
+            (task.assigneeId || task.assigneeDeleted ? 'Deleted user' : 'Unassigned'))
           )}
         </PropertyRow>
         <PropertyRow label="Priority">
@@ -1360,8 +1370,12 @@ function TaskComments({
           {commentsQuery.data.comments.map((comment) => (
             <li key={comment.id}>
               <div className="flex items-center gap-2">
-                <Avatar id={comment.authorId} name={comment.authorName} className="!size-5" />
-                <strong className="text-ui">{comment.authorName}</strong>
+                <Avatar
+                  id={comment.authorId}
+                  name={comment.authorName ?? 'Deleted user'}
+                  className="!size-5"
+                />
+                <strong className="text-ui">{comment.authorName ?? 'Deleted user'}</strong>
                 <span className="text-caption text-text-muted">
                   {relativeTime(comment.createdAt)}
                 </span>

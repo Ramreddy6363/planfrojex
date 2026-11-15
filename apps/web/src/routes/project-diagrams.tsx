@@ -420,8 +420,12 @@ function ProjectDiagrams() {
               {project.status.replace('-', ' ')}
             </span>
             <span className="flex items-center gap-2">
-              <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-              {project.leadName}
+              <Avatar
+                id={project.leadId}
+                name={project.leadName ?? 'Deleted user'}
+                className="!size-5"
+              />
+              {project.leadName ?? 'Deleted user'}
             </span>
             <span className="flex items-center gap-2 text-text-muted">
               <Icon icon={CalendarDays} />

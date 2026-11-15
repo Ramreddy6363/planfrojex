@@ -190,12 +190,20 @@ function Projects() {
                     </td>
                     <td className="px-3 py-1.5">
                       <div className="flex items-center gap-2">
-                        <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
-                        <span className="truncate">{project.leadName}</span>
+                        <Avatar
+                          id={project.leadId}
+                          name={project.leadName ?? 'Deleted user'}
+                          className="!size-5"
+                        />
+                        <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
                       </div>
                     </td>
                     <td className="px-3 py-1.5">
-                      <Avatar id={project.leadId} name={project.leadName} className="!size-5" />
+                      <Avatar
+                        id={project.leadId}
+                        name={project.leadName ?? 'Deleted user'}
+                        className="!size-5"
+                      />
                     </td>
                     <td className="px-3 py-1.5 text-text-muted">No plan yet</td>
                     <td className="px-3 py-1.5 font-mono text-text-muted">
