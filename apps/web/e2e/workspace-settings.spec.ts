@@ -49,6 +49,7 @@ async function mockSettings(page: Page, role = 'owner', hasNext = true, isPerson
           nextCursor: null,
         },
       })
+    if (path.endsWith('/share-links')) return route.fulfill({ headers, json: { links: [] } })
     if (path === '/me/tasks')
       return route.fulfill({
         headers,

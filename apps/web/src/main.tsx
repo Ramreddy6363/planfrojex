@@ -18,6 +18,7 @@ import { projectDiagramsRoute } from './routes/project-diagrams'
 import { projectPlanRoute } from './routes/project-plan'
 import { projectTasksRoute } from './routes/project-tasks'
 import { projectsRoute } from './routes/projects'
+import { publicShareRoute } from './routes/public-share'
 import { rootRoute } from './routes/root'
 import { signInRoute } from './routes/sign-in'
 import { signUpRoute } from './routes/sign-up'
@@ -38,6 +39,7 @@ const router = createRouter({
     createWorkspaceRoute,
     inviteRoute,
     acceptInviteRoute,
+    publicShareRoute,
     workspaceRoute,
     workspaceSettingsRoute,
     accountSettingsRoute,

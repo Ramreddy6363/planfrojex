@@ -246,7 +246,7 @@ Screen: existing search overlay 304. Endpoints: none. Tables: none. Open questio
 - Verify the full Playwright suite three times consecutively, then run `pnpm check`.
 
 ## Still open before production
-- Apply migrations 0001–0011 to Neon before the first deploy.
+- Apply migrations 0001–0012 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -269,7 +269,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
 | 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
 | 14 | Account settings | Account | shipped 2026-11-15 |
-| 15 | Share links + public share page | Share dialog, public page | |
+| 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
 | 16 | Mobile | Projects, Brief, Share page (390px) | |
 | 17 | Landing page | Landing | |
 | 18 | Stakeholder approval | Share page review banner | |

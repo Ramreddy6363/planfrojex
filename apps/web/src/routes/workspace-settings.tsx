@@ -29,6 +29,12 @@ function WorkspaceSettings() {
   const [confirm, setConfirm] = useState('')
   const save = useAction()
   const remove = useAction()
+  const revoke = useAction()
+  const shareLinks = useQuery({
+    queryKey: ['share-links', workspace.slug],
+    queryFn: () =>
+      call(api.workspaces[':ws']['share-links'].$get({ param: { ws: workspace.slug } })),
+  })
   const projects = useQuery({
     queryKey: ['projects', workspace.slug, 'settings-count'],
     enabled: owner && !workspace.isPersonal,
@@ -155,7 +161,86 @@ function WorkspaceSettings() {
           <p className="mb-2 text-text-muted">
             Anyone with a link can read that project. Revoking a link stops it working immediately.
           </p>
-          <EmptyState title="No share links yet" body="Shared project links will appear here." />
+          {shareLinks.isPending ? (
+            <p role="status" className="py-4 text-text-muted">
+              Loading share links…
+            </p>
+          ) : shareLinks.isError ? (
+            <EmptyState
+              title="Couldn’t load share links"
+              body="Try again to see shared project links."
+              action={<Button onClick={() => void shareLinks.refetch()}>Retry</Button>}
+            />
+          ) : shareLinks.data.links.length === 0 ? (
+            <EmptyState title="No share links yet" body="Shared project links will appear here." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-ui">
+                <thead className="border-y border-border bg-bg-subtle text-caption font-normal text-text-muted">
+                  <tr>
+                    <th className="w-[55%] px-3 py-2 font-normal">Project</th>
+                    <th className="w-[16%] px-3 py-2 font-normal">Created by</th>
+                    <th className="w-[11%] px-3 py-2 font-normal">Created</th>
+                    <th className="w-[10%] px-3 py-2 font-normal">Views</th>
+                    {owner ? (
+                      <th className="px-3 py-2">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    ) : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {shareLinks.data.links.map((link) => (
+                    <tr key={link.projectKey} className="border-b border-border">
+                      <td className="px-3 py-3 font-medium">{link.projectName}</td>
+                      <td className="px-3 py-3 text-text-muted">
+                        {link.createdBy ?? 'Deleted user'}
+                      </td>
+                      <td className="px-3 py-3 font-mono text-caption text-text-muted">
+                        {new Intl.DateTimeFormat(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        }).format(new Date(link.createdAt))}
+                      </td>
+                      <td className="px-3 py-3 font-mono text-caption text-text-muted">
+                        {link.viewCount}
+                      </td>
+                      {owner ? (
+                        <td className="px-3 py-1 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="!text-danger"
+                            disabled={revoke.busy}
+                            onClick={() =>
+                              void revoke.run(async () => {
+                                await call(
+                                  api.workspaces[':ws'].projects[':key'].share.$delete({
+                                    param: { ws: workspace.slug, key: link.projectKey },
+                                  }),
+                                )
+                                await Promise.all([
+                                  queryClient.invalidateQueries({
+                                    queryKey: ['share-links', workspace.slug],
+                                  }),
+                                  queryClient.invalidateQueries({
+                                    queryKey: ['share', workspace.slug, link.projectKey],
+                                  }),
+                                ])
+                              })
+                            }
+                          >
+                            Revoke
+                          </Button>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <ActionError error={revoke.error} />
         </section>
         {owner && !workspace.isPersonal ? (
           <section

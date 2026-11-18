@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Diamond,
   Hand,
-  Link as LinkIcon,
   MoreHorizontal,
   MousePointer2,
   Plus,
@@ -18,6 +17,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { api, call, RequestError } from '../api'
 import { queryClient } from '../session'
+import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import type { DiagramScene, DiagramShape } from '../ui/diagram-canvas'
@@ -389,9 +389,7 @@ function ProjectDiagrams() {
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <Button disabled icon={LinkIcon}>
-              Share
-            </Button>
+            <ShareButton workspace={workspace} project={project} />
             <Button
               variant="ghost"
               icon={Star}

@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
-import { CalendarDays, Link as LinkIcon, Pencil, Star, Trash2 } from 'lucide-react'
+import { CalendarDays, Pencil, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { api, call, RequestError } from '../api'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
+import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
@@ -272,9 +273,7 @@ function ProjectBrief() {
             </span>
             <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <Button variant="secondary" disabled icon={LinkIcon} aria-label="Share unavailable">
-              Share
-            </Button>
+            <ShareButton workspace={workspace} project={project} />
             <Button
               variant="ghost"
               icon={Star}

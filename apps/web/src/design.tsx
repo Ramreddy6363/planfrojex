@@ -18,6 +18,7 @@ import { Progress, StepMarks } from './ui/progress'
 import { Select } from './ui/select'
 import { SkeletonRow } from './ui/skeleton-row'
 import { type Status, StatusLabel } from './ui/status'
+import { Switch } from './ui/switch'
 import { Tabs } from './ui/tabs'
 import { Tag } from './ui/tag'
 import { TextAction, TextLink } from './ui/text-link'
@@ -47,6 +48,7 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
   const [tab, setTab] = useState('plan')
   const [otp, setOtp] = useState('')
   const [dialog, setDialog] = useState(false)
+  const [sizedDialog, setSizedDialog] = useState(false)
   const [closes, setCloses] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
   const [emailChips, setEmailChips] = useState<string[]>([])
@@ -167,6 +169,8 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         </div>
         <Checkbox aria-label="Unchecked" />
         <Checkbox aria-label="Checked" defaultChecked />
+        <Switch aria-label="Switch off" checked={false} />
+        <Switch aria-label="Switch on" checked />
       </Section>
       <Section title="Tabs, avatars, progress">
         <Tabs
@@ -215,6 +219,7 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
           ]}
         />
         <Button onClick={() => setDialog(true)}>Open dialog</Button>
+        <Button onClick={() => setSizedDialog(true)}>Open 540px dialog</Button>
         <Button onClick={() => setToast('Plan draft rejected.')}>Show toast</Button>
         <Dialog
           open={dialog}
@@ -234,6 +239,15 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         >
           Customer portal rebuild and its 42 tasks, 4 diagrams and comments will be deleted. This
           can't be undone.
+        </Dialog>
+        <Dialog
+          open={sizedDialog}
+          onClose={() => setSizedDialog(false)}
+          title="Custom dialog width"
+          widthClassName="w-135"
+          footer={<Button onClick={() => setSizedDialog(false)}>Done</Button>}
+        >
+          Use a 540px dialog for the project sharing controls.
         </Dialog>
         <p data-testid="closes" className="sr-only">
           {closes}

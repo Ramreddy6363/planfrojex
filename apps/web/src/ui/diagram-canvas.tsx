@@ -102,12 +102,16 @@ function Canvas({
   readOnly,
   tool = 'select',
   onZoomChange,
+  showControls = true,
+  hideAttribution = false,
 }: {
   scene: DiagramScene
   onChange?: (scene: DiagramScene) => void
   readOnly: boolean
   tool?: 'select' | 'pan' | 'arrow'
   onZoomChange?: (zoom: number) => void
+  showControls?: boolean
+  hideAttribution?: boolean
 }) {
   const [nodes, setNodes] = useState(scene.nodes)
   const [edges, setEdges] = useState(scene.edges)
@@ -163,6 +167,7 @@ function Canvas({
         aria-label={readOnly ? 'Read-only diagram canvas' : 'Diagram canvas'}
       >
         <ReactFlow<DiagramNode, DiagramEdge>
+          proOptions={{ hideAttribution: hideAttribution || !showControls }}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -229,32 +234,34 @@ function Canvas({
           minZoom={0.2}
           maxZoom={2}
         />
-        <div className="absolute bottom-4 left-4 z-10 flex rounded-control border border-border bg-bg">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={Minus}
-            aria-label="Zoom out"
-            onClick={() => void flow.zoomOut()}
-            className="px-2"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={Plus}
-            aria-label="Zoom in"
-            onClick={() => void flow.zoomIn()}
-            className="px-2"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={Scan}
-            aria-label="Fit diagram"
-            onClick={() => void flow.fitView({ padding: 0.25, maxZoom: 1 })}
-            className="px-2"
-          />
-        </div>
+        {showControls && (
+          <div className="absolute bottom-4 left-4 z-10 flex rounded-control border border-border bg-bg">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Minus}
+              aria-label="Zoom out"
+              onClick={() => void flow.zoomOut()}
+              className="px-2"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Plus}
+              aria-label="Zoom in"
+              onClick={() => void flow.zoomIn()}
+              className="px-2"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Scan}
+              aria-label="Fit diagram"
+              onClick={() => void flow.fitView({ padding: 0.25, maxZoom: 1 })}
+              className="px-2"
+            />
+          </div>
+        )}
         {tool === 'arrow' && !readOnly && (
           <p className="absolute bottom-4 right-4 rounded-control border border-border bg-bg px-3 py-1.5 text-caption text-text-muted">
             {arrowStart ? 'Choose the destination shape' : 'Choose the starting shape'}

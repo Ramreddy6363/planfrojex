@@ -1,10 +1,11 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
-import { ArrowRight, CalendarDays, Link as LinkIcon, MoreHorizontal, Star } from 'lucide-react'
+import { ArrowRight, CalendarDays, MoreHorizontal, Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { api, call } from '../api'
 import { queryClient } from '../session'
+import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
@@ -332,9 +333,7 @@ function ProjectActivity() {
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <Button disabled icon={LinkIcon}>
-              Share
-            </Button>
+            <ShareButton workspace={workspace} project={project} />
             <Button
               variant="ghost"
               icon={Star}

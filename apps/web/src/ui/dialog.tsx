@@ -12,6 +12,7 @@ export const Dialog = ({
   footer,
   wide = false,
   extraWide = false,
+  widthClassName,
   sidebar,
   plain = false,
 }: {
@@ -22,6 +23,7 @@ export const Dialog = ({
   footer: ReactNode
   wide?: boolean
   extraWide?: boolean
+  widthClassName?: string
   sidebar?: ReactNode
   plain?: boolean
 }) => {
@@ -38,7 +40,7 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`${plain ? 'mx-auto mt-[120px] w-160' : `m-auto ${extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110'}`} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
+      className={`${plain ? 'mx-auto mt-[120px] w-160' : `m-auto ${widthClassName ?? (extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110')}`} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
     >
       {plain ? (
         <>
