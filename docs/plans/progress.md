@@ -226,13 +226,27 @@ Screen: 505. API: board 1005 (GET/PATCH /me, GET/PUT /me/notification-settings, 
 3. Deleting an account keeps your comments as "Deleted user" instead of deleting them (recommended; threads stay readable).
 - **Out of scope:** photo upload, Security tab (sessions list, sign out everywhere), email delivery of notifications (20–21), data export.
 
+## 2026-11-15: Feature 15 Share links + public page — approved 2026-11-15 (with the three recommendations)
+Screens: 409 (Share dialog), 601 (public page), 503 (Settings › Share links table). API: board 1005. No new dependencies.
+- **Share dialog (409):** project header "Share" button. "Public read-only link" toggle; when on: link field + Copy, "Include" checkboxes Brief / Plan / Diagrams / Tasks (default first three), "Opened N times, last …" line, "Turn off link" in the footer, Done. Owners and editors only; viewers don't see Share. The "Ask for approval" block and "Send for review" are feature 18 (hidden now).
+- **Public page (601):** /share/:token, no sign-in, no app shell. Header: logo, workspace name, "Read-only link shared by <name>". Title, status, lead name, target date, updated date; then only the included sections: Brief, Milestones (+ estimate), Diagrams (read-only canvas, latest version of each non-deleted diagram), Tasks (key, title, status, no assignee emails). Footer "Made with planfrojex". `noindex` meta and `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer`. Unknown, revoked or deleted-project link: plain "This link doesn't work anymore" page (same response for all three).
+- **Settings › Share links (503):** fills the empty state from feature 13: Project, Created by, Created, Views, Revoke (owners only; editors see the list read-only).
+- **Database (migration 0012):** `share_links` (id, workspace_id, project_id unique, token_hash unique, include text[], created_by → set null, view_count, last_viewed_at, created_at, revoked_at). Token: 32 random bytes, base64url, shown once in the dialog and kept only as a SHA-256 hash (rule 4). Turning a link off sets revoked_at; turning it on again makes a new token.
+- **Endpoints:** GET/PUT/DELETE /workspaces/:ws/projects/:key/share (O/E; PUT {enabled, include} returns the token only when a new one is made); GET /workspaces/:ws/share-links (O/E/V list, revoke = DELETE above, owner from settings); public GET /share/:token returns only the included sections and never ids, emails or comments. Public endpoint: rate limit 60/min per IP, view count +1 per request.
+
+**Open questions**
+1. The link is shown in full only right after it's made (we store only the hash); later the dialog shows "Link is on" with Copy disabled and a "Make a new link" action (recommended; follows rule 4). Alternative: store the token encrypted so Copy always works.
+2. Approval ("Ask for approval", "Send for review") waits for feature 18 (recommended).
+3. Views count every page load, no unique-visitor tracking (recommended; no cookies or IP storage).
+- **Out of scope:** approvals and reviewer emails (18), mobile layout (16), password-protected or expiring links, comments on the public page.
+
 ## 2026-11-15: Fix search shortcut flake — approved 2026-11-15
 Screen: existing search overlay 304. Endpoints: none. Tables: none. Open questions: none.
 - Keep the workspace shortcut listener attached across renders and ready before a navigated screen is visible. Preserve editable-field guards and all existing shortcuts.
 - Verify the full Playwright suite three times consecutively, then run `pnpm check`.
 
 ## Still open before production
-- Apply migrations 0001–0011 to Neon before the first deploy.
+- Apply migrations 0001–0012 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -255,7 +269,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 12 | ⌘K search | Search overlay | shipped 2026-11-15 |
 | 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
 | 14 | Account settings | Account | shipped 2026-11-15 |
-| 15 | Share links + public share page | Share dialog, public page | |
+| 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
 | 16 | Mobile | Projects, Brief, Share page (390px) | |
 | 17 | Landing page | Landing | |
 | 18 | Stakeholder approval | Share page review banner | |

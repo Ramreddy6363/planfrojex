@@ -19,6 +19,7 @@ import { api, call, projectTasksClient, RequestError, tasksClient } from '../api
 import { myTasksKey } from '../my-tasks'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
+import { ShareButton } from '../share-dialog'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
@@ -252,9 +253,7 @@ function ProjectTasks() {
               name={project.leadName ?? 'Deleted user'}
               className="!size-6"
             />
-            <Button variant="secondary" disabled aria-label="Share unavailable">
-              Share
-            </Button>
+            <ShareButton workspace={workspace} project={project} />
             <Button
               variant="ghost"
               icon={Star}

@@ -477,3 +477,21 @@ export const notificationSettings = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.type] })],
 )
+
+export const shareLinks = pgTable('share_links', {
+  id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id')
+    .notNull()
+    .unique()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  include: text('include').array().notNull(),
+  createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+  viewCount: integer('view_count').notNull().default(0),
+  lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+})

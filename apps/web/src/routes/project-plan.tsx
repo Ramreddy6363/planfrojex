@@ -1,18 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
-import {
-  CalendarDays,
-  Link as LinkIcon,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Star,
-  Trash2,
-} from 'lucide-react'
+import { CalendarDays, MoreHorizontal, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { api, call } from '../api'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
+import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -486,9 +479,7 @@ function ProjectPlan() {
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <Button variant="secondary" disabled icon={LinkIcon} aria-label="Share unavailable">
-              Share
-            </Button>
+            <ShareButton workspace={workspace} project={project} />
             <Button
               variant="ghost"
               icon={Star}
