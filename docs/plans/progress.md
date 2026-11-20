@@ -231,6 +231,21 @@ Screen: existing search overlay 304. Endpoints: none. Tables: none. Open questio
 - Keep the workspace shortcut listener attached across renders and ready before a navigated screen is visible. Preserve editable-field guards and all existing shortcuts.
 - Verify the full Playwright suite three times consecutively, then run `pnpm check`.
 
+## 2026-11-18: Feature 16 Mobile — approved (all 3 recommendations)
+Screens: 701 (Projects), 702 (Project › Brief), 703 (Share page), all 390px. No API, no migration, no new dependencies.
+- **Breakpoint:** below 768px (`md`) the sidebar is hidden and a bottom tab bar shows Home, My tasks, Inbox, Projects (active tab in accent, inbox count badge). Desktop is unchanged.
+- **Projects (701):** header with workspace logo, "Projects", search icon (opens ⌘K overlay full screen) and + (New project, owners/editors). Saved-view tabs scroll sideways. Each project is a row: name, star, lead avatar; status glyph, progress bar, done/total, due date. "Draft · No plan yet" when there are no tasks.
+- **Project › Brief (702):** back link "‹ Projects", share icon (opens Share dialog), "…" menu. Title, status, lead, due, progress bar. Tabs Brief / Plan / Tasks / Diagrams / Activity scroll sideways. The comment column becomes a bottom bar "N comments" + avatars that opens comments in a full-height sheet.
+- **Share page (703):** public page from feature 15 in one column with smaller type and padding; diagram canvas fits the width and can be panned.
+- **Everything else** (Home, My tasks, Inbox, Plan, Tasks, Diagrams, Activity, Members, Settings, Account): no sideways page scroll at 390px and every action reachable. Not redrawn, just usable. Dialogs become full-width sheets.
+- **Tests:** Playwright "mobile" project at 390×844 running a new mobile spec (tab bar navigation, projects list, brief + comments sheet, share page, no horizontal overflow check on every main route).
+
+**Open questions**
+1. Breakpoint 768px (Tailwind `md`), tablets get desktop (recommended).
+2. Pages without a drawing get the "usable, not redrawn" pass only (recommended; feature 22 polishes states).
+3. Diagram editing on phones is view-only (pan/zoom); editing stays desktop (recommended).
+- **Out of scope:** native app, offline, push notifications, swipe gestures.
+
 ## Still open before production
 - Apply migrations 0001–0011 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
