@@ -315,7 +315,7 @@ function ProjectActivity() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       <div className="min-h-screen text-ui">
-        <div className="flex items-center gap-2 border-b border-border px-8 py-2">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border px-4 py-2 md:px-8">
           <Link
             to="/$ws/projects"
             params={{ ws: workspace.slug }}
@@ -333,7 +333,7 @@ function ProjectActivity() {
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <ShareButton workspace={workspace} project={project} />
+            <ShareButton workspace={workspace} project={project} iconOnly />
             <Button
               variant="ghost"
               icon={Star}
@@ -354,9 +354,9 @@ function ProjectActivity() {
             </Button>
           </div>
         </div>
-        <div className="px-8 pt-2">
-          <h1 className="text-display font-semibold">{project.name}</h1>
-          <div className="flex h-10 items-center gap-5">
+        <div className="px-4 pt-2 md:px-8">
+          <h1 className="text-display font-semibold max-md:break-words">{project.name}</h1>
+          <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2 pb-2 md:h-10 md:flex-nowrap md:gap-5 md:pb-0">
             <span className="flex items-center gap-2">
               <StatusGlyph status={project.status} />
               {statusInfo(project.status).label}
@@ -389,7 +389,7 @@ function ProjectActivity() {
             </div>
           </div>
         </div>
-        <div className="border-b border-border px-8 pt-1">
+        <div className="border-b border-border px-4 pt-1 md:px-8">
           <Tabs
             value="activity"
             onChange={(tab) => {
@@ -414,7 +414,7 @@ function ProjectActivity() {
             ]}
           />
         </div>
-        <div className="flex flex-wrap gap-2 border-b border-border px-8 py-2.5">
+        <div className="flex flex-wrap gap-2 border-b border-border px-4 py-2.5 md:px-8">
           <div className="w-45">
             <Select
               aria-label="Filter by person"
@@ -448,7 +448,7 @@ function ProjectActivity() {
         {membersQuery.isError && (
           <div
             role="alert"
-            className="flex items-center gap-3 border-b border-border px-8 py-2 text-caption"
+            className="flex items-center gap-3 border-b border-border px-4 py-2 text-caption md:px-8"
           >
             <p className="text-danger">People could not be loaded.</p>
             <Button size="sm" onClick={() => void membersQuery.refetch()}>
@@ -456,7 +456,7 @@ function ProjectActivity() {
             </Button>
           </div>
         )}
-        <section className="max-w-[824px] px-8 py-8" aria-label="Project activity">
+        <section className="w-full max-w-[824px] px-4 py-8 md:px-8" aria-label="Project activity">
           <div aria-live="polite">
             {timeline.isLoading ? <p className="text-text-muted">Loading activity…</p> : null}
             {timeline.isError ? (

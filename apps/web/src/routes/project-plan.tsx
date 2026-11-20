@@ -251,7 +251,7 @@ function ProjectPlan() {
     }
   const drawChange = (kind: string) => {
     const change = draftQuery.data?.draft.changes.find((item) => item.kind === kind)
-    if (!change || change.status !== 'pending') return null
+    if (change?.status !== 'pending') return null
     const valueLines = (value: unknown): string[] => {
       if (value == null) return []
       if (
@@ -461,7 +461,7 @@ function ProjectPlan() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 border-b border-border px-8 py-3 text-ui">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border px-4 py-3 text-ui md:px-8">
           <Link
             to="/$ws/projects"
             params={{ ws: workspace.slug }}
@@ -477,9 +477,9 @@ function ProjectPlan() {
           >
             {project.name}
           </Link>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1 md:gap-2">
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <ShareButton workspace={workspace} project={project} />
+            <ShareButton workspace={workspace} project={project} iconOnly />
             <Button
               variant="ghost"
               icon={Star}
@@ -500,8 +500,8 @@ function ProjectPlan() {
             </Button>
           </div>
         </div>
-        <div className="border-b border-border px-8 pt-4">
-          <h1 className="text-display font-semibold">{project.name}</h1>
+        <div className="border-b border-border px-4 pt-4 md:px-8">
+          <h1 className="text-display font-semibold max-md:break-words">{project.name}</h1>
           <div className="flex h-10 items-center gap-6 text-ui">
             <span className="flex items-center gap-2">
               <StatusGlyph status={project.status} />
@@ -524,7 +524,7 @@ function ProjectPlan() {
             </span>
           </div>
         </div>
-        <div className="border-b border-border px-8 pt-1">
+        <div className="border-b border-border px-4 pt-1 md:px-8">
           <Tabs
             value="plan"
             onChange={(tab) => {
@@ -559,7 +559,7 @@ function ProjectPlan() {
             ]}
           />
         </div>
-        <div className="flex items-center justify-between border-b border-border px-8 py-3 text-caption text-text-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 text-caption text-text-muted md:px-8">
           <span>
             {plan.lastChanged
               ? `Last changed ${relativeTime(plan.lastChanged.at)}${plan.lastChanged.by ? ` by ${plan.lastChanged.by}` : ''}`
@@ -574,7 +574,7 @@ function ProjectPlan() {
         {activeDraftId && draftQuery.data && (
           <section
             aria-label="Plan draft"
-            className="border-b border-border bg-bg-subtle px-8 py-4"
+            className="border-b border-border bg-bg-subtle px-4 py-4 md:px-8"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -617,7 +617,7 @@ function ProjectPlan() {
             </div>
           </section>
         )}
-        <div className="grid min-h-[calc(100vh-220px)] gap-8 px-8 lg:grid-cols-[minmax(0,760px)_180px] lg:justify-between">
+        <div className="grid min-h-[calc(100vh-220px)] min-w-0 gap-8 px-4 lg:grid-cols-[minmax(0,760px)_180px] lg:justify-between md:px-8">
           <main className="min-w-0">
             {drawSection('requirements')}
             {drawSection('stories')}
@@ -1106,7 +1106,7 @@ function ProjectPlan() {
           </aside>
         </div>
         {decisionsQuery.data?.decisions.length ? (
-          <section className="border-t border-border px-8 py-6">
+          <section className="border-t border-border px-4 py-6 md:px-8">
             <h2 className="mb-3 font-semibold">Decision log</h2>
             <div className="max-w-[760px] divide-y divide-border">
               {decisionsQuery.data.decisions.map((decision) => (

@@ -285,7 +285,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
 | 14 | Account settings | Account | shipped 2026-11-15 |
 | 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
-| 16 | Mobile | Projects, Brief, Share page (390px) | |
+| 16 | Mobile | Projects, Brief, Share page (390px) | ready for review 2026-11-20 |
 | 17 | Landing page | Landing | |
 | 18 | Stakeholder approval | Share page review banner | |
 | 19 | Tracker sync | Settings › Integrations | |

@@ -236,7 +236,7 @@ function ProjectTasks() {
         )
       ) : project ? (
         <>
-          <div className="flex h-11 items-center gap-2 border-b border-border px-8">
+          <div className="flex min-w-0 items-center gap-2 border-b border-border px-4 md:h-11 md:px-8">
             <Link
               to="/$ws/projects"
               params={{ ws: workspace.slug }}
@@ -253,7 +253,7 @@ function ProjectTasks() {
               name={project.leadName ?? 'Deleted user'}
               className="!size-6"
             />
-            <ShareButton workspace={workspace} project={project} />
+            <ShareButton workspace={workspace} project={project} iconOnly />
             <Button
               variant="ghost"
               icon={Star}
@@ -273,9 +273,9 @@ function ProjectTasks() {
               <MoreHorizontal />
             </Button>
           </div>
-          <div className="border-b border-border px-8 pt-3 pb-0.5">
-            <h1 className="text-display font-semibold">{project.name}</h1>
-            <div className="flex h-10 items-center gap-6 text-ui">
+          <div className="border-b border-border px-4 pt-3 pb-0.5 md:px-8">
+            <h1 className="truncate text-display font-semibold">{project.name}</h1>
+            <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 py-2 text-ui md:h-10 md:flex-nowrap md:gap-6 md:py-0">
               <StatusLabel status={project.status} />
               <span className="flex items-center gap-2">
                 <Avatar
@@ -311,7 +311,7 @@ function ProjectTasks() {
               </div>
             </div>
           </div>
-          <div className="border-b border-border px-8 pt-1 pb-0">
+          <div className="border-b border-border px-4 pt-1 pb-0 md:px-8">
             <Tabs
               value="tasks"
               onChange={(tab) => {
@@ -349,7 +349,7 @@ function ProjectTasks() {
             />
           </div>
 
-          <div className="flex h-12 items-center gap-2 border-b border-border px-5 lg:px-8">
+          <div className="flex min-h-12 flex-wrap items-center gap-2 border-b border-border px-4 py-2 lg:px-8">
             <fieldset
               aria-label="Task view"
               className="flex rounded-control border border-border p-0.5"

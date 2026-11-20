@@ -104,6 +104,7 @@ function Canvas({
   onZoomChange,
   showControls = true,
   hideAttribution = false,
+  compact = false,
 }: {
   scene: DiagramScene
   onChange?: (scene: DiagramScene) => void
@@ -112,6 +113,7 @@ function Canvas({
   onZoomChange?: (zoom: number) => void
   showControls?: boolean
   hideAttribution?: boolean
+  compact?: boolean
 }) {
   const [nodes, setNodes] = useState(scene.nodes)
   const [edges, setEdges] = useState(scene.edges)
@@ -163,7 +165,7 @@ function Canvas({
       }}
     >
       <section
-        className="diagram-canvas relative h-full min-h-100 bg-bg-subtle"
+        className={`diagram-canvas relative h-full ${compact ? 'min-h-0' : 'min-h-100'} bg-bg-subtle`}
         aria-label={readOnly ? 'Read-only diagram canvas' : 'Diagram canvas'}
       >
         <ReactFlow<DiagramNode, DiagramEdge>

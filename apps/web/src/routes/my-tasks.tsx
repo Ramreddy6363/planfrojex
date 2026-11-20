@@ -98,10 +98,10 @@ function MyTasks() {
 
   return (
     <WorkspaceShell workspace={workspace} me={me} active="my-tasks">
-      <header className="flex h-14 items-center gap-4 border-b border-border px-8">
+      <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-border px-4 py-3 md:h-14 md:flex-row md:items-center md:gap-4 md:px-8 md:py-0">
         <h1 className="text-title font-semibold">My tasks</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <label htmlFor="my-tasks-group" className="text-caption text-text-muted">
+        <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto md:flex-nowrap">
+          <label htmlFor="my-tasks-group" className="text-caption text-text-muted max-md:sr-only">
             Group by
           </label>
           <Select
@@ -109,7 +109,7 @@ function MyTasks() {
             aria-label="Group by"
             value={groupBy}
             onChange={(event) => setGroupBy(event.target.value as GroupBy)}
-            className="!w-[151px]"
+            className="!w-full md:!w-[151px]"
           >
             <option value="due">Due date</option>
             <option value="project">Project</option>
@@ -119,7 +119,7 @@ function MyTasks() {
             aria-label="Project"
             value={projectFilter}
             onChange={(event) => setProjectFilter(event.target.value)}
-            className="!w-[171px]"
+            className="!w-full md:!w-[171px]"
           >
             <option value="">All projects</option>
             {projects.data?.map((project) => (
@@ -130,7 +130,7 @@ function MyTasks() {
           </Select>
         </div>
       </header>
-      <div className="border-b border-border px-8">
+      <div className="border-b border-border px-4 md:px-8">
         <Tabs
           value={view}
           onChange={(value) => setView(value as MyTasksView)}
@@ -141,7 +141,7 @@ function MyTasks() {
           ]}
         />
       </div>
-      <div className="px-5 py-3">
+      <div className="px-4 py-3 md:px-5">
         <ActionError error={action.error} />
         {projects.isError ? (
           <p role="alert" className="px-3 py-2 text-text-muted">

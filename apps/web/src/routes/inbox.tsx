@@ -102,7 +102,7 @@ function Inbox() {
 
   return (
     <WorkspaceShell workspace={workspace} me={me} active="inbox">
-      <header className="flex h-14 items-center justify-between border-b border-border px-8">
+      <header className="flex min-h-14 items-center justify-between gap-2 border-b border-border px-4 py-2 md:h-14 md:px-8 md:py-0">
         <h1 className="text-title font-semibold">Inbox</h1>
         <Button
           variant="ghost"
@@ -118,8 +118,11 @@ function Inbox() {
           Mark all as read
         </Button>
       </header>
-      <div className="flex min-h-[calc(100vh-56px)]">
-        <section className="w-[440px] shrink-0 border-r border-border" aria-label="Notifications">
+      <div className="flex min-h-[calc(100vh-56px)] min-w-0 flex-col md:flex-row">
+        <section
+          className="w-full min-w-0 border-b border-border md:w-[440px] md:shrink-0 md:border-b-0 md:border-r"
+          aria-label="Notifications"
+        >
           {list.isPending ? (
             <p className="p-5 text-text-muted">Loading inbox…</p>
           ) : list.isError && !list.data ? (
@@ -204,7 +207,7 @@ function Inbox() {
           </div>
         </section>
         {selected ? (
-          <section aria-label="Notification details" className="min-w-0 flex-1 px-8 py-6">
+          <section aria-label="Notification details" className="min-w-0 flex-1 px-4 py-6 md:px-8">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-caption text-text-muted">

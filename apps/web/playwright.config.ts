@@ -6,6 +6,17 @@ declare const process: { env: Record<string, string | undefined> }
 export default defineConfig({
   testDir: 'e2e',
   use: { baseURL: 'http://localhost:5199' },
+  projects: [
+    {
+      name: 'desktop',
+      testIgnore: /mobile\.spec\.ts/,
+    },
+    {
+      name: 'mobile',
+      testMatch: /mobile\.spec\.ts/,
+      use: { viewport: { width: 390, height: 844 } },
+    },
+  ],
   webServer: {
     command: 'pnpm exec vite --port 5199 --strictPort',
     url: 'http://localhost:5199/design.html',

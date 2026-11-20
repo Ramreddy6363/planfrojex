@@ -64,7 +64,11 @@ export function WorkspaceSearch({
       const state = shortcutState.current
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        state.setOpen(!state.open)
+        const paletteOpen =
+          document.querySelector(
+            'dialog[open] input[aria-label="Search projects, tasks and commands"]',
+          ) !== null
+        state.setOpen(!paletteOpen)
         return
       }
       if (

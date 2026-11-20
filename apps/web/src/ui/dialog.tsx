@@ -15,6 +15,7 @@ export const Dialog = ({
   widthClassName,
   sidebar,
   plain = false,
+  fullHeight = false,
 }: {
   open: boolean
   onClose: () => void
@@ -26,6 +27,7 @@ export const Dialog = ({
   widthClassName?: string
   sidebar?: ReactNode
   plain?: boolean
+  fullHeight?: boolean
 }) => {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -40,7 +42,7 @@ export const Dialog = ({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`${plain ? 'mx-auto mt-[120px] w-160' : `m-auto ${widthClassName ?? (extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110')}`} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim`}
+      className={`${plain ? 'mx-auto mt-[120px] w-160 max-md:mt-0 max-md:h-dvh max-md:rounded-none' : `m-auto ${widthClassName ?? (extraWide ? 'w-190 md:-translate-y-5' : wide ? 'w-150' : 'w-110')}`} max-w-[calc(100vw-32px)] rounded-panel border border-border bg-bg p-0 text-text shadow-float backdrop:bg-scrim max-md:m-0 max-md:mt-auto max-md:w-full max-md:max-w-full max-md:max-h-dvh max-md:overflow-y-auto max-md:rounded-b-none ${fullHeight ? 'max-md:h-dvh max-md:rounded-none' : ''}`}
     >
       {plain ? (
         <>
@@ -52,11 +54,7 @@ export const Dialog = ({
         </>
       ) : (
         <div
-          className={
-            sidebar
-              ? `grid md:grid-cols-[250px_minmax(0,1fr)] ${extraWide ? 'md:min-h-[500px]' : ''}`
-              : ''
-          }
+          className={`${sidebar ? `grid md:grid-cols-[250px_minmax(0,1fr)] ${extraWide ? 'md:min-h-[500px]' : ''}` : ''} ${fullHeight ? 'max-md:min-h-full' : ''}`}
         >
           {sidebar && (
             <aside className="border-b border-border bg-bg-subtle p-2 md:border-b-0 md:border-r">
@@ -73,7 +71,7 @@ export const Dialog = ({
                 size="sm"
                 aria-label="Close"
                 onClick={() => ref.current?.close()}
-                className="-m-1 px-1.5"
+                className="-m-1 px-1.5 max-md:!size-11"
               >
                 <Icon icon={X} className="text-text-muted" />
               </Button>

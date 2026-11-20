@@ -50,10 +50,10 @@ function WorkspaceSettings() {
   const changed = name.trim() !== workspace.name || slug !== workspace.slug
   return (
     <WorkspaceShell workspace={workspace} me={me} active="settings">
-      <header className="flex h-14 items-center border-b border-border px-8">
+      <header className="flex h-14 items-center border-b border-border px-4 md:px-8">
         <h1 className="text-title font-semibold">Settings</h1>
       </header>
-      <div className="space-y-8 px-8 pb-8 pt-6">
+      <div className="space-y-8 px-4 pb-8 pt-6 md:px-8">
         <section aria-labelledby="settings-general">
           <h2 id="settings-general" className="font-semibold">
             General
