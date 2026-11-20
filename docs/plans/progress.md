@@ -260,6 +260,28 @@ Screens: 701 (Projects), 702 (Project › Brief), 703 (Share page), all 390px. N
 3. Diagram editing on phones is view-only (pan/zoom); editing stays desktop (recommended).
 - **Out of scope:** native app, offline, push notifications, swipe gestures.
 
+## 2026-11-20: Feature 17 Landing page — approved (all 3 recommendations)
+Screen: 801 (1440px). Spec section 5 landing exception. No API, no migration, no new dependencies. Sections drawn: nav, hero with Plan window and milestone-ruler background, "It's about the whole team agreeing on one", templates, "Draft the plan. Keep the decisions.", roles, "Don't plan twice", "What else", closing call to action, footer.
+- **Route:** `/` shows the landing page to signed-out visitors. Signed-in visitors still go straight to their workspace (`enterApp` today). "Sign in" goes to `/sign-in`, "Start planning free" and "Get started" to `/sign-up`.
+- **Product window:** built from `src/ui/` components with fixed sample data (a Plan view), not a screenshot. Floating callouts are hidden below `md`.
+- **Look exception:** the milestone ruler and the soft accent glow are allowed on the landing only. They use token colours (`color-mix` on `--color-accent`), no raw hex. `design-rules.test.ts` gets a test-first exemption for gradient/shadow in `src/landing/` only; every other rule (hex, emoji, "AI", radius, purple) still applies there.
+- **Mobile:** no 390px design exists; sections stack to one column, nav collapses to logo + Sign in + Get started. Overflow check added to the mobile spec.
+- **Page head:** title and meta description in `index.html`.
+- **Tests:** Playwright for signed-out `/` (all sections, CTAs go to sign-up/sign-in, templates tabs filter), signed-in `/` still redirects, 1440 and 390 no horizontal overflow; unit test for the design-rules exemption.
+
+**Content fixes versus the drawing (the page may only claim what exists)**
+- No Pricing, Changelog, Careers, Press kit, Help center, API or Status pages exist and the spec rules out marketing pages beyond this one. Nav keeps in-page anchors (Product, Templates, Teams) plus Sign in and Get started; footer keeps logo, one-line description and Sign in.
+- Newsletter "Subscribe" box dropped (no endpoint).
+- Cards for features that have not shipped are dropped: "Export" (Markdown/PDF), "Redraft one section", the "New: Redraft a single section" pill, and anything about tracker sync. They return with their features.
+- "Free for one person. Bring the team in when the plan is ready." stays as copy, with no prices and no pricing page (still a placeholder pending your decision).
+- Templates grid uses the real list from the New project dialog; the drawing's eight cards are cut to the templates that exist.
+
+**Open questions**
+1. Signed-in visitors on `/` go to the app (recommended) or see the landing.
+2. Nav and footer: only working links, as above (recommended) or keep the drawn labels as dead links.
+3. Drop the unshipped feature cards (recommended) or keep them as drawn.
+- **Out of scope:** pricing page, blog, docs, analytics, newsletter, SEO beyond title and description.
+
 ## Still open before production
 - Apply migrations 0001–0012 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
@@ -286,7 +308,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 14 | Account settings | Account | shipped 2026-11-15 |
 | 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
 | 16 | Mobile | Projects, Brief, Share page (390px) | ready for review 2026-11-20 |
-| 17 | Landing page | Landing | |
+| 17 | Landing page | Landing | shipped 2026-11-20 |
 | 18 | Stakeholder approval | Share page review banner | |
 | 19 | Tracker sync | Settings › Integrations | |
 | 20 | Drift detection | Plan drift card | |

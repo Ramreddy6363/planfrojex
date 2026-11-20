@@ -148,6 +148,11 @@ test('opens search from keyboard and sidebar, searches with debounce, and naviga
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/tasks.*task=${taskId}`))
   await expect(page.getByRole('complementary')).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-shortcuts-ready', 'true')
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-shortcuts-route',
+    new URL(page.url()).pathname,
+  )
   await page.keyboard.press('Meta+k')
   await expect(input).toBeFocused()
   await page.keyboard.press('Escape')
