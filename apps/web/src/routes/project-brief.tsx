@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
-import { CalendarDays, Pencil, Star, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { CalendarDays, ChevronLeft, MessageSquare, Pencil, Star, Trash2 } from 'lucide-react'
+import { useLayoutEffect, useState } from 'react'
 import { api, call, RequestError } from '../api'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
@@ -81,10 +81,19 @@ function ProjectBrief() {
   const [editingCommentDraft, setEditingCommentDraft] = useState('')
   const [editingMentions, setEditingMentions] = useState<string[]>([])
   const [deletingComment, setDeletingComment] = useState<string | null>(null)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [propertiesOpen, setPropertiesOpen] = useState(false)
   const action = useAction()
   const navigate = useNavigate()
   const project = projectQuery.data?.project
   const members = membersQuery.data?.members ?? []
+  useLayoutEffect(() => {
+    if (editing === 'outOfScope' && window.matchMedia('(max-width: 767px)').matches) {
+      document
+        .querySelector<HTMLElement>('section[aria-labelledby="brief-outOfScope"]')
+        ?.scrollIntoView({ block: 'center' })
+    }
+  }, [editing])
   const getMentionOptions = (text: string) => {
     const match = text.match(/@([a-zA-Z0-9 ]*)$/)
     return match
@@ -101,7 +110,7 @@ function ProjectBrief() {
     update(
       current.filter((id) => {
         const member = members.find((candidate) => candidate.id === id)
-        return member && text.includes('@' + member.name)
+        return member && text.includes(`@${member.name}`)
       }),
     )
   }
@@ -166,7 +175,7 @@ function ProjectBrief() {
     setSource(next)
     const retained = existing.filter((existingId) => {
       const member = members.find((candidate) => candidate.id === existingId)
-      return member && next.includes('@' + member.name)
+      return member && next.includes(`@${member.name}`)
     })
     setMentions([...new Set([...retained, id])])
   }
@@ -232,6 +241,280 @@ function ProjectBrief() {
     await queryClient.invalidateQueries({ queryKey: commentsKey })
   }
 
+  const renderProperties = () =>
+    project ? (
+      <section aria-label="Project properties">
+        <h2 className="mb-2 text-caption font-medium text-text-muted">Properties</h2>
+        <dl className="space-y-2 text-ui">
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-text-muted">Status</dt>
+            <dd>
+              {editable && editingProperty === 'status' ? (
+                <Select
+                  aria-label="Project status"
+                  value={project.status}
+                  onChange={(event) =>
+                    void action.run(async () => {
+                      await saveProject({
+                        status: event.target.value as
+                          | 'draft'
+                          | 'planning'
+                          | 'in-progress'
+                          | 'completed'
+                          | 'archived',
+                      })
+                      setEditingProperty(null)
+                    })
+                  }
+                  className="w-37"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="planning">Planning</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="archived">Archived</option>
+                </Select>
+              ) : editable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Edit status"
+                  className="h-auto px-0 font-normal hover:bg-transparent"
+                  onClick={() => setEditingProperty('status')}
+                >
+                  <StatusLabel status={project.status} />
+                </Button>
+              ) : (
+                <StatusLabel status={project.status} />
+              )}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-text-muted">Lead</dt>
+            <dd className="flex min-w-0 items-center gap-2">
+              {editable && editingProperty === 'lead' ? (
+                <Select
+                  aria-label="Project lead"
+                  value={project.leadId ?? ''}
+                  onChange={(event) =>
+                    void action.run(async () => {
+                      await saveProject({ leadId: event.target.value })
+                      setEditingProperty(null)
+                    })
+                  }
+                  className="w-37"
+                >
+                  {!project.leadId && (
+                    <option value="" disabled>
+                      Deleted user
+                    </option>
+                  )}
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </Select>
+              ) : editable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Edit lead"
+                  className="h-auto min-w-0 gap-2 px-0 font-normal hover:bg-transparent"
+                  onClick={() => setEditingProperty('lead')}
+                >
+                  <Avatar
+                    id={project.leadId}
+                    name={project.leadName ?? 'Deleted user'}
+                    className="!size-5"
+                  />
+                  <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
+                </Button>
+              ) : (
+                <span className="flex min-w-0 items-center gap-2">
+                  <Avatar
+                    id={project.leadId}
+                    name={project.leadName ?? 'Deleted user'}
+                    className="!size-5"
+                  />
+                  <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
+                </span>
+              )}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-text-muted">Target date</dt>
+            <dd>
+              {editable && editingProperty === 'targetDate' ? (
+                <Input
+                  aria-label="Target date"
+                  className="w-37"
+                  type="date"
+                  value={project.targetDate ?? ''}
+                  onChange={(event) =>
+                    void action.run(async () => {
+                      await saveProject({ targetDate: event.target.value || null })
+                      setEditingProperty(null)
+                    })
+                  }
+                />
+              ) : editable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Edit target date"
+                  className="h-auto px-0 font-normal hover:bg-transparent"
+                  onClick={() => setEditingProperty('targetDate')}
+                >
+                  {formatDate(project.targetDate)}
+                </Button>
+              ) : (
+                formatDate(project.targetDate)
+              )}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-text-muted">Team</dt>
+            <dd>
+              <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-text-muted">Created</dt>
+            <dd className="text-right text-text-muted">
+              {formatDate(project.createdAt.slice(0, 10))}
+              {project.createdBy ? ` by ${project.createdBy.name}` : ''}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    ) : null
+  const renderComments = () => (
+    <section aria-label="Project comments" className="mt-4 border-t border-border pt-4">
+      <h2 className="mb-4 text-caption font-medium text-text-muted">
+        Comments <span>{commentsQuery.data?.comments.length ?? ''}</span>
+      </h2>
+      {commentsQuery.isPending ? (
+        <p className="text-text-muted">Loading comments…</p>
+      ) : commentsQuery.isError ? (
+        <EmptyState
+          title="Couldn’t load comments"
+          body="Try again to read the discussion."
+          action={<Button onClick={() => void commentsQuery.refetch()}>Retry</Button>}
+        />
+      ) : commentsQuery.data.comments.length === 0 ? (
+        <p className="mb-4 text-caption text-text-muted">No comments yet.</p>
+      ) : (
+        <ol className="space-y-4">
+          {commentsQuery.data.comments.map((comment) => (
+            <li key={comment.id} className="text-ui">
+              <div className="flex items-center gap-2">
+                <Avatar
+                  id={comment.authorId}
+                  name={comment.authorName ?? 'Deleted user'}
+                  className="!size-5"
+                />
+                <span className="font-medium">{comment.authorName ?? 'Deleted user'}</span>
+                <time className="text-caption text-text-muted" dateTime={comment.createdAt}>
+                  {relativeTime(comment.createdAt)}
+                </time>
+                {(comment.authorId === me.user.id || workspace.role === 'owner') &&
+                  editingComment !== comment.id && (
+                    <Menu
+                      label="Actions for your comment"
+                      iconOnly
+                      triggerClassName="ml-auto h-7 px-1"
+                      items={[
+                        {
+                          label: 'Edit comment',
+                          icon: Pencil,
+                          onSelect: () => {
+                            setEditingComment(comment.id)
+                            setEditingCommentDraft(comment.body)
+                            setEditingMentions(comment.mentions)
+                          },
+                        },
+                        {
+                          label: 'Delete comment',
+                          icon: Trash2,
+                          danger: true,
+                          onSelect: () => setDeletingComment(comment.id),
+                        },
+                      ]}
+                    />
+                  )}
+              </div>
+              {editingComment === comment.id ? (
+                <div className="mt-2 space-y-2">
+                  <div className="relative">
+                    <Textarea
+                      aria-label="Edit comment"
+                      value={editingCommentDraft}
+                      onChange={(event) => {
+                        setEditingCommentDraft(event.target.value)
+                        retainVisibleMentions(
+                          event.target.value,
+                          editingMentions,
+                          setEditingMentions,
+                        )
+                      }}
+                      className="h-20 resize-y"
+                    />
+                    {renderMentionSuggestions(
+                      editingCommentDraft,
+                      setEditingCommentDraft,
+                      editingMentions,
+                      setEditingMentions,
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      disabled={action.busy}
+                      onClick={() => void action.run(() => saveComment(comment.id))}
+                    >
+                      Save comment
+                    </Button>
+                    <Button onClick={() => setEditingComment(null)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-1 whitespace-pre-wrap pl-7 leading-[20px]">{comment.body}</p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="relative mt-4">
+        <Textarea
+          aria-label="Comment"
+          placeholder="Write a comment. Type @ to mention someone."
+          value={commentDraft}
+          onChange={(event) => {
+            setCommentDraft(event.target.value)
+            retainVisibleMentions(event.target.value, commentMentions, setCommentMentions)
+          }}
+          className="h-16 resize-y"
+        />
+        {renderMentionSuggestions(
+          commentDraft,
+          setCommentDraft,
+          commentMentions,
+          setCommentMentions,
+        )}
+        <Button
+          variant="primary"
+          className="mt-2 w-full"
+          disabled={!commentDraft.trim() || action.busy}
+          onClick={() => void action.run(postComment)}
+        >
+          Post comment
+        </Button>
+      </div>
+      <ActionError error={action.error} />
+    </section>
+  )
+
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       {projectQuery.isPending ? (
@@ -260,7 +543,7 @@ function ProjectBrief() {
         )
       ) : project ? (
         <>
-          <div className="flex h-11 items-center gap-2 border-b border-border px-8">
+          <div className="hidden h-11 items-center gap-2 border-b border-border px-8 md:flex">
             <Link
               to="/$ws/projects"
               params={{ ws: workspace.slug }}
@@ -290,9 +573,50 @@ function ProjectBrief() {
               }
             />
           </div>
-          <div className="border-b border-border px-8 pt-3 pb-0.5">
-            <h1 className="text-display font-semibold">{project.name}</h1>
-            <div className="flex h-10 items-center gap-6 text-ui">
+          <div className="flex h-14 items-center gap-1 px-3 md:hidden">
+            <Link
+              to="/$ws/projects"
+              params={{ ws: workspace.slug }}
+              className="flex min-h-11 flex-1 items-center gap-1 text-accent"
+            >
+              <Icon icon={ChevronLeft} className="text-text" />
+              Projects
+            </Link>
+            <ShareButton workspace={workspace} project={project} iconOnly />
+            <Menu
+              label="Project actions"
+              iconOnly
+              triggerClassName="min-h-11 min-w-11 px-0"
+              items={[
+                {
+                  label: project.starred ? 'Unstar project' : 'Star project',
+                  icon: Star,
+                  onSelect: () =>
+                    void action.run(async () => {
+                      if (project.starred)
+                        await call(api.projects[':id'].star.$delete({ param: { id: project.id } }))
+                      else await call(api.projects[':id'].star.$put({ param: { id: project.id } }))
+                      await refreshProject()
+                    }),
+                },
+                { label: 'Project properties', onSelect: () => setPropertiesOpen(true) },
+                ...(editable && !sectionValue('outOfScope').trim()
+                  ? [
+                      {
+                        label: 'Add out of scope',
+                        onSelect: () => {
+                          setSectionDraft(sectionValue('outOfScope'))
+                          setEditing('outOfScope')
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </div>
+          <div className="border-b border-border px-4 pt-1 pb-1 md:px-8 md:pt-3 md:pb-0.5">
+            <h1 className="text-display font-semibold max-md:break-words">{project.name}</h1>
+            <div className="flex min-h-10 flex-wrap items-center gap-x-4 gap-y-1 text-ui md:h-10 md:gap-6">
               <StatusLabel status={project.status} />
               {editable ? (
                 <span className="flex items-center gap-2">
@@ -314,12 +638,17 @@ function ProjectBrief() {
                 </span>
               )}
               <span className="flex items-center gap-2 text-text-muted">
-                <Icon icon={CalendarDays} />
-                {project.targetDate
-                  ? `Due ${formatShortDate(project.targetDate)}`
-                  : 'No target date'}
+                <Icon icon={CalendarDays} className="hidden md:block" />
+                {project.targetDate ? (
+                  <>
+                    <span className="hidden md:inline">Due </span>
+                    {formatShortDate(project.targetDate)}
+                  </>
+                ) : (
+                  'No target date'
+                )}
               </span>
-              <div className="flex items-center gap-2 text-text-muted">
+              <div className="hidden items-center gap-2 text-text-muted md:flex">
                 <span
                   role="progressbar"
                   aria-label="Task progress"
@@ -340,8 +669,28 @@ function ProjectBrief() {
                 </span>
               </div>
             </div>
+            <div className="flex h-8 items-center gap-2 text-caption text-text-muted md:hidden">
+              <span
+                role="progressbar"
+                aria-label="Task progress"
+                aria-valuemin={0}
+                aria-valuemax={project.taskProgress.total || 1}
+                aria-valuenow={project.taskProgress.done}
+                className="h-1 flex-1 overflow-hidden rounded-full bg-bg-muted"
+              >
+                <span
+                  className="block h-full bg-accent"
+                  style={{
+                    width: `${project.taskProgress.total ? (project.taskProgress.done / project.taskProgress.total) * 100 : 0}%`,
+                  }}
+                />
+              </span>
+              <span className="font-mono">
+                {project.taskProgress.done}/{project.taskProgress.total}
+              </span>
+            </div>
           </div>
-          <div className="border-b border-border px-8 pt-1 pb-0">
+          <div className="overflow-x-auto border-b border-border px-4 pt-1 pb-0 md:px-8 [&_[role=tab]]:min-h-11 [&_[role=tab]]:shrink-0 md:[&_[role=tab]]:min-h-0">
             <Tabs
               value="brief"
               onChange={(tab) => {
@@ -370,17 +719,39 @@ function ProjectBrief() {
               tabs={[
                 { id: 'brief', label: 'Brief' },
                 { id: 'plan', label: 'Plan' },
-                { id: 'tasks', label: 'Tasks' },
-                { id: 'diagrams', label: `Diagrams ${diagramsQuery.data?.diagrams.length ?? 0}` },
+                {
+                  id: 'tasks',
+                  label: (
+                    <>
+                      <span className="md:hidden">Tasks {project.taskProgress.total}</span>
+                      <span className="hidden md:inline">Tasks</span>
+                    </>
+                  ),
+                },
+                {
+                  id: 'diagrams',
+                  label: (
+                    <>
+                      <span className="md:hidden">Diagrams</span>
+                      <span className="hidden md:inline">
+                        Diagrams {diagramsQuery.data?.diagrams.length ?? 0}
+                      </span>
+                    </>
+                  ),
+                },
                 { id: 'activity', label: 'Activity' },
               ]}
             />
           </div>
           <div className="grid min-h-[calc(100vh-171px)] lg:grid-cols-[minmax(0,1fr)_360px]">
-            <main className="min-w-0 space-y-7 border-t border-border px-8 py-5">
+            <main className="min-w-0 space-y-7 border-t border-border px-4 py-5 pb-32 md:px-8 md:pb-5">
               {(['problem', 'goals', 'constraints', 'outOfScope'] as SectionName[]).map(
                 (section) => (
-                  <section className="group" key={section} aria-labelledby={`brief-${section}`}>
+                  <section
+                    className={`group ${section === 'outOfScope' && !sectionValue(section).trim() && editing !== 'outOfScope' ? 'max-md:hidden' : ''}`}
+                    key={section}
+                    aria-labelledby={`brief-${section}`}
+                  >
                     <div className="mb-2 flex items-center justify-between">
                       <h2 id={`brief-${section}`} className="font-semibold">
                         {sectionTitle[section]}
@@ -391,7 +762,7 @@ function ProjectBrief() {
                           size="sm"
                           icon={Pencil}
                           aria-label={`Edit ${sectionTitle[section]}`}
-                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                          className="min-h-11 min-w-11 opacity-100 md:min-h-0 md:min-w-0 md:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                           onClick={() => {
                             setSectionDraft(sectionValue(section))
                             setEditing(section)
@@ -453,7 +824,7 @@ function ProjectBrief() {
                       size="sm"
                       icon={Pencil}
                       aria-label="Edit tags"
-                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      className="min-h-11 min-w-11 opacity-100 md:min-h-0 md:min-w-0 md:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => {
                         setTagsDraft(project.tags.join(', '))
                         setEditingTags(true)
@@ -499,292 +870,56 @@ function ProjectBrief() {
               </section>
               <ActionError error={action.error} />
             </main>
-            <aside className="border-t border-border px-6 py-6.5 lg:border-t-0 lg:border-l">
-              <section aria-labelledby="project-properties">
-                <h2
-                  id="project-properties"
-                  className="mb-2 text-caption font-medium text-text-muted"
-                >
-                  Properties
-                </h2>
-                <dl className="space-y-2 text-ui">
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-text-muted">Status</dt>
-                    <dd>
-                      {editable && editingProperty === 'status' ? (
-                        <Select
-                          aria-label="Project status"
-                          value={project.status}
-                          onChange={(event) =>
-                            void action.run(async () => {
-                              await saveProject({
-                                status: event.target.value as
-                                  | 'draft'
-                                  | 'planning'
-                                  | 'in-progress'
-                                  | 'completed'
-                                  | 'archived',
-                              })
-                              setEditingProperty(null)
-                            })
-                          }
-                          className="w-37"
-                        >
-                          <option value="draft">Draft</option>
-                          <option value="planning">Planning</option>
-                          <option value="in-progress">In progress</option>
-                          <option value="completed">Completed</option>
-                          <option value="archived">Archived</option>
-                        </Select>
-                      ) : editable ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Edit status"
-                          className="h-auto px-0 font-normal hover:bg-transparent"
-                          onClick={() => setEditingProperty('status')}
-                        >
-                          <StatusLabel status={project.status} />
-                        </Button>
-                      ) : (
-                        <StatusLabel status={project.status} />
-                      )}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-text-muted">Lead</dt>
-                    <dd className="flex min-w-0 items-center gap-2">
-                      {editable && editingProperty === 'lead' ? (
-                        <Select
-                          aria-label="Project lead"
-                          value={project.leadId ?? ''}
-                          onChange={(event) =>
-                            void action.run(async () => {
-                              await saveProject({ leadId: event.target.value })
-                              setEditingProperty(null)
-                            })
-                          }
-                          className="w-37"
-                        >
-                          {!project.leadId && (
-                            <option value="" disabled>
-                              Deleted user
-                            </option>
-                          )}
-                          {members.map((member) => (
-                            <option key={member.id} value={member.id}>
-                              {member.name}
-                            </option>
-                          ))}
-                        </Select>
-                      ) : editable ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Edit lead"
-                          className="h-auto min-w-0 gap-2 px-0 font-normal hover:bg-transparent"
-                          onClick={() => setEditingProperty('lead')}
-                        >
-                          <Avatar
-                            id={project.leadId}
-                            name={project.leadName ?? 'Deleted user'}
-                            className="!size-5"
-                          />
-                          <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
-                        </Button>
-                      ) : (
-                        <span className="flex min-w-0 items-center gap-2">
-                          <Avatar
-                            id={project.leadId}
-                            name={project.leadName ?? 'Deleted user'}
-                            className="!size-5"
-                          />
-                          <span className="truncate">{project.leadName ?? 'Deleted user'}</span>
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-text-muted">Target date</dt>
-                    <dd>
-                      {editable && editingProperty === 'targetDate' ? (
-                        <Input
-                          aria-label="Target date"
-                          className="w-37"
-                          type="date"
-                          value={project.targetDate ?? ''}
-                          onChange={(event) =>
-                            void action.run(async () => {
-                              await saveProject({ targetDate: event.target.value || null })
-                              setEditingProperty(null)
-                            })
-                          }
-                        />
-                      ) : editable ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Edit target date"
-                          className="h-auto px-0 font-normal hover:bg-transparent"
-                          onClick={() => setEditingProperty('targetDate')}
-                        >
-                          {formatDate(project.targetDate)}
-                        </Button>
-                      ) : (
-                        formatDate(project.targetDate)
-                      )}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-text-muted">Team</dt>
-                    <dd>
-                      <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-text-muted">Created</dt>
-                    <dd className="text-right text-text-muted">
-                      {formatDate(project.createdAt.slice(0, 10))}
-                      {project.createdBy ? ` by ${project.createdBy.name}` : ''}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-              <section
-                aria-labelledby="project-comments"
-                className="mt-4 border-t border-border pt-4"
-              >
-                <h2 id="project-comments" className="mb-4 text-caption font-medium text-text-muted">
-                  Comments <span>{commentsQuery.data?.comments.length ?? ''}</span>
-                </h2>
-                {commentsQuery.isPending ? (
-                  <p className="text-text-muted">Loading comments…</p>
-                ) : commentsQuery.isError ? (
-                  <EmptyState
-                    title="Couldn’t load comments"
-                    body="Try again to read the discussion."
-                    action={<Button onClick={() => void commentsQuery.refetch()}>Retry</Button>}
-                  />
-                ) : commentsQuery.data.comments.length === 0 ? (
-                  <p className="mb-4 text-caption text-text-muted">No comments yet.</p>
-                ) : (
-                  <ol className="space-y-4">
-                    {commentsQuery.data.comments.map((comment) => (
-                      <li key={comment.id} className="text-ui">
-                        <div className="flex items-center gap-2">
-                          <Avatar
-                            id={comment.authorId}
-                            name={comment.authorName ?? 'Deleted user'}
-                            className="!size-5"
-                          />
-                          <span className="font-medium">
-                            {comment.authorName ?? 'Deleted user'}
-                          </span>
-                          <time
-                            className="text-caption text-text-muted"
-                            dateTime={comment.createdAt}
-                          >
-                            {relativeTime(comment.createdAt)}
-                          </time>
-                          {(comment.authorId === me.user.id || workspace.role === 'owner') &&
-                            editingComment !== comment.id && (
-                              <Menu
-                                label="Actions for your comment"
-                                iconOnly
-                                triggerClassName="ml-auto h-7 px-1"
-                                items={[
-                                  {
-                                    label: 'Edit comment',
-                                    icon: Pencil,
-                                    onSelect: () => {
-                                      setEditingComment(comment.id)
-                                      setEditingCommentDraft(comment.body)
-                                      setEditingMentions(comment.mentions)
-                                    },
-                                  },
-                                  {
-                                    label: 'Delete comment',
-                                    icon: Trash2,
-                                    danger: true,
-                                    onSelect: () => setDeletingComment(comment.id),
-                                  },
-                                ]}
-                              />
-                            )}
-                        </div>
-                        {editingComment === comment.id ? (
-                          <div className="mt-2 space-y-2">
-                            <div className="relative">
-                              <Textarea
-                                aria-label="Edit comment"
-                                value={editingCommentDraft}
-                                onChange={(event) => {
-                                  setEditingCommentDraft(event.target.value)
-                                  retainVisibleMentions(
-                                    event.target.value,
-                                    editingMentions,
-                                    setEditingMentions,
-                                  )
-                                }}
-                                className="h-20 resize-y"
-                              />
-                              {renderMentionSuggestions(
-                                editingCommentDraft,
-                                setEditingCommentDraft,
-                                editingMentions,
-                                setEditingMentions,
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="primary"
-                                disabled={action.busy}
-                                onClick={() => void action.run(() => saveComment(comment.id))}
-                              >
-                                Save comment
-                              </Button>
-                              <Button onClick={() => setEditingComment(null)}>Cancel</Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="mt-1 whitespace-pre-wrap pl-7 leading-[20px]">
-                            {comment.body}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                <div className="relative mt-4">
-                  <Textarea
-                    aria-label="Comment"
-                    placeholder="Write a comment. Type @ to mention someone."
-                    value={commentDraft}
-                    onChange={(event) => {
-                      setCommentDraft(event.target.value)
-                      retainVisibleMentions(event.target.value, commentMentions, setCommentMentions)
-                    }}
-                    className="h-16 resize-y"
-                  />
-                  {renderMentionSuggestions(
-                    commentDraft,
-                    setCommentDraft,
-                    commentMentions,
-                    setCommentMentions,
-                  )}
-                  <Button
-                    variant="primary"
-                    className="mt-2 w-full"
-                    disabled={!commentDraft.trim() || action.busy}
-                    onClick={() => void action.run(postComment)}
-                  >
-                    Post comment
-                  </Button>
-                </div>
-                <ActionError error={action.error} />
-              </section>
+            <aside className="hidden border-t border-border px-6 py-6.5 md:block lg:border-t-0 lg:border-l">
+              {renderProperties()}
+              {renderComments()}
             </aside>
           </div>
+          <div className="fixed inset-x-0 bottom-19 z-20 border-t border-border bg-bg px-4 md:hidden">
+            <Button
+              variant="ghost"
+              className="!flex min-h-14 w-full !justify-between !px-0 font-normal"
+              aria-label={`${commentsQuery.data?.comments.length ?? 0} comments`}
+              onClick={() => setCommentsOpen(true)}
+            >
+              <span className="flex items-center gap-2">
+                <Icon icon={MessageSquare} className="text-text-muted" />
+                {commentsQuery.data?.comments.length ?? 0} comments
+              </span>
+              <AvatarStack
+                people={Array.from(
+                  new Map(
+                    (commentsQuery.data?.comments ?? []).map((comment) => [
+                      comment.authorId,
+                      { id: comment.authorId, name: comment.authorName },
+                    ]),
+                  ).values(),
+                )}
+              />
+            </Button>
+          </div>
+          {commentsOpen && (
+            <Dialog
+              open
+              onClose={() => setCommentsOpen(false)}
+              title="Comments"
+              fullHeight
+              footer={null}
+            >
+              {renderComments()}
+            </Dialog>
+          )}
+          {propertiesOpen && (
+            <Dialog
+              open
+              onClose={() => setPropertiesOpen(false)}
+              title="Project properties"
+              fullHeight
+              footer={null}
+            >
+              {renderProperties()}
+            </Dialog>
+          )}
           <Dialog
             open={deletingComment !== null}
             onClose={() => setDeletingComment(null)}

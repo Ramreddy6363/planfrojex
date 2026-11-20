@@ -19,16 +19,26 @@ type Section = (typeof sections)[number]
 export function ShareButton({
   workspace,
   project,
+  iconOnly = false,
 }: {
   workspace: { slug: string; role: string }
   project: { key: string; name: string }
+  iconOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
   if (workspace.role !== 'owner' && workspace.role !== 'editor') return null
   return (
     <>
-      <Button icon={LinkIcon} onClick={() => setOpen(true)}>
-        Share
+      <Button
+        icon={LinkIcon}
+        onClick={() => setOpen(true)}
+        aria-label={iconOnly ? 'Share' : undefined}
+        variant="secondary"
+        className={
+          iconOnly ? 'max-md:!size-11 max-md:!border-0 max-md:!bg-transparent max-md:px-0' : ''
+        }
+      >
+        <span className={iconOnly ? 'max-md:hidden' : ''}>Share</span>
       </Button>
       {open ? (
         <ShareDialog ws={workspace.slug} project={project} onClose={() => setOpen(false)} />

@@ -22,8 +22,10 @@ const dateLabel = (value: string, year = false) =>
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mt-10">
-      <h2 className="mb-3 border-b border-border pb-1.5 text-dialog font-semibold">{title}</h2>
+    <section className="mt-6 md:mt-10">
+      <h2 className="mb-3 border-b border-border pb-1.5 text-body font-semibold md:text-dialog">
+        {title}
+      </h2>
       {children}
     </section>
   )
@@ -52,27 +54,32 @@ function PublicShare() {
       <title>{data ? `${data.project.name} | planfrojex` : 'Shared project | planfrojex'}</title>
       {data ? (
         <>
-          <header className="flex h-14 items-center justify-between gap-6 border-b border-border px-10">
+          <header className="flex h-14 items-center justify-between gap-4 border-b border-border px-4 md:gap-6 md:px-10">
             <div className="flex items-center gap-4">
               <Brand />
-              <span className="border-l border-border pl-4 text-ui text-text-muted">
+              <span className="hidden border-l border-border pl-4 text-ui text-text-muted md:block">
                 {data.workspaceName}
               </span>
             </div>
             <p className="flex items-center gap-2 text-caption text-text-muted">
               <Icon icon={Eye} />
-              Read-only link shared by {data.sharedBy}
+              <span className="md:hidden">Read-only</span>
+              <span className="hidden md:inline">Read-only link shared by {data.sharedBy}</span>
             </p>
           </header>
-          <main className="mx-auto max-w-[840px] px-10 pb-20 pt-12">
-            <h1 className="text-[28px] leading-10 font-semibold">{data.project.name}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-ui text-text-muted">
-              <StatusLabel status={data.project.status} />
+          <main className="mx-auto max-w-[840px] px-4 pb-20 pt-5 md:px-10 md:pt-12">
+            <h1 className="text-display font-semibold max-md:break-words md:text-[28px] md:leading-10">
+              {data.project.name}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-2 text-caption text-text-muted md:gap-x-5 md:text-ui">
+              <span className="w-full md:w-auto">
+                <StatusLabel status={data.project.status} />
+              </span>
               {data.project.leadName && <span>Led by {data.project.leadName}</span>}
               {data.project.targetDate && (
                 <span>Target {dateLabel(data.project.targetDate, true)}</span>
               )}
-              <span className="font-mono text-caption">
+              <span className="hidden font-mono text-caption md:inline">
                 Updated {dateLabel(data.project.updatedAt)}
               </span>
             </div>
@@ -103,16 +110,28 @@ function PublicShare() {
                 {data.plan.milestones.length ? (
                   <ul className="-mt-2">
                     {data.plan.milestones.map((milestone) => (
-                      <li key={milestone.code} className="flex min-h-11.5 items-center gap-5">
+                      <li
+                        key={milestone.code}
+                        className="flex min-h-11.5 items-center gap-2 md:gap-5"
+                      >
                         <span className="w-6 shrink-0 font-mono text-caption text-text-muted">
                           {milestone.code}
                         </span>
                         <span className="flex-1 text-body">{milestone.title}</span>
-                        <StatusLabel
-                          status={
-                            milestone.status === 'in_progress' ? 'in-progress' : milestone.status
-                          }
-                        />
+                        <span className="hidden md:inline">
+                          <StatusLabel
+                            status={
+                              milestone.status === 'in_progress' ? 'in-progress' : milestone.status
+                            }
+                          />
+                        </span>
+                        <span className="md:hidden">
+                          <StatusGlyph
+                            status={
+                              milestone.status === 'in_progress' ? 'in-progress' : milestone.status
+                            }
+                          />
+                        </span>
                         <span className="w-12 text-right font-mono text-caption text-text-muted">
                           {milestone.dueDate ? dateLabel(milestone.dueDate) : '—'}
                         </span>
@@ -140,7 +159,7 @@ function PublicShare() {
             {data.diagrams?.map((diagram, index) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: the public snapshot never reorders; diagram names may repeat
               <Section key={`${diagram.name}:${index}`} title={diagram.name}>
-                <div className="h-[530px] overflow-hidden rounded-panel border border-border">
+                <div className="h-[180px] w-full overflow-hidden rounded-panel border border-border md:h-[530px]">
                   <Suspense
                     fallback={
                       <p role="status" className="p-6 text-text-muted">
@@ -164,6 +183,7 @@ function PublicShare() {
                       }}
                       readOnly
                       showControls={false}
+                      compact
                     />
                   </Suspense>
                 </div>
@@ -174,7 +194,7 @@ function PublicShare() {
                 {data.tasks.length ? (
                   <ul>
                     {data.tasks.map((task) => (
-                      <li key={task.key} className="flex min-h-11.5 items-center gap-5">
+                      <li key={task.key} className="flex min-h-11.5 items-center gap-2 md:gap-5">
                         <span className="font-mono text-caption text-text-muted">{task.key}</span>
                         <span className="flex-1 text-body">{task.title}</span>
                         <span className="inline-flex items-center gap-1.5 text-ui">
@@ -208,7 +228,7 @@ function PublicShare() {
           </main>
         </>
       ) : (
-        <main className="mx-auto max-w-[840px] px-10 py-20">
+        <main className="mx-auto max-w-[840px] px-4 py-20 md:px-10">
           {query.isPending ? (
             <p role="status">Loading shared project…</p>
           ) : (

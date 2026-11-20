@@ -59,7 +59,7 @@ function Members() {
   const emailList = [...new Set([...emailChips, ...parseEmails(emails)])]
   return (
     <WorkspaceShell workspace={workspace} me={me} active="members">
-      <header className="flex items-center justify-between border-b border-border px-8 py-3">
+      <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 md:px-8">
         <h1 className="text-title font-semibold">Members</h1>
         {owner && (
           <Button variant="primary" icon={UserRoundPlus} onClick={() => setInviteOpen(true)}>
@@ -67,7 +67,7 @@ function Members() {
           </Button>
         )}
       </header>
-      <div className="space-y-8 px-8 pb-8 pt-6">
+      <div className="space-y-8 px-4 pb-8 pt-6 md:px-8">
         {members.isPending ? (
           <p>Loading members…</p>
         ) : members.isError ? (
@@ -84,21 +84,25 @@ function Members() {
             {list.length === 0 ? (
               <EmptyState title="No members" body="Members will appear here." />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] table-fixed text-left text-ui">
+              <div className="max-w-full overflow-x-auto">
+                <table className="w-full table-fixed text-left text-ui md:min-w-[760px]">
                   <colgroup>
-                    <col className="w-[61%]" />
-                    <col className="w-[15%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[3%]" />
+                    <col className="w-[50%] md:w-[61%]" />
+                    <col className="w-[35%] md:w-[15%]" />
+                    <col className="hidden md:table-column md:w-[9%]" />
+                    <col className="hidden md:table-column md:w-[12%]" />
+                    <col className="w-[15%] md:w-[3%]" />
                   </colgroup>
                   <thead className="bg-bg-subtle text-text-muted">
                     <tr>
                       <th className="px-3 py-1.5 text-caption font-normal">Name</th>
                       <th className="px-3 py-1.5 text-caption font-normal">Role</th>
-                      <th className="px-3 py-1.5 text-caption font-normal">Projects</th>
-                      <th className="px-3 py-1.5 text-caption font-normal">Last active</th>
+                      <th className="hidden px-3 py-1.5 text-caption font-normal md:table-cell">
+                        Projects
+                      </th>
+                      <th className="hidden px-3 py-1.5 text-caption font-normal md:table-cell">
+                        Last active
+                      </th>
                       <th className="px-3 py-1.5 text-caption font-normal">
                         <span className="sr-only">Actions</span>
                       </th>
@@ -121,7 +125,7 @@ function Members() {
                         </td>
                         <td className="px-3 py-1.5">
                           {owner && !(member.role === 'owner' && ownerCount === 1) ? (
-                            <div className="w-30">
+                            <div className="w-full md:w-30">
                               <Select
                                 aria-label={`Role for ${member.name}`}
                                 value={member.role}
@@ -161,8 +165,8 @@ function Members() {
                             <span className="capitalize text-text-muted">{member.role}</span>
                           )}
                         </td>
-                        <td className="px-3 py-1.5 text-text-muted">—</td>
-                        <td className="px-3 py-1.5 text-text-muted">—</td>
+                        <td className="hidden px-3 py-1.5 text-text-muted md:table-cell">—</td>
+                        <td className="hidden px-3 py-1.5 text-text-muted md:table-cell">—</td>
                         <td className="px-0 py-1.5 text-right">
                           {owner && !(member.role === 'owner' && ownerCount === 1) && (
                             <Menu

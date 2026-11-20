@@ -14,7 +14,15 @@ import {
   Trash2,
   Type,
 } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { api, call, RequestError } from '../api'
 import { queryClient } from '../session'
 import { ShareButton } from '../share-dialog'
@@ -47,6 +55,12 @@ const typeNames = {
   sequence: 'Sequence',
   entity_relationship: 'Entity relationship',
 }
+const subscribePhone = (onChange: () => void) => {
+  const query = window.matchMedia('(max-width: 767px)')
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
+}
+const phoneSnapshot = () => window.matchMedia('(max-width: 767px)').matches
 type DiagramType = keyof typeof typeNames
 const emptyScene = (): DiagramScene => ({ nodes: [], edges: [] })
 const dateLabel = (value: string) =>
@@ -58,9 +72,10 @@ const clockLabel = (value: string) =>
 
 function ProjectDiagrams() {
   const { workspace, me } = useLoaderData({ from: '/$ws/projects/$projectId/diagrams' })
+  const phone = useSyncExternalStore(subscribePhone, phoneSnapshot, () => false)
   const { projectId } = projectDiagramsRoute.useParams()
   const navigate = useNavigate()
-  const editable = workspace.role === 'owner' || workspace.role === 'editor'
+  const editable = (workspace.role === 'owner' || workspace.role === 'editor') && !phone
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [scene, setScene] = useState<DiagramScene>(emptyScene)
   const [sceneVersion, setSceneVersion] = useState(0)
@@ -371,7 +386,7 @@ function ProjectDiagrams() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       <div className="flex min-h-screen flex-col text-ui">
-        <div className="flex items-center gap-2 border-b border-border px-8 py-3">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border px-4 py-3 md:px-8">
           <Link
             to="/$ws/projects"
             params={{ ws: workspace.slug }}
@@ -389,7 +404,7 @@ function ProjectDiagrams() {
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <AvatarStack people={[{ id: project.leadId, name: project.leadName }]} />
-            <ShareButton workspace={workspace} project={project} />
+            <ShareButton workspace={workspace} project={project} iconOnly />
             <Button
               variant="ghost"
               icon={Star}
@@ -410,9 +425,9 @@ function ProjectDiagrams() {
             </Button>
           </div>
         </div>
-        <div className="border-b border-border px-8 pt-4">
-          <h1 className="text-display font-semibold">{project.name}</h1>
-          <div className="flex h-10 items-center gap-6">
+        <div className="border-b border-border px-4 pt-4 md:px-8">
+          <h1 className="truncate text-display font-semibold">{project.name}</h1>
+          <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 py-2 md:h-10 md:flex-nowrap md:gap-6 md:py-0">
             <span className="flex items-center gap-2">
               <StatusGlyph status={project.status} />
               {project.status.replace('-', ' ')}
@@ -436,7 +451,7 @@ function ProjectDiagrams() {
             </span>
           </div>
         </div>
-        <div className="border-b border-border px-8 pt-1">
+        <div className="border-b border-border px-4 pt-1 md:px-8">
           <Tabs
             value="diagrams"
             onChange={(tab) => {
@@ -471,8 +486,8 @@ function ProjectDiagrams() {
             ]}
           />
         </div>
-        <div className="grid min-h-[calc(100vh-187px)] flex-1 grid-cols-[240px_minmax(320px,1fr)_300px]">
-          <aside className="border-r border-border p-2">
+        <div className="grid min-h-[calc(100vh-187px)] min-w-0 flex-1 grid-cols-1 md:grid-cols-[240px_minmax(320px,1fr)_300px]">
+          <aside className="hidden border-r border-border p-2 md:block">
             <div className="flex h-8 items-center justify-between px-2 text-caption text-text-muted">
               <span>Diagrams</span>
               {editable && (
@@ -513,6 +528,28 @@ function ProjectDiagrams() {
               ))
             )}
           </aside>
+          <div className="border-b border-border px-3 py-2 md:hidden">
+            {diagramsQuery.isError ? (
+              <p role="alert" className="text-danger">
+                Could not load diagrams.{' '}
+                <Button size="sm" onClick={() => void diagramsQuery.refetch()}>
+                  Try again
+                </Button>
+              </p>
+            ) : diagrams.length > 1 ? (
+              <Select
+                aria-label="Select diagram"
+                value={selectedId ?? ''}
+                onChange={(event) => void action.run(() => choose(event.target.value))}
+              >
+                {diagrams.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+          </div>
           <section
             className="flex min-w-0 flex-col border-r border-border"
             aria-label="Diagram editor"
@@ -685,7 +722,7 @@ function ProjectDiagrams() {
               </div>
             )}
           </section>
-          <aside className="px-5 py-5">
+          <aside className="hidden px-5 py-5 md:block">
             {editable && selectedId && (
               <section className="mb-6 border-b border-border pb-6">
                 <h2 className="mb-2 font-semibold">Draft a diagram</h2>

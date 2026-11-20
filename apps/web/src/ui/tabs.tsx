@@ -1,6 +1,6 @@
-import { type KeyboardEvent, useId } from 'react'
+import { type KeyboardEvent, type ReactNode, useId } from 'react'
 
-type Tab = { id: string; label: string; disabled?: boolean }
+type Tab = { id: string; label: ReactNode; disabled?: boolean }
 
 export const Tabs = ({
   tabs,
@@ -23,7 +23,11 @@ export const Tabs = ({
     document.getElementById(`${prefix}-${next.id}`)?.focus()
   }
   return (
-    <div role="tablist" className="flex gap-6" onKeyDown={onKey}>
+    <div
+      role="tablist"
+      className="flex min-w-0 gap-6 overflow-x-auto md:overflow-visible"
+      onKeyDown={onKey}
+    >
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -35,7 +39,7 @@ export const Tabs = ({
           tabIndex={t.id === value ? 0 : -1}
           disabled={t.disabled}
           onClick={() => !t.disabled && onChange(t.id)}
-          className={`h-9 border-b-2 text-ui font-medium ${t.id === value ? 'border-text text-text' : 'border-transparent text-text-muted'} ${t.disabled ? 'cursor-not-allowed opacity-55' : ''}`}
+          className={`h-9 shrink-0 border-b-2 text-ui font-medium ${t.id === value ? 'border-text text-text' : 'border-transparent text-text-muted'} ${t.disabled ? 'cursor-not-allowed opacity-55' : ''}`}
         >
           {t.label}
         </button>

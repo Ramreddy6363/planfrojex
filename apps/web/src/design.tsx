@@ -1,4 +1,4 @@
-import { Link, Pencil, Star, Trash2 } from 'lucide-react'
+import { CheckCircle2, FolderKanban, House, Inbox, Link, Pencil, Star, Trash2 } from 'lucide-react'
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
@@ -13,6 +13,7 @@ import { EmailListInput } from './ui/email-list-input'
 import { EmptyState } from './ui/empty-state'
 import { Input } from './ui/input'
 import { Menu } from './ui/menu'
+import { MobileTabs } from './ui/mobile-tabs'
 import { OtpInput } from './ui/otp-input'
 import { Progress, StepMarks } from './ui/progress'
 import { Select } from './ui/select'
@@ -49,6 +50,7 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
   const [otp, setOtp] = useState('')
   const [dialog, setDialog] = useState(false)
   const [sizedDialog, setSizedDialog] = useState(false)
+  const [sheet, setSheet] = useState(false)
   const [closes, setCloses] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
   const [emailChips, setEmailChips] = useState<string[]>([])
@@ -62,6 +64,18 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
       className="relative flex flex-1 flex-col gap-8 bg-bg p-8 text-text"
     >
       <h1 className="text-title font-semibold">Components ({theme})</h1>
+      <Section title="Mobile navigation">
+        <MobileTabs
+          className="w-96"
+          active="projects"
+          items={[
+            { id: 'home', label: 'Home', icon: House, href: '#home' },
+            { id: 'my-tasks', label: 'My tasks', icon: CheckCircle2, href: '#my-tasks' },
+            { id: 'inbox', label: 'Inbox', icon: Inbox, href: '#inbox', count: 3 },
+            { id: 'projects', label: 'Projects', icon: FolderKanban, href: '#projects' },
+          ]}
+        />
+      </Section>
       <Section title="Command palette">
         <Button onClick={() => setCommandOpen(true)}>Open command palette</Button>
         <CommandPalette
@@ -220,6 +234,7 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
         />
         <Button onClick={() => setDialog(true)}>Open dialog</Button>
         <Button onClick={() => setSizedDialog(true)}>Open 540px dialog</Button>
+        <Button onClick={() => setSheet(true)}>Open full height sheet</Button>
         <Button onClick={() => setToast('Plan draft rejected.')}>Show toast</Button>
         <Dialog
           open={dialog}
@@ -248,6 +263,15 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
           footer={<Button onClick={() => setSizedDialog(false)}>Done</Button>}
         >
           Use a 540px dialog for the project sharing controls.
+        </Dialog>
+        <Dialog
+          open={sheet}
+          onClose={() => setSheet(false)}
+          title="Comments"
+          fullHeight
+          footer={<Button onClick={() => setSheet(false)}>Done</Button>}
+        >
+          On phones, longer threads open in a full height sheet.
         </Dialog>
         <p data-testid="closes" className="sr-only">
           {closes}

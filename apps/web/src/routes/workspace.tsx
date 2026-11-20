@@ -69,7 +69,7 @@ function YourProjects({ slug }: { slug: string }) {
           {list.data.projects.map((project) => (
             <li
               key={project.id}
-              className="flex h-11 items-center gap-4 border-b border-border px-3"
+              className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3"
             >
               <Link
                 to="/$ws/projects/$projectId"
@@ -109,9 +109,9 @@ function Workspace() {
   const [newProjectOpen, setNewProjectOpen] = useState(false)
   return (
     <WorkspaceShell workspace={workspace} me={me} active="home">
-      <header className="flex items-center gap-4 border-b border-border px-8 py-3">
+      <header className="flex min-h-14 flex-wrap items-center gap-2 border-b border-border px-4 py-3 md:gap-4 md:px-8">
         <h1 className="text-title font-semibold">Home</h1>
-        <span className="text-text-muted">
+        <span className="hidden text-text-muted md:inline">
           {new Intl.DateTimeFormat(undefined, {
             weekday: 'long',
             month: 'long',
@@ -129,7 +129,7 @@ function Workspace() {
         </Button>
       </header>
       <div className="grid lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-8 p-8">
+        <div className="space-y-8 p-4 md:p-8">
           <section>
             <h2 className="mb-4 font-semibold">My tasks</h2>
             <EmptyState title="No tasks yet" body="Your tasks will appear here." />

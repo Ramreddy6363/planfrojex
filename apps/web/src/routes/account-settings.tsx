@@ -67,7 +67,7 @@ function AccountSettings() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="account">
       <div className="flex min-h-screen flex-col">
-        <header className="border-b border-border px-8 pt-3.5">
+        <header className="border-b border-border px-4 pt-3.5 md:px-8">
           <h1 className="text-title font-semibold">Your account</h1>
           <div className="mt-2">
             <Tabs
@@ -85,7 +85,7 @@ function AccountSettings() {
             />
           </div>
         </header>
-        <div className="px-8">
+        <div className="px-4 md:px-8">
           <section
             id="account-profile"
             aria-labelledby="account-profile-title"
@@ -247,7 +247,7 @@ function AccountSettings() {
           </section>
         </div>
         <form
-          className="mt-auto flex items-center justify-end gap-4 border-t border-border px-8 pb-12 pt-3"
+          className="mt-auto flex items-center justify-end gap-4 border-t border-border px-4 pb-12 pt-3 md:px-8"
           onSubmit={save.submit(async () => {
             setMessage(null)
             if (!name.trim() || name.trim().length > 80)
