@@ -370,7 +370,12 @@ test('a wrong code clears the boxes and explains how to retry', async ({ page })
   await expect(page.getByLabel('Code digit 1')).toHaveValue('')
   await expect(page.getByLabel('Code digit 6')).toHaveValue('')
   await expect(page.getByText("Didn't get it?")).toBeVisible()
+  const resendResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/auth/email-otp/send-verification-otp') && response.ok(),
+  )
   await page.getByRole('button', { name: 'Send a new code' }).click()
+  await resendResponse
   expect(sent).toBe(1)
   await expect(page.getByRole('link', { name: 'Use a different email' })).toBeVisible()
 })
