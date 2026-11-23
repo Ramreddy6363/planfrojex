@@ -282,6 +282,58 @@ Screen: 801 (1440px). Spec section 5 landing exception. No API, no migration, no
 3. Drop the unshipped feature cards (recommended) or keep them as drawn.
 - **Out of scope:** pricing page, blog, docs, analytics, newsletter, SEO beyond title and description.
 
+## 2026-11-20: Feature 18 Stakeholder approval — approved (all recommendations)
+Screens: 602 (share page with review banner), 409 (Share dialog, "Ask for approval" block and "Send for review", hidden since feature 15). Builds on feature 15 public page. Next migration number.
+- **Flow:** owner/editor asks outside reviewers (emails, optional due date) to approve. Each reviewer gets an email link, confirms their email, then sees the share page with the banner "X asked you to review this plan by <date>". They approve sections (Brief, Milestones, each diagram) or the whole plan, or request changes with a comment. "Your review" bar shows "1 of 3 sections approved".
+- **Tables:** `review_requests` (project, due date, created by, cancelled), `reviewers` (request, email, token hash, verified at), `review_approvals` (reviewer, section, approved or changes requested, comment). Tokens and email codes stored only as hashes.
+- **Endpoints (board):** `POST` and `GET /projects/:id/review-requests`, `DELETE /review-requests/:id`; public `POST /public/share/:token/verify-email`, `GET .../review`, `POST .../approvals`. Owners/editors create and cancel, viewers read, reviewers only act on their own review. Another workspace gets 404.
+- **Effects:** an approval or change request writes an activity and decision-log entry and an inbox item for the project lead. Share dialog shows reviewers and their progress. Emails go through existing `email.ts` (dev prints to the outbox).
+- **Tests:** API tests per endpoint, role and cross-workspace 404, token hash, expiry, one reviewer cannot read another's review, rate limits; Playwright for the reviewer flow and the dialog.
+- **Open questions:** 1. Reviewer link expires after 14 days or the due date, whichever is later (recommended). 2. Section list is Brief, Milestones and each diagram, other plan sections are not separately approvable (recommended). 3. A change request does not block later approval; the lead sees it in Inbox (recommended).
+- **Out of scope:** reviewer accounts, reminders, e-signatures.
+
+## 2026-11-20: Feature 19 Tracker sync (Linear) — approved (all recommendations)
+Screen: 504 (Settings › Integrations). Next migration number. Needs feature 13 settings tabs.
+- **Scope:** Linear only. GitHub, Jira and Slack cards stay as "Coming soon" with no Connect button, because the page may only offer what works. They return with their own features.
+- **Behaviour:** owner connects Linear (OAuth, per the API board). Options: push accepted milestones as Linear projects/issues with the same owner and due date, pull issue status back into tasks, optionally import new issues as tasks outside the plan. Status mapping (Planning, In progress, Completed, Archived) to Linear states. "Sync now", "Disconnect", "Synced N min ago".
+- **Tables:** `integrations` (workspace, provider, encrypted access token, status mapping, options, last synced), `external_links` (task or milestone to Linear id). Access token is encrypted with a key from env (it must be reusable, so not hashed); never logged.
+- **Endpoints (board):** `GET /workspaces/:ws/integrations`, `POST .../:provider/connect`, `GET /integrations/:provider/callback`, `PATCH /integrations/:id`, `POST /integrations/:id/sync`, `DELETE /integrations/:id`, signed `POST /webhooks/linear` (signature checked, replay-safe). Owner only. Another workspace 404.
+- **Local and tests:** the app must run without third-party keys, so a fake Linear provider is used in dev and tests, and production shows "Linear is not set up" when keys are missing.
+- **Tests:** API tests incl. webhook signature, status mapping, two-way sync idempotency, disconnect removes the token; Playwright for connect (fake), options, sync, disconnect.
+- **Open questions:** 1. Linear only now (recommended). 2. OAuth as drawn on the board, with a fake provider locally (recommended) or a pasted API key. 3. Sync runs on webhook plus manual "Sync now", with a daily catch-up job (recommended).
+- **Out of scope:** GitHub, Jira, Slack, two-way comment sync.
+
+## 2026-11-20: Feature 20 Drift detection — approved (all recommendations)
+Screen: 403 (Plan with "The plan has drifted" card). Depends on 19. Next migration number.
+- **Checks (rules, no model):** a milestone behind (done vs total tasks against its due date), tasks added in Linear outside the plan, a risk decision past its date. Works from PlanFrojex tasks alone; tracker facts are added when Linear is connected.
+- **Suggested update:** a diff (milestone date moved, tasks added to a milestone, risk severity raised). It is stored as `draft_changes` and never writes directly. "Accept update" runs in one transaction that also writes the decision log, with the optional "Why?" reason. "Review each" accepts or rejects change by change. "Dismiss" hides it until something new drifts.
+- **Tables:** `drift_reports` (project, found items, status open/accepted/dismissed, checked at). Reuse `draft_changes` and the decision log.
+- **Endpoints (board):** `GET /projects/:id/drift`, `POST /projects/:id/drift/check`. Owners/editors check and accept, viewers see the card read-only.
+- **When it runs:** after each tracker sync, on "check now", and in the daily job.
+- **Tests:** unit tests per rule, API tests incl. transaction + decision log, viewer read-only, cross-workspace 404; Playwright for the card states.
+- **Open questions:** 1. Rule-based, no model (recommended). 2. Milestone counts as late only when behind by 2 or more days (recommended). 3. Dismissed drift returns only when the findings change (recommended).
+- **Out of scope:** Slack drift alerts, predicting delays.
+
+## 2026-11-20: Feature 21 Weekly status email — approved (all recommendations)
+Screen: 603. Depends on 19 and 20. Next migration number.
+- **Content (from data, no model):** status On track / At risk / Off track from drift, one-paragraph summary from the drift items, milestone progress bars with moved dates ("was Nov 21"), decisions this week from the decision log, next week from due tasks and open risks, "Open the plan" button, footer with Unsubscribe.
+- **Recipients:** project reviewers who verified their email, plus project members who have it on. Per-person opt-out through a hashed unsubscribe token and the existing notification settings.
+- **Schedule:** Mondays 09:00 in a fixed zone, only for projects that are in progress and had activity. A Workers cron trigger runs it; no new dependency.
+- **Tables:** `status_reports` (project, week, status, body snapshot, sent at, recipients count), `email_unsubscribes`.
+- **Endpoints (board):** `GET /projects/:id/status-reports`, `POST /projects/:id/status-reports/preview` (owners/editors). Dev prints to the outbox. Another workspace 404.
+- **Tests:** unit tests for status and wording per case, a send test with the outbox, unsubscribe, no duplicate send in one week; Playwright for the preview.
+- **Open questions:** 1. Monday 09:00 UTC for all (recommended; per-person time zones later). 2. Email text built from templates, not a model (recommended). 3. Skip quiet projects instead of sending an empty email (recommended).
+- **Out of scope:** daily digests, Slack delivery, custom templates.
+
+## 2026-11-20: Feature 22 404 and states pass — approved (all recommendations)
+Screens: 507 (404), 506 (no access, already built), 704 (states). Front-end only, no API or migration.
+- **404:** router-level not-found page for any unknown path, signed in or out, with a way back to the workspace or sign-in. Unknown project or workspace content still shows the correct no-access or 404.
+- **States audit:** go through every route and check the drawn states in 704: empty (Home, Projects, My tasks, Inbox, others), loading skeleton, error with "Try again", drafting progress, and saved with Undo toast. Fix every gap with the existing `EmptyState`, `SkeletonRow` and `Toast` primitives; add a primitive only if none fits.
+- **Errors:** one app-level error boundary so a crash shows the error state, not a blank page.
+- **Tests:** Playwright for 404 (in and out), a table-driven spec visiting each route in empty, loading (delayed response) and error (failed response) states; extend `qa-screens.spec.ts` rule scan.
+- **Open questions:** 1. Undo only where the drawing shows it, plus rejecting a section (recommended). 2. Audit covers desktop and the 390px layout (recommended).
+- **Out of scope:** new features, copy rewrites beyond the drawn states.
+
 ## Still open before production
 - Apply migrations 0001–0012 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
@@ -309,8 +361,8 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
 | 16 | Mobile | Projects, Brief, Share page (390px) | ready for review 2026-11-20 |
 | 17 | Landing page | Landing | shipped 2026-11-20 |
-| 18 | Stakeholder approval | Share page review banner | |
-| 19 | Tracker sync | Settings › Integrations | |
-| 20 | Drift detection | Plan drift card | |
-| 21 | Weekly status email | Monday email | |
-| 22 | 404 and states pass | 404, states audit | |
+| 18 | Stakeholder approval | Share page review banner | plan approved |
+| 19 | Tracker sync | Settings › Integrations | plan approved |
+| 20 | Drift detection | Plan drift card | plan approved |
+| 21 | Weekly status email | Monday email | plan approved |
+| 22 | 404 and states pass | 404, states audit | plan approved |
