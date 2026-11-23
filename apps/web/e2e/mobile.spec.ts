@@ -454,3 +454,56 @@ test('long project names wrap without horizontal overflow on mobile project and 
     expect(await page.evaluate(() => document.documentElement.scrollWidth), path).toBe(390)
   }
 })
+
+test('landing stacks at 390px with reachable navigation and no horizontal overflow', async ({
+  page,
+}) => {
+  await page.route('http://localhost:8787/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    const routeHeaders = {
+      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-credentials': 'true',
+    }
+    if (path === '/me')
+      return route.fulfill({
+        status: 401,
+        headers: routeHeaders,
+        json: { error: 'Sign in required' },
+      })
+    if (path === '/templates')
+      return route.fulfill({
+        status: 401,
+        headers: routeHeaders,
+        json: { error: 'Sign in required' },
+      })
+    return route.fulfill({ status: 404, headers: routeHeaders, json: {} })
+  })
+  await page.goto('/')
+  await expect(page.getByRole('navigation').getByRole('img', { name: 'planfrojex' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Product', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Templates', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Teams', exact: true })).toHaveCount(0)
+  for (const name of ['Sign in', 'Get started', 'Start planning free', 'See a real plan']) {
+    const target = page.getByRole('link', { name, exact: name !== 'See a real plan' }).first()
+    const box = await target.boundingBox()
+    expect(box?.height ?? 0, `${name} target height`).toBeGreaterThanOrEqual(44)
+  }
+  const templateTab = page.getByRole('tab', { name: 'Product' })
+  expect((await templateTab.boundingBox())?.height).toBeGreaterThanOrEqual(44)
+  const previewTabs = page
+    .getByRole('region', { name: 'PlanFrojex product preview' })
+    .getByRole('tablist')
+  const tabStrip = await previewTabs.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  expect(tabStrip.scrollWidth).toBeLessThanOrEqual(tabStrip.clientWidth)
+  await expect(
+    page.getByRole('heading', { name: 'Plans your team actually follows.' }),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Don.t plan twice\./ })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await page.screenshot({ path: test.info().outputPath('landing-801-mobile.png'), fullPage: true })
+})

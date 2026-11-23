@@ -28,8 +28,14 @@ const check = (path: string, text: string) => {
   // Every other rule still sees the whole file.
   const tokens = /(?:@theme|\[data-theme=['"]dark['"]\])\s*\{[^}]*\}/g
   const colourText = path.endsWith('styles.css') ? text.replace(tokens, '') : text
+  const landingEffectException = path.startsWith('./landing/')
   return rules
     .filter(([name, re]) => {
+      if (
+        landingEffectException &&
+        (name === 'gradient' || name === 'shadow other than shadow-float')
+      )
+        return false
       if (name !== 'raw colour') return re.test(text)
       return !path.endsWith('favicon.svg') && re.test(colourText)
     })
@@ -105,6 +111,16 @@ describe('design rules', () => {
     expect(check('styles.css', '--radius-xl: 16px;')).toHaveLength(1)
     expect(check('public/favicon.svg', ':root{color:#1a1a18}')).toEqual([])
     expect(check('public/other.svg', 'fill="#1a1a18"')).toHaveLength(1)
+  })
+
+  it('exempts gradients and shadows only under src/landing/', () => {
+    expect(check('./landing/hero.tsx', 'bg-gradient-to-r shadow-lg')).toEqual([])
+    expect(check('./projects.tsx', 'bg-gradient-to-r shadow-lg')).toHaveLength(2)
+    expect(check('./landingish/hero.tsx', 'bg-gradient-to-r shadow-lg')).toHaveLength(2)
+    expect(check('./landing/hero.tsx', 'text-purple-500 shadow-lg #fff')).toEqual([
+      './landing/hero.tsx: raw colour',
+      './landing/hero.tsx: banned hue',
+    ])
   })
 
   it('finds none in the app source', () => {
