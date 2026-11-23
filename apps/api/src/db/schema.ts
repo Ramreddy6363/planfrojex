@@ -385,9 +385,21 @@ export const decisions = pgTable(
     }),
     actorId: text('actor_id').references(() => user.id, { onDelete: 'set null' }),
     kind: text('kind', {
-      enum: ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate', 'diagram'],
+      enum: [
+        'requirements',
+        'stories',
+        'milestones',
+        'risks',
+        'stack',
+        'estimate',
+        'diagram',
+        'brief',
+        'plan',
+      ],
     }).notNull(),
-    outcome: text('outcome', { enum: ['accepted', 'rejected', 'reversed'] }).notNull(),
+    outcome: text('outcome', {
+      enum: ['accepted', 'rejected', 'reversed', 'approved', 'changes_requested'],
+    }).notNull(),
     reason: text('reason'),
     reversesDecisionId: uuid('reverses_decision_id'),
     ...timestamps(),
@@ -432,7 +444,9 @@ export const notifications = pgTable(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    type: text('type', { enum: ['mention', 'assigned', 'reply', 'draft_decision'] }).notNull(),
+    type: text('type', {
+      enum: ['mention', 'assigned', 'reply', 'draft_decision', 'review_decision'],
+    }).notNull(),
     activityId: uuid('activity_id')
       .notNull()
       .references(() => activity.id, { onDelete: 'cascade' }),
@@ -495,3 +509,56 @@ export const shareLinks = pgTable('share_links', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
 })
+
+export const reviewRequests = pgTable(
+  'review_requests',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    shareTokenHash: text('share_token_hash').notNull(),
+    dueDate: date('due_date'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('review_requests_project_created_idx').on(t.projectId, t.createdAt, t.id)],
+)
+
+export const reviewers = pgTable(
+  'reviewers',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => reviewRequests.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    verificationCodeHash: text('verification_code_hash'),
+    verificationCodeExpiresAt: timestamp('verification_code_expires_at', { withTimezone: true }),
+    verificationAttempts: integer('verification_attempts').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('reviewers_request_email_idx').on(t.requestId, t.email)],
+)
+
+export const reviewApprovals = pgTable(
+  'review_approvals',
+  {
+    reviewerId: uuid('reviewer_id')
+      .notNull()
+      .references(() => reviewers.id, { onDelete: 'cascade' }),
+    section: text('section').notNull(),
+    revision: text('revision').notNull(),
+    outcome: text('outcome', { enum: ['approved', 'changes_requested'] }).notNull(),
+    comment: text('comment'),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.reviewerId, t.section] })],
+)

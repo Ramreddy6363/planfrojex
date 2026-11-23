@@ -115,7 +115,7 @@ export function createActivityRoutes(
         .select({
           id: activity.id,
           actorId: activity.actorId,
-          actorName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
+          actorName: sql<string>`case when ${activity.type} in ('review.approved', 'review.changes_requested') then 'External reviewer' else coalesce(${user.name}, 'Deleted user') end`,
           actorImage: user.image,
           type: activity.type,
           subject: activity.subject,

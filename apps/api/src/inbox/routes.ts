@@ -28,7 +28,7 @@ const cursorSchema = z.object({ time: z.iso.datetime({ offset: true }), id: z.uu
 const itemSchema = z.object({
   id: z.uuid(),
   activityId: z.uuid(),
-  type: z.enum(['mention', 'assigned', 'reply', 'draft_decision']),
+  type: z.enum(['mention', 'assigned', 'reply', 'draft_decision', 'review_decision']),
   readAt: z.string().nullable(),
   createdAt: z.string(),
   actor: z.object({ id: z.string().nullable(), name: z.string(), image: z.string().nullable() }),
@@ -53,6 +53,7 @@ const itemSchema = z.object({
   target: z.string().nullable(),
   section: z.string().nullable(),
   outcome: z.string().nullable(),
+  reviewComment: z.string().nullable(),
 })
 const list = createRoute({
   method: 'get',
@@ -148,7 +149,7 @@ export function createInboxRoutes(
             createdAt: notifications.createdAt,
             cursorTime: sql<string>`to_char(${notifications.createdAt} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
             actorId: user.id,
-            actorName: sql<string>`coalesce(${user.name}, 'Deleted user')`,
+            actorName: sql<string>`case when ${notifications.type} = 'review_decision' then 'External reviewer' else coalesce(${user.name}, 'Deleted user') end`,
             actorImage: user.image,
             projectId: projects.id,
             projectName: projects.name,
@@ -244,6 +245,11 @@ export function createInboxRoutes(
               })(),
               section: typeof row.payload.section === 'string' ? row.payload.section : null,
               outcome: typeof row.payload.after === 'string' ? row.payload.after : null,
+              reviewComment:
+                row.eventType === 'review.changes_requested' &&
+                typeof row.payload.comment === 'string'
+                  ? row.payload.comment
+                  : null,
             })),
             unreadCount: count?.unreadCount ?? 0,
             nextCursor:

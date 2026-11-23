@@ -361,7 +361,7 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
 | 16 | Mobile | Projects, Brief, Share page (390px) | ready for review 2026-11-20 |
 | 17 | Landing page | Landing | shipped 2026-11-20 |
-| 18 | Stakeholder approval | Share page review banner | plan approved |
+| 18 | Stakeholder approval | Share page review banner | shipped 2026-11-23 |
 | 19 | Tracker sync | Settings › Integrations | plan approved |
 | 20 | Drift detection | Plan drift card | plan approved |
 | 21 | Weekly status email | Monday email | plan approved |

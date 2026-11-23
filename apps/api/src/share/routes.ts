@@ -1,19 +1,8 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { connect, type Db } from '../db'
-import {
-  diagrams,
-  diagramVersions,
-  milestones,
-  planSections,
-  projects,
-  shareLinks,
-  tasks,
-  user,
-  workspaces,
-} from '../db/schema'
-import { sceneSchema } from '../diagrams/schema'
+import { projects, shareLinks, user, workspaces } from '../db/schema'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
 import {
@@ -23,6 +12,8 @@ import {
   requireSession,
   useDb,
 } from '../workspaces/permissions'
+
+import { publicSchema, readPublicSnapshot } from './public-snapshot'
 
 const error = z.object({ error: z.string() })
 const json = <T extends z.ZodType>(schema: T, description: string) => ({
@@ -108,77 +99,6 @@ const listRoute = createRoute({
     401: errors[401],
     404: errors[404],
   },
-})
-const publicScene = z.object({
-  nodes: z.array(
-    z.object({
-      type: z.enum(['rectangle', 'diamond', 'cylinder', 'actor', 'entity', 'text']),
-      position: z.object({ x: z.number(), y: z.number() }),
-      data: z.object({ label: z.string() }),
-      width: z.number().optional(),
-      height: z.number().optional(),
-    }),
-  ),
-  edges: z.array(
-    z.object({
-      source: z.number().int(),
-      target: z.number().int(),
-      label: z.string().optional(),
-      sourceHandle: z.string().nullable().optional(),
-      targetHandle: z.string().nullable().optional(),
-    }),
-  ),
-  viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number() }).optional(),
-})
-const publicSchema = z.object({
-  workspaceName: z.string(),
-  sharedBy: z.string(),
-  project: z.object({
-    name: z.string(),
-    status: z.enum(['draft', 'planning', 'in-progress', 'completed', 'archived']),
-    leadName: z.string().nullable(),
-    targetDate: z.string().nullable(),
-    updatedAt: z.string(),
-  }),
-  brief: z
-    .object({
-      problem: z.string(),
-      goals: z.array(z.string()).optional(),
-      constraints: z.string().optional(),
-      outOfScope: z.string().optional(),
-    })
-    .optional(),
-  plan: z
-    .object({
-      milestones: z.array(
-        z.object({
-          code: z.string(),
-          title: z.string(),
-          status: z.enum(['planning', 'in_progress', 'completed']),
-          dueDate: z.string().nullable(),
-        }),
-      ),
-      estimate: z.object({ value: z.string(), note: z.string() }).nullable(),
-    })
-    .optional(),
-  diagrams: z
-    .array(
-      z.object({
-        name: z.string(),
-        type: z.enum(['flowchart', 'architecture', 'sequence', 'entity_relationship']),
-        scene: publicScene,
-      }),
-    )
-    .optional(),
-  tasks: z
-    .array(
-      z.object({
-        key: z.string(),
-        title: z.string(),
-        status: z.enum(['todo', 'in_progress', 'done']),
-      }),
-    )
-    .optional(),
 })
 const publicRoute = createRoute({
   method: 'get',
@@ -435,95 +355,7 @@ export function createShareRoutes(
         )
         .returning({ id: shareLinks.id })
       if (!counted.length) return invalid()
-      const p = found.project,
-        includes = found.link.include
-      const response: z.infer<typeof publicSchema> = {
-        workspaceName: found.workspaceName,
-        sharedBy: found.sharedBy ?? 'Deleted user',
-        project: {
-          name: p.name,
-          status: p.status,
-          leadName: found.leadName,
-          targetDate: p.targetDate,
-          updatedAt: p.updatedAt.toISOString(),
-        },
-      }
-      if (includes.includes('brief')) {
-        const { problem, goals, constraints, outOfScope } = p.brief
-        response.brief = {
-          problem,
-          ...(goals ? { goals } : {}),
-          ...(constraints !== undefined ? { constraints } : {}),
-          ...(outOfScope !== undefined ? { outOfScope } : {}),
-        }
-      }
-      if (includes.includes('plan')) {
-        const [ms, estimate] = await Promise.all([
-          db
-            .select({
-              code: milestones.code,
-              title: milestones.title,
-              status: milestones.status,
-              dueDate: milestones.dueDate,
-            })
-            .from(milestones)
-            .where(eq(milestones.projectId, p.id))
-            .orderBy(asc(milestones.position)),
-          db
-            .select({ content: planSections.content })
-            .from(planSections)
-            .where(and(eq(planSections.projectId, p.id), eq(planSections.kind, 'estimate'))),
-        ])
-        const parsed = z
-          .object({ value: z.string(), note: z.string() })
-          .safeParse(estimate[0]?.content)
-        response.plan = { milestones: ms, estimate: parsed.success ? parsed.data : null }
-      }
-      if (includes.includes('tasks')) {
-        const rows = await db
-          .select({ number: tasks.number, title: tasks.title, status: tasks.status })
-          .from(tasks)
-          .where(eq(tasks.projectId, p.id))
-          .orderBy(asc(tasks.position))
-        response.tasks = rows.map((t) => ({
-          key: `${p.key}-${t.number}`,
-          title: t.title,
-          status: t.status,
-        }))
-      }
-      if (includes.includes('diagrams')) {
-        const rows = await db
-          .select({ name: diagrams.name, type: diagrams.type, scene: diagramVersions.scene })
-          .from(diagrams)
-          .innerJoin(
-            diagramVersions,
-            and(
-              eq(diagramVersions.diagramId, diagrams.id),
-              eq(diagramVersions.version, diagrams.currentVersion),
-            ),
-          )
-          .where(and(eq(diagrams.projectId, p.id), isNull(diagrams.deletedAt)))
-        response.diagrams = rows.flatMap((d) => {
-          const scene = sceneSchema.safeParse(d.scene)
-          if (!scene.success) return []
-          const indices = new Map(scene.data.nodes.map((node, index) => [node.id, index]))
-          return [
-            {
-              name: d.name,
-              type: d.type,
-              scene: {
-                nodes: scene.data.nodes.map(({ id: _id, ...node }) => node),
-                edges: scene.data.edges.map(({ id: _id, source, target, ...edge }) => ({
-                  ...edge,
-                  source: indices.get(source) as number,
-                  target: indices.get(target) as number,
-                })),
-                ...(scene.data.viewport ? { viewport: scene.data.viewport } : {}),
-              },
-            },
-          ]
-        })
-      }
-      return c.json(response, 200)
+      const { data } = await readPublicSnapshot(db, found)
+      return c.json(data, 200)
     })
 }

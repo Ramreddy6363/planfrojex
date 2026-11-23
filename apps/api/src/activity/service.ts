@@ -9,6 +9,8 @@ import {
   notificationSettings,
   notifications,
   projects,
+  reviewers,
+  reviewRequests,
 } from '../db/schema'
 import type { DatabaseFactory } from '../workspaces/permissions'
 
@@ -46,10 +48,19 @@ export const activityTypes = [
   'diagram.restored',
   'diagram.draft_accepted',
   'diagram.deleted',
+  'review.approved',
+  'review.changes_requested',
 ] as const
 export type ActivityType = (typeof activityTypes)[number]
 export const activityCategories = ['comments', 'tasks', 'plan', 'diagrams', 'project'] as const
 export type ActivityCategory = (typeof activityCategories)[number]
+type ActivityInput = {
+  workspaceId: string
+  projectId: string
+  type: ActivityType
+  subject: string | null
+  payload: Record<string, unknown>
+}
 export function categoryFor(type: string): ActivityCategory {
   if (type.startsWith('comment.')) return 'comments'
   if (type.startsWith('task.')) return 'tasks'
@@ -59,17 +70,7 @@ export function categoryFor(type: string): ActivityCategory {
 }
 // All callers pass the transaction doing the domain write. Derive the inserted
 // workspace from this actor's membership, rather than trusting a supplied id.
-export async function recordActivity(
-  tx: ActivityTx,
-  input: {
-    workspaceId: string
-    projectId: string
-    actorId: string
-    type: ActivityType
-    subject: string | null
-    payload: Record<string, unknown>
-  },
-) {
+export async function recordActivity(tx: ActivityTx, input: ActivityInput & { actorId: string }) {
   const [member] = await tx
     .select({ workspaceId: memberships.workspaceId })
     .from(memberships)
@@ -83,17 +84,41 @@ export async function recordActivity(
     )
     .for('key share', { of: memberships })
   if (!member) throw new Error('Activity actor is no longer a workspace member')
-  const [row] = await tx
-    .insert(activity)
-    .values({
-      workspaceId: member.workspaceId,
-      projectId: input.projectId,
-      actorId: input.actorId,
-      type: input.type,
-      subject: input.subject,
-      payload: input.payload,
-    })
-    .returning()
+  await insertActivity(tx, { ...input, workspaceId: member.workspaceId })
+}
+
+export async function recordReviewActivity(
+  tx: ActivityTx,
+  input: {
+    reviewerId: string
+    type: 'review.approved' | 'review.changes_requested'
+    payload: Record<string, unknown>
+  },
+) {
+  const [scope] = await tx
+    .select({ workspaceId: projects.workspaceId, projectId: projects.id })
+    .from(reviewers)
+    .innerJoin(reviewRequests, eq(reviewRequests.id, reviewers.requestId))
+    .innerJoin(
+      projects,
+      and(
+        eq(projects.id, reviewRequests.projectId),
+        eq(projects.workspaceId, reviewRequests.workspaceId),
+      ),
+    )
+    .where(eq(reviewers.id, input.reviewerId))
+  if (!scope) throw new Error('Review activity project was not found')
+  await insertActivity(tx, {
+    ...scope,
+    actorId: null,
+    type: input.type,
+    subject: input.reviewerId,
+    payload: input.payload,
+  })
+}
+
+async function insertActivity(tx: ActivityTx, input: ActivityInput & { actorId: string | null }) {
+  const [row] = await tx.insert(activity).values(input).returning()
   if (row) await createNotifications(tx, row, input.actorId)
 }
 
@@ -101,9 +126,9 @@ export async function recordActivity(
 async function createNotifications(
   tx: ActivityTx,
   event: typeof activity.$inferSelect,
-  actorId: string,
+  actorId: string | null,
 ) {
-  const recipients = new Map<string, 'mention' | 'assigned' | 'reply' | 'draft_decision'>()
+  const recipients = new Map<string, typeof notifications.$inferSelect.type>()
   if (['comment.added', 'comment.mentioned'].includes(event.type) && event.subject) {
     const [comment] = await tx
       .select()
@@ -133,6 +158,12 @@ async function createNotifications(
         ? event.payload.mentionedUserIds.filter((id): id is string => typeof id === 'string')
         : value.mentions
     for (const id of mentioned) recipients.set(id, 'mention')
+  } else if (event.type === 'review.approved' || event.type === 'review.changes_requested') {
+    const [project] = await tx
+      .select({ leadId: projects.leadId })
+      .from(projects)
+      .where(and(eq(projects.id, event.projectId), eq(projects.workspaceId, event.workspaceId)))
+    if (project?.leadId) recipients.set(project.leadId, 'review_decision')
   } else if (event.type === 'task.assignee_changed') {
     if (typeof event.payload.after === 'string') recipients.set(event.payload.after, 'assigned')
   } else if (event.type === 'task.created') {
@@ -164,7 +195,7 @@ async function createNotifications(
       for (const starter of starters) if (starter.id) recipients.set(starter.id, 'draft_decision')
     }
   }
-  recipients.delete(actorId)
+  if (actorId) recipients.delete(actorId)
   if (!recipients.size) return
   const members = await tx
     .select({ id: memberships.userId })
@@ -179,15 +210,20 @@ async function createNotifications(
   for (const person of members) {
     const type = recipients.get(person.id)
     if (!type) continue
-    const settingType =
-      type === 'reply' ? 'mention' : type === 'draft_decision' ? 'draft_ready' : type
-    const [setting] = await tx
-      .select({ inApp: notificationSettings.inApp })
-      .from(notificationSettings)
-      .where(
-        and(eq(notificationSettings.userId, person.id), eq(notificationSettings.type, settingType)),
-      )
-    if (setting?.inApp === false) continue
+    if (type !== 'review_decision') {
+      const settingType =
+        type === 'reply' ? 'mention' : type === 'draft_decision' ? 'draft_ready' : type
+      const [setting] = await tx
+        .select({ inApp: notificationSettings.inApp })
+        .from(notificationSettings)
+        .where(
+          and(
+            eq(notificationSettings.userId, person.id),
+            eq(notificationSettings.type, settingType),
+          ),
+        )
+      if (setting?.inApp === false) continue
+    }
     if (type === 'mention') {
       const existing = await tx
         .select({ id: notifications.id, type: notifications.type })

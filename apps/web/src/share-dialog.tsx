@@ -22,10 +22,12 @@ export function ShareButton({
   iconOnly = false,
 }: {
   workspace: { slug: string; role: string }
-  project: { key: string; name: string }
+  project: { id: string; key: string; name: string }
   iconOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  if (workspace.role === 'viewer')
+    return <ReviewProgressButton project={project} iconOnly={iconOnly} />
   if (workspace.role !== 'owner' && workspace.role !== 'editor') return null
   return (
     <>
@@ -47,18 +49,121 @@ export function ShareButton({
   )
 }
 
+function ReviewProgressButton({
+  project,
+  iconOnly,
+}: {
+  project: { id: string; name: string }
+  iconOnly: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button
+        icon={Eye}
+        onClick={() => setOpen(true)}
+        aria-label={iconOnly ? 'Review progress' : undefined}
+        variant="secondary"
+        className={
+          iconOnly ? 'max-md:!size-11 max-md:!border-0 max-md:!bg-transparent max-md:px-0' : ''
+        }
+      >
+        <span className={iconOnly ? 'max-md:hidden' : ''}>Review progress</span>
+      </Button>
+      {open ? <ReviewProgressDialog project={project} onClose={() => setOpen(false)} /> : null}
+    </>
+  )
+}
+
+function ReviewProgressDialog({
+  project,
+  onClose,
+}: {
+  project: { id: string; name: string }
+  onClose: () => void
+}) {
+  const reviews = useQuery({
+    queryKey: ['review-requests', project.id],
+    queryFn: () => call(api.projects[':id']['review-requests'].$get({ param: { id: project.id } })),
+    retry: false,
+  })
+  const requests = reviews.data?.requests.filter((request) => !request.cancelledAt) ?? []
+  return (
+    <Dialog
+      open
+      widthClassName="w-135"
+      title={`Review progress · ${project.name}`}
+      onClose={onClose}
+      footer={
+        <Button variant="primary" onClick={onClose}>
+          Done
+        </Button>
+      }
+    >
+      {reviews.isPending ? (
+        <p role="status">Loading review progress…</p>
+      ) : reviews.isError ? (
+        <EmptyState
+          title="Couldn’t load review progress"
+          body="Try again to see the reviewers and their decisions."
+          action={<Button onClick={() => void reviews.refetch()}>Retry</Button>}
+        />
+      ) : requests.length ? (
+        <div className="space-y-4">
+          {requests.map((request) => (
+            <section key={request.id} className="border-b border-border pb-3 last:border-0">
+              <p className="text-caption text-text-muted">
+                Sent {relativeTime(request.createdAt)}
+                {request.dueDate
+                  ? ` · Due ${new Intl.DateTimeFormat('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      timeZone: 'UTC',
+                    }).format(new Date(`${request.dueDate}T00:00:00Z`))}`
+                  : ''}
+              </p>
+              <div className="mt-2 space-y-2">
+                {request.reviewers.map((reviewer) => (
+                  <p
+                    key={reviewer.id}
+                    className="flex flex-wrap justify-between gap-x-2 text-caption"
+                  >
+                    <span className="break-all">{reviewer.email}</span>
+                    <span>
+                      {reviewer.approvedCount} of {reviewer.totalSections} sections approved
+                    </span>
+                  </p>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No reviewers yet"
+          body="Review progress will appear here after an owner or editor sends a request."
+        />
+      )}
+    </Dialog>
+  )
+}
+
 function ShareDialog({
   ws,
   project,
   onClose,
 }: {
   ws: string
-  project: { key: string; name: string }
+  project: { id: string; key: string; name: string }
   onClose: () => void
 }) {
   const action = useAction()
   const [token, setToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [askForApproval, setAskForApproval] = useState(false)
+  const [emails, setEmails] = useState('')
+  const [dueDate, setDueDate] = useState('')
   const param = { ws, key: project.key }
   const queryKey = ['share', ws, project.key]
   const query = useQuery({
@@ -67,6 +172,30 @@ function ShareDialog({
     queryFn: () => call(api.workspaces[':ws'].projects[':key'].share.$get({ param })),
   })
   const share = query.data?.share
+  const reviewsKey = ['review-requests', project.id]
+  const reviews = useQuery({
+    queryKey: reviewsKey,
+    enabled: Boolean(share?.enabled),
+    queryFn: () => call(api.projects[':id']['review-requests'].$get({ param: { id: project.id } })),
+    retry: false,
+  })
+  async function sendForReview() {
+    const reviewers = emails.split(/[\s,;]+/).filter(Boolean)
+    await call(
+      api.projects[':id']['review-requests'].$post({
+        param: { id: project.id },
+        json: { emails: reviewers, dueDate: dueDate || null },
+      }),
+    )
+    setEmails('')
+    setDueDate('')
+    setAskForApproval(false)
+    await queryClient.invalidateQueries({ queryKey: reviewsKey })
+  }
+  async function cancelReview(id: string) {
+    await call(api['review-requests'][':id'].$delete({ param: { id } }))
+    await queryClient.invalidateQueries({ queryKey: reviewsKey })
+  }
   async function update(enabled: boolean, include: Section[], rotate = false) {
     const result = await call(
       api.workspaces[':ws'].projects[':key'].share.$put({
@@ -101,6 +230,14 @@ function ShareDialog({
               Turn off link
             </Button>
           ) : null}
+          {share?.enabled ? (
+            <Button
+              disabled={!askForApproval || !emails.trim() || action.busy}
+              onClick={() => void action.run(sendForReview)}
+            >
+              Send for review
+            </Button>
+          ) : null}
           <Button variant="primary" disabled={action.busy} onClick={onClose}>
             Done
           </Button>
@@ -126,6 +263,7 @@ function ShareDialog({
             </div>
             <Switch
               aria-label="Public read-only link"
+              className="max-md:after:absolute max-md:after:-inset-3"
               checked={share.enabled}
               disabled={action.busy}
               onClick={() =>
@@ -201,6 +339,67 @@ function ShareDialog({
                   ))}
                 </div>
               </fieldset>
+              <div className="mt-5 border-t border-border pt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-ui font-medium text-text">Ask for approval</p>
+                    <p className="mt-0.5 text-caption">
+                      Reviewers can approve sections or request changes. They confirm their email
+                      first.
+                    </p>
+                  </div>
+                  <Switch
+                    aria-label="Ask for approval"
+                    className="max-md:after:absolute max-md:after:-inset-3"
+                    checked={askForApproval}
+                    disabled={action.busy}
+                    onClick={() => setAskForApproval(!askForApproval)}
+                  />
+                </div>
+                {askForApproval ? (
+                  <div className="mt-3 grid grid-cols-[minmax(0,1fr)_152px] gap-2 max-md:grid-cols-1">
+                    <Input
+                      aria-label="Reviewer emails"
+                      placeholder="Reviewer emails"
+                      value={emails}
+                      onChange={(event) => setEmails(event.target.value)}
+                      className="min-w-0 max-md:min-h-11"
+                    />
+                    <Input
+                      aria-label="Review due date"
+                      type="date"
+                      value={dueDate}
+                      onChange={(event) => setDueDate(event.target.value)}
+                      className="max-md:min-h-11"
+                    />
+                  </div>
+                ) : null}
+                {reviews.data?.requests
+                  .filter((request) => !request.cancelledAt)
+                  .map((request) => (
+                    <div key={request.id} className="mt-3 border-t border-border pt-3">
+                      {request.reviewers.map((reviewer) => (
+                        <p
+                          key={reviewer.id}
+                          className="flex flex-wrap justify-between gap-x-2 text-caption"
+                        >
+                          <span className="break-all">{reviewer.email}</span>
+                          <span>
+                            {reviewer.approvedCount} of {reviewer.totalSections} sections approved
+                          </span>
+                        </p>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={action.busy}
+                        onClick={() => void action.run(() => cancelReview(request.id))}
+                      >
+                        Cancel request
+                      </Button>
+                    </div>
+                  ))}
+              </div>
               <p className="mt-6 flex items-center gap-1.5 text-caption">
                 <Icon icon={Eye} />
                 Opened {share.viewCount} times

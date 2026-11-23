@@ -21,10 +21,17 @@ type InboxItem = Awaited<ReturnType<typeof getInbox>>['items'][number]
 function description(item: InboxItem) {
   if ((item.type === 'mention' || item.type === 'reply') && !item.comment)
     return 'deleted a comment'
+  if (item.type === 'review_decision')
+    return item.outcome === 'changes_requested'
+      ? 'requested changes'
+      : `approved ${item.section && item.section !== 'Plan' ? item.section : 'the plan'}`
   if (item.type === 'mention') return 'mentioned you'
   if (item.type === 'assigned') return 'assigned you'
   if (item.type === 'reply') return 'replied to your comment'
   return `${item.outcome === 'rejected' ? 'rejected' : 'accepted'} your plan draft`
+}
+function actorName(item: InboxItem) {
+  return item.type === 'review_decision' ? 'External reviewer' : (item.actor.name ?? 'Deleted user')
 }
 function itemTime(value: string) {
   const date = new Date(value),
@@ -147,17 +154,13 @@ function Inbox() {
                     aria-pressed={selectedId === item.id}
                     className={`min-h-[72px] w-full !items-start !justify-start !gap-3 !rounded-none !border-0 !border-b !border-b-border !px-5 py-3 text-left !font-normal hover:!bg-bg-subtle ${selectedId === item.id ? '!bg-bg-subtle ring-1 ring-inset ring-accent' : ''}`}
                   >
-                    <Avatar
-                      id={item.actor.id}
-                      name={item.actor.name ?? 'Deleted user'}
-                      className="!size-[22px]"
-                    />
+                    <Avatar id={item.actor.id} name={actorName(item)} className="!size-[22px]" />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <span
                           className={`min-w-0 truncate ${item.readAt ? 'text-text-muted' : 'font-semibold'}`}
                         >
-                          {item.actor.name ?? 'Deleted user'} {description(item)}
+                          {actorName(item)} {description(item)}
                         </span>
                         <time
                           dateTime={item.createdAt}
@@ -173,7 +176,11 @@ function Inbox() {
                             ? `${item.project.name}  Task no longer available`
                             : `${item.project.name}  ${item.type === 'draft_decision' ? 'Plan' : 'Brief'}`}
                       </span>
-                      {item.comment ? (
+                      {item.type === 'review_decision' && item.reviewComment ? (
+                        <span className="mt-0.5 block truncate text-caption">
+                          {item.reviewComment}
+                        </span>
+                      ) : item.comment ? (
                         <span
                           className={`mt-0.5 block truncate text-caption ${item.readAt ? 'text-text-muted' : ''}`}
                         >
@@ -234,6 +241,7 @@ function Inbox() {
                 </Button>
                 {selected.task ||
                 selected.type === 'draft_decision' ||
+                selected.type === 'review_decision' ||
                 selected.target?.startsWith('project:') ? (
                   <Link
                     to={
@@ -284,6 +292,19 @@ function Inbox() {
             <div className="mt-4 max-w-[640px] border-t border-border pt-5">
               {deletedTask ? (
                 <p className="text-text-muted">This task is no longer available.</p>
+              ) : selected.type === 'review_decision' ? (
+                <div>
+                  <p>
+                    {actorName(selected)} {description(selected)}
+                    {selected.outcome === 'changes_requested' && selected.section
+                      ? `: ${selected.section}`
+                      : ''}
+                    .
+                  </p>
+                  {selected.reviewComment && (
+                    <p className="mt-3 whitespace-pre-wrap break-words">{selected.reviewComment}</p>
+                  )}
+                </div>
               ) : target ? (
                 <>
                   {thread.isPending ? (
@@ -382,7 +403,10 @@ function Inbox() {
               ) : (
                 <p className="text-text-muted">
                   {selected.actor.name ?? 'Deleted user'} {description(selected)}
-                  {selected.section ? `: ${selected.section}` : ''}.
+                  {selected.outcome === 'changes_requested' && selected.section
+                    ? `: ${selected.section}`
+                    : ''}
+                  .
                 </p>
               )}
             </div>

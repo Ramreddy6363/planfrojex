@@ -7,7 +7,7 @@
     "./rules": "./src/workspaces/rules.ts"
   },
   "scripts": {
-    "dev": "wrangler dev --env dev",
+    "dev": "wrangler dev --env dev --log-level warn",
     "deploy": "wrangler deploy --minify",
     "typecheck": "tsc",
     "test": "vitest run",

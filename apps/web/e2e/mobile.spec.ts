@@ -507,3 +507,50 @@ test('landing stacks at 390px with reachable navigation and no horizontal overfl
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   await page.screenshot({ path: test.info().outputPath('landing-801-mobile.png'), fullPage: true })
 })
+
+test('reviewer page fits at 390px with approval controls reachable', async ({ page }) => {
+  const requesterName = 'W'.repeat(80)
+  await page.route('http://localhost:8787/public/share/review-token/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    if (route.request().url().endsWith('/verify-email'))
+      return route.fulfill({ headers, json: { ok: true } })
+    return route.fulfill({
+      headers,
+      json: {
+        ...publicShare,
+        brief: {
+          ...publicShare.brief,
+          problem: `See https://example.com/${'A'.repeat(160)}`,
+        },
+        plan: {
+          ...publicShare.plan,
+          estimate: { value: '9 weeks', note: 'L'.repeat(160) },
+          milestones: publicShare.plan.milestones.map((milestone, index) =>
+            index === 0 ? { ...milestone, title: 'W'.repeat(160) } : milestone,
+          ),
+        },
+        review: {
+          requesterName,
+          reviewerEmail: 'lena@example.com',
+          dueDate: '2026-12-20',
+          expiresAt: '2026-12-21T00:00:00Z',
+          approvedCount: 0,
+          totalSections: 2,
+          revision: 'a'.repeat(64),
+          sections: [
+            { key: 'brief', label: 'Brief', revision: 'b'.repeat(64) },
+            { key: 'milestones', label: 'Milestones', revision: 'c'.repeat(64) },
+          ],
+        },
+      },
+    })
+  })
+  await page.goto('/share/review-token?review=1')
+  await expect(
+    page.getByText(`${requesterName} asked you to review this plan`, { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Approve plan' })).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390)
+})

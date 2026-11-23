@@ -16,11 +16,14 @@ const env: Env['Bindings'] = {
 afterEach(() => vi.restoreAllMocks())
 describe('code delivery', () => {
   it('prints a code in local development when Resend is not configured', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     await sendCode(env, 'test@example.com', '123456')
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('123456'))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('123456'))
+    expect(log).not.toHaveBeenCalledWith(expect.stringContaining('123456'))
   })
   it('never logs a code for production without Resend', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     await expect(
       sendCode(
@@ -30,5 +33,6 @@ describe('code delivery', () => {
       ),
     ).rejects.toThrow('Email delivery is not configured')
     expect(log).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
   })
 })
