@@ -485,9 +485,12 @@ function ProjectActivity() {
               <ol>
                 {entries.map((entry) => {
                   const content = activityContent(entry, memberNames)
-                  const actorName = entry.type.startsWith('review.')
-                    ? 'External reviewer'
-                    : (entry.actorName ?? 'Deleted user')
+                  const actorName =
+                    entry.actorId == null && entry.payload.source === 'linear'
+                      ? 'Linear'
+                      : entry.type.startsWith('review.')
+                        ? 'External reviewer'
+                        : (entry.actorName ?? 'Deleted user')
                   return (
                     <li key={entry.id} className="flex gap-2 border-b border-border py-3">
                       <Avatar id={entry.actorId} name={actorName} className="!size-5.5" />

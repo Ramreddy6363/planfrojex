@@ -1,4 +1,4 @@
-import type { AppType, ProjectTaskRoutes, TaskRoutes } from '@planfrojex/api'
+import type { AppType, IntegrationRoutes, ProjectTaskRoutes, TaskRoutes } from '@planfrojex/api'
 import { type ClientResponse, DetailedError, hc, parseResponse } from 'hono/client'
 
 export const api = hc<AppType>(import.meta.env.VITE_API_URL ?? 'http://localhost:8787', {
@@ -7,14 +7,65 @@ export const api = hc<AppType>(import.meta.env.VITE_API_URL ?? 'http://localhost
 const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
 export const projectTasksApi = hc<ProjectTaskRoutes>(apiBase, { init: { credentials: 'include' } })
 export const tasksApi = hc<TaskRoutes>(apiBase, { init: { credentials: 'include' } })
+export const integrationsApi = hc<IntegrationRoutes>(apiBase, { init: { credentials: 'include' } })
 type ProjectTaskEndpoint = NonNullable<typeof projectTasksApi.projects>[':id']
 type TaskEndpoint = NonNullable<typeof tasksApi.tasks>
+export type TrackerIntegration = {
+  id: string
+  provider: 'linear'
+  name: string
+  options: { pushMilestones: boolean; pullStatus: boolean; importIssues: boolean }
+  statusMapping: {
+    planning: string | null
+    in_progress: string | null
+    completed: string | null
+    archived: string | null
+  }
+  states: { id: string; name: string }[]
+  lastSyncedAt: string | null
+}
+type TrackerResponse<T> = Promise<ClientResponse<T, 200, 'json'>>
 // OpenAPIHono's route merger flattens these two path segments in its inferred
 // client type. The hc proxy still needs both segments at runtime.
 export const projectTasksClient = projectTasksApi as unknown as {
   projects: { ':id': { tasks: ProjectTaskEndpoint } }
 }
 export const tasksClient = tasksApi as unknown as { tasks: { ':id': TaskEndpoint } }
+export const integrationsClient = integrationsApi as unknown as {
+  workspaces: {
+    ':ws': {
+      integrations: {
+        $get: (input: {
+          param: { ws: string }
+        }) => TrackerResponse<{ configured: boolean; integration: TrackerIntegration | null }>
+        ':provider': {
+          connect: {
+            $post: (input: {
+              param: { ws: string; provider: 'linear' }
+            }) => TrackerResponse<{ authorizationUrl: string }>
+          }
+        }
+      }
+    }
+  }
+  integrations: {
+    ':id': {
+      $patch: (input: {
+        param: { id: string }
+        json: {
+          options?: Partial<TrackerIntegration['options']>
+          statusMapping?: Partial<TrackerIntegration['statusMapping']>
+        }
+      }) => TrackerResponse<{ integration: TrackerIntegration }>
+      $delete: (input: { param: { id: string } }) => TrackerResponse<{ ok: true }>
+      sync: {
+        $post: (input: {
+          param: { id: string }
+        }) => TrackerResponse<{ integration: TrackerIntegration }>
+      }
+    }
+  }
+}
 
 export class RequestError extends Error {
   constructor(

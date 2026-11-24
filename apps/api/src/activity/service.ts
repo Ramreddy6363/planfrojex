@@ -5,6 +5,7 @@ import {
   decisions,
   draftChanges,
   drafts,
+  integrations,
   memberships,
   notificationSettings,
   notifications,
@@ -114,6 +115,25 @@ export async function recordReviewActivity(
     type: input.type,
     subject: input.reviewerId,
     payload: input.payload,
+  })
+}
+
+export async function recordTrackerActivity(
+  tx: ActivityTx,
+  integrationId: string,
+  input: Omit<ActivityInput, 'workspaceId'>,
+) {
+  const [scope] = await tx
+    .select({ workspaceId: integrations.workspaceId })
+    .from(integrations)
+    .innerJoin(projects, eq(projects.workspaceId, integrations.workspaceId))
+    .where(and(eq(integrations.id, integrationId), eq(projects.id, input.projectId)))
+  if (!scope) throw new Error('Tracker activity project was not found')
+  await insertActivity(tx, {
+    ...input,
+    ...scope,
+    actorId: null,
+    payload: { ...input.payload, source: 'linear' },
   })
 }
 

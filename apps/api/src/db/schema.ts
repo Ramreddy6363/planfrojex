@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
+  check,
   customType,
   date,
   foreignKey,
@@ -16,12 +17,87 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+export type TrackerOptions = {
+  pushMilestones: boolean
+  pullStatus: boolean
+  importIssues: boolean
+}
+export type TrackerStatusMapping = Record<
+  'planning' | 'in_progress' | 'completed' | 'archived',
+  string | null
+>
+export type TrackerState = { id: string; name: string }
+
 const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' })
 
 const timestamps = () => ({
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+export const integrations = pgTable(
+  'integrations',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    provider: text('provider', { enum: ['linear'] })
+      .notNull()
+      .default('linear'),
+    encryptedCredentials: text('encrypted_credentials'),
+    organizationId: text('organization_id'),
+    teamId: text('team_id'),
+    name: text('name'),
+    states: jsonb('states').$type<TrackerState[]>().notNull().default([]),
+    statusMapping: jsonb('status_mapping').$type<TrackerStatusMapping>().notNull().default({
+      planning: null,
+      in_progress: null,
+      completed: null,
+      archived: null,
+    }),
+    options: jsonb('options').$type<TrackerOptions>().notNull().default({
+      pushMilestones: false,
+      pullStatus: true,
+      importIssues: false,
+    }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    oauthStateHash: text('oauth_state_hash'),
+    oauthExpiresAt: timestamp('oauth_expires_at', { withTimezone: true }),
+    oauthUserId: text('oauth_user_id').references(() => user.id, { onDelete: 'set null' }),
+    webhookReceipts: jsonb('webhook_receipts')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default({}),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex('integrations_workspace_provider_idx').on(t.workspaceId, t.provider),
+    uniqueIndex('integrations_oauth_state_idx').on(t.oauthStateHash),
+    index('integrations_provider_org_idx').on(t.provider, t.organizationId),
+  ],
+)
+
+export const externalLinks = pgTable(
+  'external_links',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    integrationId: uuid('integration_id')
+      .notNull()
+      .references(() => integrations.id, { onDelete: 'cascade' }),
+    milestoneId: uuid('milestone_id').references(() => milestones.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+    externalId: text('external_id').notNull(),
+    source: text('source', { enum: ['pushed', 'imported'] }).notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    check('external_links_one_target', sql`num_nonnulls(${t.milestoneId}, ${t.taskId}) = 1`),
+    uniqueIndex('external_links_integration_external_idx').on(t.integrationId, t.externalId),
+    uniqueIndex('external_links_integration_milestone_idx').on(t.integrationId, t.milestoneId),
+    uniqueIndex('external_links_integration_task_idx').on(t.integrationId, t.taskId),
+  ],
+)
 
 export const user = pgTable('users', {
   id: text('id').primaryKey(),
