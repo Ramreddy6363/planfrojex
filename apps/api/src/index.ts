@@ -4,11 +4,13 @@ import { z } from 'zod'
 import { createAccountRoutes } from './account/routes'
 import { createActivityRoutes } from './activity/routes'
 import { createAuth } from './auth'
-import { connect } from './db'
+import { connect, type Db } from './db'
 import { createDiagramRoutes, createProjectDiagramRoutes } from './diagrams/routes'
 import type { DiagramDraftModel } from './drafts/diagram-service'
 import { createProjectDraftRoutes } from './drafts/routes'
 import type { DraftModel } from './drafts/service'
+import { createProjectDriftRoutes } from './drift/routes'
+import { runDriftChecks } from './drift/service'
 import type { Env } from './env'
 import { createInboxRoutes } from './inbox/routes'
 import { createLinearProvider } from './integrations/linear'
@@ -87,6 +89,7 @@ export function createApp(
     .route('/', createIntegrationRoutes(options))
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
+    .route('/', createProjectDriftRoutes(options))
     .route('/', createProjectDraftRoutes(options))
     .route('/', createProjectDiagramRoutes(options))
     .route('/', createDiagramRoutes(options))
@@ -100,12 +103,19 @@ export type ProjectTaskRoutes = ReturnType<typeof createProjectTaskRoutes>
 export type ProjectDiagramRoutes = ReturnType<typeof createProjectDiagramRoutes>
 export type DiagramRoutes = ReturnType<typeof createDiagramRoutes>
 export type IntegrationRoutes = ReturnType<typeof createIntegrationRoutes>
+export type ProjectDriftRoutes = ReturnType<typeof createProjectDriftRoutes>
 export type MyTaskRoutes = ReturnType<typeof createMyTaskRoutes>
 export type TaskRoutes = ReturnType<typeof createTaskRoutes>
+export async function runScheduledChecks(db: Db, env: Env['Bindings']) {
+  try {
+    const config = await linearConfig(env, false)
+    if (config?.mode === 'real') await runDailyTrackerSync(db, config, createLinearProvider(env))
+  } finally {
+    await runDriftChecks(db)
+  }
+}
 export default Object.assign(app, {
   async scheduled(_controller: unknown, env: Env['Bindings']) {
-    const config = await linearConfig(env, false)
-    if (config?.mode === 'real')
-      await runDailyTrackerSync(connect(env.DATABASE_URL), config, createLinearProvider(env))
+    await runScheduledChecks(connect(env.DATABASE_URL), env)
   },
 })

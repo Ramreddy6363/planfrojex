@@ -2,13 +2,15 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
 import { CalendarDays, MoreHorizontal, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { api, call } from '../api'
+import { api, call, type DriftAction, projectDriftClient, RequestError } from '../api'
+import { ProjectDriftCard } from '../project-drift-card'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
 import { StatusGlyph } from '../ui/status'
 import { Tabs } from '../ui/tabs'
@@ -74,6 +76,8 @@ function ProjectPlan() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; decisionId?: string } | null>(null)
   const action = useAction()
+  const driftAction = useAction()
+  const driftKey = ['drift', projectId]
   const planQuery = useQuery({
     queryKey: ['plan', projectId],
     queryFn: () => call(api.projects[':id'].plan.$get({ param: { id: projectId } })),
@@ -106,6 +110,15 @@ function ProjectPlan() {
     queryKey: ['decisions', projectId],
     queryFn: () => call(api.projects[':id'].decisions.$get({ param: { id: projectId } })),
   })
+  const driftQuery = useQuery({
+    queryKey: driftKey,
+    queryFn: () => call(projectDriftClient.$get({ param: { id: projectId } })),
+  })
+  const canManageDrift = editable && driftQuery.data?.canManage === true
+  const driftReport = driftQuery.data?.report
+  const driftUnavailable =
+    driftQuery.isError &&
+    !(driftQuery.error instanceof RequestError && driftQuery.error.status === 404)
   const plan = planQuery.data
   const project = projectQuery.data?.project
   const sections = plan?.sections ?? []
@@ -133,6 +146,30 @@ function ProjectPlan() {
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['plan', projectId] })
     await queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
+  }
+  const updateDrift = async (json: DriftAction) => {
+    await queryClient.cancelQueries({ queryKey: driftKey })
+    try {
+      const result = await call(projectDriftClient.check.$post({ param: { id: projectId }, json }))
+      queryClient.setQueryData(driftKey, result)
+      if (json?.action === 'accept' || json?.action === 'accept_change') {
+        setToast({ message: 'Plan update accepted' })
+        await Promise.all([
+          refresh(),
+          queryClient.invalidateQueries({ queryKey: ['decisions', projectId] }),
+          queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+        ])
+      } else if (json?.action === 'reject_change') {
+        setToast({ message: 'Plan change rejected' })
+        await queryClient.invalidateQueries({ queryKey: ['decisions', projectId] })
+      } else if (json?.action === 'check') {
+        setToast({ message: 'Drift check complete' })
+      }
+    } catch (error) {
+      if (error instanceof RequestError && error.status === 409)
+        await queryClient.invalidateQueries({ queryKey: driftKey })
+      throw error
+    }
   }
   const addMilestone = async () => {
     await call(
@@ -241,6 +278,21 @@ function ProjectPlan() {
         <div className="p-8 text-ui text-danger">Project plan could not be loaded.</div>
       </WorkspaceShell>
     )
+  const lastMilestone = plan.milestones.at(-1)
+  const unchangedMilestone =
+    lastMilestone &&
+    driftReport?.changes.length &&
+    !driftReport.changes.some(
+      (change) => change.kind !== 'risk_severity' && change.code === lastMilestone.code,
+    )
+      ? lastMilestone.code
+      : undefined
+  const driftNote =
+    driftReport?.changes.length && project.targetDate
+      ? unchangedMilestone
+        ? `${unchangedMilestone} and the launch date stay the same.`
+        : 'The launch date stays the same.'
+      : undefined
   const section = (kind: Kind) =>
     sections.find((item) => item.kind === kind) ?? {
       kind,
@@ -495,9 +547,25 @@ function ProjectPlan() {
                 })
               }
             />
-            <Button variant="ghost" aria-label="Project actions unavailable" disabled>
-              <MoreHorizontal />
-            </Button>
+            {canManageDrift ? (
+              <Menu
+                label="Plan actions"
+                iconOnly
+                items={[
+                  {
+                    label: driftAction.busy ? 'Updating drift…' : 'Check now',
+                    onSelect: () => {
+                      if (!driftAction.busy)
+                        void driftAction.run(() => updateDrift({ action: 'check' }))
+                    },
+                  },
+                ]}
+              />
+            ) : (
+              <Button variant="ghost" aria-label="Project actions unavailable" disabled>
+                <MoreHorizontal />
+              </Button>
+            )}
           </div>
         </div>
         <div className="border-b border-border px-4 pt-4 md:px-8">
@@ -619,6 +687,26 @@ function ProjectPlan() {
         )}
         <div className="grid min-h-[calc(100vh-220px)] min-w-0 gap-8 px-4 lg:grid-cols-[minmax(0,760px)_180px] lg:justify-between md:px-8">
           <main className="min-w-0">
+            {driftReport && (
+              <ProjectDriftCard
+                key={driftReport.id}
+                report={driftReport}
+                canManage={canManageDrift}
+                linearConnected={driftQuery.data?.linearConnected ?? false}
+                note={driftNote}
+                busy={driftAction.busy}
+                onAction={(input) => void driftAction.run(() => updateDrift(input))}
+              />
+            )}
+            {driftUnavailable && (
+              <div className="mt-6 flex flex-wrap items-center gap-3 text-ui">
+                <p className="text-text-muted">Drift could not be loaded.</p>
+                <Button size="sm" onClick={() => void driftQuery.refetch()}>
+                  Try again
+                </Button>
+              </div>
+            )}
+            <ActionError error={driftAction.error} />
             {drawSection('requirements')}
             {drawSection('stories')}
             <section id="milestones" className="scroll-mt-24 border-b border-border py-6">
@@ -1114,9 +1202,12 @@ function ProjectPlan() {
                   key={decision.id}
                   className="flex items-center justify-between gap-3 py-3 text-ui"
                 >
-                  <span>
-                    {decision.actorName ?? 'Deleted user'} {decision.outcome} {decision.kind}
-                  </span>
+                  <div className="min-w-0 break-words">
+                    <p>
+                      {decision.actorName ?? 'Deleted user'} {decision.outcome} {decision.kind}
+                    </p>
+                    {decision.reason && <p className="text-text-muted">{decision.reason}</p>}
+                  </div>
                   {editable && decision.outcome === 'accepted' && !decision.reversesDecisionId && (
                     <Button
                       size="sm"

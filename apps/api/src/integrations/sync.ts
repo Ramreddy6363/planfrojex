@@ -15,6 +15,7 @@ import {
   user,
   workspaces,
 } from '../db/schema'
+import { runDriftChecks } from '../drift/service'
 import type { LinearIssue, LinearProvider } from './linear'
 import {
   decryptCredentials,
@@ -58,9 +59,17 @@ function localStatus(
 }
 
 const snapshot = z.object({ plan: z.array(z.object({ id: z.uuid() })) })
+const driftMilestone = z.object({
+  kind: z.enum(['milestone_date', 'milestone_tasks']),
+  targetId: z.uuid(),
+})
 async function acceptedMilestoneIds(tx: ActivityTx, workspaceId: string) {
   const accepted = await tx
-    .select({ snapshot: draftChanges.appliedSnapshot })
+    .select({
+      draftKind: drafts.kind,
+      snapshot: draftChanges.appliedSnapshot,
+      change: draftChanges.after,
+    })
     .from(draftChanges)
     .innerJoin(drafts, eq(draftChanges.draftId, drafts.id))
     .innerJoin(projects, eq(drafts.projectId, projects.id))
@@ -75,6 +84,11 @@ async function acceptedMilestoneIds(tx: ActivityTx, workspaceId: string) {
   return [
     ...new Set(
       accepted.flatMap((row) => {
+        if (row.draftKind === 'drift') {
+          // The full plan snapshot is used for undo. Only the explicit drift target was reviewed.
+          const drift = driftMilestone.safeParse(row.change)
+          return drift.success ? [drift.data.targetId] : []
+        }
         const parsed = snapshot.safeParse(row.snapshot)
         return parsed.success ? parsed.data.plan.map(({ id }) => id) : []
       }),
@@ -90,6 +104,19 @@ async function memberEmails(tx: ActivityTx, workspaceId: string, ids: string[]) 
     .innerJoin(user, eq(user.id, memberships.userId))
     .where(and(eq(memberships.workspaceId, workspaceId), inArray(user.id, ids)))
   return new Map(rows.map(({ id, email }) => [id, email.toLowerCase()]))
+}
+
+async function markLinksSynced(tx: ActivityTx, integrationId: string, externalIds: Set<string>) {
+  if (!externalIds.size) return
+  await tx
+    .update(externalLinks)
+    .set({ updatedAt: new Date() })
+    .where(
+      and(
+        eq(externalLinks.integrationId, integrationId),
+        inArray(externalLinks.externalId, [...externalIds]),
+      ),
+    )
 }
 
 async function pushMilestones(
@@ -166,6 +193,7 @@ async function pushMilestones(
     milestoneLinks.map((row) => row.externalId),
   )
   const remoteProjectById = new Map(remoteProjects.map((row) => [row.id, row]))
+  const synced = new Set(milestoneLinks.map(({ externalId }) => externalId))
   const externalByMilestone = new Map<string, string>()
   for (const row of milestoneLinks) {
     const remote = remoteProjectById.get(row.externalId)
@@ -237,7 +265,9 @@ async function pushMilestones(
         externalId: row.externalId,
         source: 'pushed',
       })
+    synced.add(row.externalId)
   }
+  await markLinksSynced(tx, integration.id, synced)
 }
 
 async function nextPosition(tx: ActivityTx, projectId: string, status: TaskStatus) {
@@ -290,10 +320,10 @@ async function importIssue(
   integration: Integration,
   teamId: string,
   issue: LinearIssue,
-  projectId: string,
-  projectKey: string,
+  source: { projectId: string; projectKey: string; milestoneId: string },
 ) {
-  if (issue.stateId && issue.stateId === integration.statusMapping.archived) return
+  if (issue.stateId && issue.stateId === integration.statusMapping.archived) return null
+  const { projectId, projectKey, milestoneId } = source
   const id = await stableLinearId(integration.workspaceId, teamId, 'imported', issue.id)
   const [existing] = await tx
     .select({
@@ -308,7 +338,7 @@ async function importIssue(
     .from(tasks)
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(eq(tasks.id, id), eq(projects.workspaceId, integration.workspaceId)))
-  if (existing?.deletedAt) return
+  if (existing?.deletedAt) return null
   if (existing && integration.options.pullStatus) await pullStatus(tx, integration, issue, existing)
   if (!existing) {
     const [last] = await tx
@@ -346,9 +376,14 @@ async function importIssue(
       },
     })
   }
-  await tx
-    .insert(externalLinks)
-    .values({ integrationId: integration.id, taskId: id, externalId: issue.id, source: 'imported' })
+  await tx.insert(externalLinks).values({
+    integrationId: integration.id,
+    taskId: id,
+    externalId: issue.id,
+    source: 'imported',
+    sourceMilestoneId: !existing || existing.projectId === projectId ? milestoneId : null,
+  })
+  return existing?.projectId ?? projectId
 }
 
 async function pullIssues(
@@ -358,17 +393,21 @@ async function pullIssues(
   token: string,
   provider: LinearProvider,
   issueId?: string,
-): Promise<boolean> {
-  if (!integration.options.pullStatus && !integration.options.importIssues) return false
+) {
+  const affected = new Set<string>()
+  if (!integration.options.pullStatus && !integration.options.importIssues) return affected
   const signedIssue = issueId
     ? (await provider.issuesInTeam(token, teamId, [], [issueId])).find(
         (issue) => issue.id === issueId,
       )
     : undefined
-  if (issueId && !signedIssue) return false
+  if (issueId && !signedIssue) return affected
   const localTaskLinks = await tx
     .select({
       externalId: externalLinks.externalId,
+      linkId: externalLinks.id,
+      source: externalLinks.source,
+      sourceMilestoneId: externalLinks.sourceMilestoneId,
       id: tasks.id,
       title: tasks.title,
       status: tasks.status,
@@ -388,10 +427,12 @@ async function pullIssues(
       ),
     )
   const localMilestoneLinks =
-    integration.options.importIssues && (!issueId || signedIssue?.projectId)
+    (integration.options.importIssues || localTaskLinks.some((row) => row.source === 'imported')) &&
+    (!issueId || signedIssue?.projectId)
       ? await tx
           .select({
             externalId: externalLinks.externalId,
+            milestoneId: milestones.id,
             projectId: projects.id,
             projectKey: projects.key,
           })
@@ -411,31 +452,53 @@ async function pullIssues(
       : []
   const linkedTasks = new Map(localTaskLinks.map((link) => [link.externalId, link]))
   const linkedMilestones = new Map(localMilestoneLinks.map((link) => [link.externalId, link]))
+  const projectIds = integration.options.importIssues ? [...linkedMilestones.keys()] : []
+  const taskIds = integration.options.pullStatus ? [...linkedTasks.keys()] : []
   const issues = signedIssue
     ? [signedIssue]
-    : await provider.issuesInTeam(
-        token,
-        teamId,
-        [...linkedMilestones.keys()],
-        integration.options.pullStatus ? [...linkedTasks.keys()] : [],
-      )
-  let linkedDataSynced = false
+    : await provider.issuesInTeam(token, teamId, projectIds, taskIds)
+  const synced = new Set(issueId ? [] : [...projectIds, ...taskIds])
   for (const issue of issues) {
     const task = linkedTasks.get(issue.id)
+    const source = issue.projectId ? linkedMilestones.get(issue.projectId) : undefined
     if (task) {
-      if (integration.options.pullStatus) {
-        await pullStatus(tx, integration, issue, task)
-        linkedDataSynced = true
+      if (integration.options.pullStatus) await pullStatus(tx, integration, issue, task)
+      if (
+        integration.options.pullStatus ||
+        (integration.options.importIssues && source?.projectId === task.projectId)
+      ) {
+        affected.add(task.projectId)
+        synced.add(issue.id)
+      }
+      if (task.source === 'imported') {
+        const milestoneId = source?.projectId === task.projectId ? source.milestoneId : null
+        if (milestoneId !== task.sourceMilestoneId) {
+          await tx
+            .update(externalLinks)
+            .set({ sourceMilestoneId: milestoneId })
+            .where(
+              and(
+                eq(externalLinks.id, task.linkId),
+                eq(externalLinks.integrationId, integration.id),
+                eq(externalLinks.taskId, task.id),
+              ),
+            )
+          affected.add(task.projectId)
+          synced.add(issue.id)
+        }
       }
       continue
     }
-    const project = issue.projectId ? linkedMilestones.get(issue.projectId) : undefined
-    if (project) {
-      await importIssue(tx, integration, teamId, issue, project.projectId, project.projectKey)
-      linkedDataSynced = true
+    if (source && integration.options.importIssues) {
+      const id = await importIssue(tx, integration, teamId, issue, source)
+      if (id) {
+        affected.add(id)
+        synced.add(issue.id)
+      }
     }
   }
-  return linkedDataSynced
+  await markLinksSynced(tx, integration.id, synced)
+  return affected
 }
 
 export const webhookFreshness = 60_000
@@ -448,12 +511,22 @@ type SyncInput = {
   actorId?: string
   receipt?: WebhookReceipt
   organizationId?: string
+  checkDriftAfterSync?: boolean
 }
 export async function runIntegrationSync(
   db: Db,
-  { id, workspaceId, config, provider, actorId, receipt, organizationId }: SyncInput,
+  {
+    id,
+    workspaceId,
+    config,
+    provider,
+    actorId,
+    receipt,
+    organizationId,
+    checkDriftAfterSync = true,
+  }: SyncInput,
 ) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     await lockWorkspace(tx, workspaceId)
     if (actorId) {
       const role = await memberRole(tx, workspaceId, actorId)
@@ -511,7 +584,7 @@ export async function runIntegrationSync(
       return await tx.transaction(async (sync) => {
         if (!receipt && integration.options.pushMilestones)
           await pushMilestones(sync, integration, teamId, credentials.accessToken, provider)
-        const linkedDataSynced = await pullIssues(
+        const affected = await pullIssues(
           sync,
           integration,
           teamId,
@@ -523,20 +596,27 @@ export async function runIntegrationSync(
         const [saved] = await sync
           .update(integrations)
           .set({
-            ...(receipt && !linkedDataSynced ? {} : { lastSyncedAt: new Date() }),
+            ...(receipt && !affected.size ? {} : { lastSyncedAt: new Date() }),
             updatedAt: new Date(),
             webhookReceipts: receipts,
           })
           .where(eq(integrations.id, id))
           .returning()
         return saved
-          ? { kind: 'synced' as const, integration: saved }
+          ? { kind: 'synced' as const, integration: saved, affected: [...affected] }
           : { kind: 'missing' as const }
       })
     } catch {
       return { kind: 'failed' as const }
     }
   })
+  if (checkDriftAfterSync && result.kind === 'synced') {
+    // Finish the tracker transaction before locking projects for drift.
+    await runDriftChecks(db, workspaceId, receipt ? result.affected : undefined).catch(() => {
+      console.error('Drift checks after tracker sync failed.')
+    })
+  }
+  return result
 }
 
 export async function runDailyTrackerSync(db: Db, config: LinearConfig, provider: LinearProvider) {
@@ -546,6 +626,11 @@ export async function runDailyTrackerSync(db: Db, config: LinearConfig, provider
     .where(and(eq(integrations.provider, 'linear'), isNotNull(integrations.encryptedCredentials)))
   for (const row of rows) {
     // A failing connection can retry on the next sync without blocking other workspaces.
-    await runIntegrationSync(db, { ...row, config, provider }).catch(() => undefined)
+    await runIntegrationSync(db, {
+      ...row,
+      config,
+      provider,
+      checkDriftAfterSync: false,
+    }).catch(() => undefined)
   }
 }

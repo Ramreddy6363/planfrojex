@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { mockDrift } from './drift-fixture'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const workspace = {
@@ -590,4 +591,20 @@ test('integration settings fit at 390px with all controls reachable', async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
+})
+
+test('drift card and its review controls fit the plan at 390px', async ({ page }, testInfo) => {
+  await mockDrift(page, projectId)
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const card = page.getByRole('region', { name: 'The plan has drifted from the work' })
+  await expect(card.getByRole('button', { name: 'Accept update' })).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390)
+  await page.screenshot({ path: testInfo.outputPath('project-plan-drift-403-mobile.png') })
+  await card.getByRole('button', { name: 'Review each' }).click()
+  await expect(card.getByRole('button', { name: /^Reject M2/ }).first()).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390)
 })

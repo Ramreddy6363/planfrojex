@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { TriggerClient } from '@trigger.dev/sdk'
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { recordActivity } from '../activity/service'
 import {
   decisions,
@@ -292,8 +292,8 @@ async function visibleDraft(db: Db, id: string, actorId: string) {
       memberships,
       and(eq(memberships.workspaceId, projects.workspaceId), eq(memberships.userId, actorId)),
     )
-    .where(and(eq(drafts.id, id), isNull(projects.deletedAt)))
-  return row
+    .where(and(eq(drafts.id, id), ne(drafts.kind, 'drift'), isNull(projects.deletedAt)))
+  if (row && row.kind !== 'drift') return { ...row, kind: row.kind }
 }
 async function visibleDecision(db: Db, id: string, actorId: string) {
   const [row] = await db
@@ -325,7 +325,7 @@ function diagramIdOf(change: { before: unknown }) {
     ? String(change.before.diagramId)
     : undefined
 }
-async function currentSnapshot(
+export async function currentSnapshot(
   tx: Tx,
   projectId: string,
   kind: string,
@@ -387,7 +387,10 @@ async function currentSnapshot(
 }
 
 type TaskMilestoneSnapshot = Array<{ id: string; milestoneId: string | null }>
-async function currentTaskMilestones(tx: Tx, projectId: string): Promise<TaskMilestoneSnapshot> {
+export async function currentTaskMilestones(
+  tx: Tx,
+  projectId: string,
+): Promise<TaskMilestoneSnapshot> {
   return tx
     .select({ id: tasks.id, milestoneId: tasks.milestoneId })
     .from(tasks)
@@ -402,7 +405,7 @@ async function restoreTaskMilestones(tx: Tx, projectId: string, snapshot: TaskMi
       .where(and(eq(tasks.id, task.id), eq(tasks.projectId, projectId)))
 }
 
-async function recordMilestoneTaskChanges(
+export async function recordMilestoneTaskChanges(
   tx: Tx,
   workspaceId: string,
   projectId: string,

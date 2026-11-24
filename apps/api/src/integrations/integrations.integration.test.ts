@@ -1,5 +1,5 @@
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { draftChanges, drafts, integrations, milestones, projects, tasks } from '../db/schema'
 import { integrationSuite } from '../testing/pg'
 import { listPath, trackerFixture, webhook } from './test-fixture'
@@ -204,6 +204,16 @@ integrationSuite(url)('Linear tracker synchronization', () => {
     expect(before?.lastSyncedAt).toBeNull()
 
     const teamId = `fake-team-${fixture.workspace.id}`
+    await fixture.fake.provider.putProject(
+      'fake-linear-token',
+      teamId,
+      { id: 'unmapped-project', name: 'Unmapped', targetDate: null, leadId: null },
+      false,
+    )
+    fixture.fake.issues.set('unlinked-issue', issue('unlinked-issue', 'unmapped-project'))
+    expect(
+      await fixture.fake.provider.issuesInTeam('fake-linear-token', teamId, [], ['unlinked-issue']),
+    ).toMatchObject([{ id: 'unlinked-issue' }])
     expect((await webhook(fixture, event('unlinked-issue', teamId))).status).toBe(200)
 
     const [after] = await fixture.db
