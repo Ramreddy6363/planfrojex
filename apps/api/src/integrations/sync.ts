@@ -358,14 +358,14 @@ async function pullIssues(
   token: string,
   provider: LinearProvider,
   issueId?: string,
-) {
-  if (!integration.options.pullStatus && !integration.options.importIssues) return
+): Promise<boolean> {
+  if (!integration.options.pullStatus && !integration.options.importIssues) return false
   const signedIssue = issueId
     ? (await provider.issuesInTeam(token, teamId, [], [issueId])).find(
         (issue) => issue.id === issueId,
       )
     : undefined
-  if (issueId && !signedIssue) return
+  if (issueId && !signedIssue) return false
   const localTaskLinks = await tx
     .select({
       externalId: externalLinks.externalId,
@@ -419,16 +419,23 @@ async function pullIssues(
         [...linkedMilestones.keys()],
         integration.options.pullStatus ? [...linkedTasks.keys()] : [],
       )
+  let linkedDataSynced = false
   for (const issue of issues) {
     const task = linkedTasks.get(issue.id)
     if (task) {
-      if (integration.options.pullStatus) await pullStatus(tx, integration, issue, task)
+      if (integration.options.pullStatus) {
+        await pullStatus(tx, integration, issue, task)
+        linkedDataSynced = true
+      }
       continue
     }
     const project = issue.projectId ? linkedMilestones.get(issue.projectId) : undefined
-    if (project)
+    if (project) {
       await importIssue(tx, integration, teamId, issue, project.projectId, project.projectKey)
+      linkedDataSynced = true
+    }
   }
+  return linkedDataSynced
 }
 
 export const webhookFreshness = 60_000
@@ -504,7 +511,7 @@ export async function runIntegrationSync(
       return await tx.transaction(async (sync) => {
         if (!receipt && integration.options.pushMilestones)
           await pushMilestones(sync, integration, teamId, credentials.accessToken, provider)
-        await pullIssues(
+        const linkedDataSynced = await pullIssues(
           sync,
           integration,
           teamId,
@@ -516,7 +523,7 @@ export async function runIntegrationSync(
         const [saved] = await sync
           .update(integrations)
           .set({
-            lastSyncedAt: new Date(),
+            ...(receipt && !linkedDataSynced ? {} : { lastSyncedAt: new Date() }),
             updatedAt: new Date(),
             webhookReceipts: receipts,
           })
