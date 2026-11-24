@@ -303,3 +303,32 @@ test('activity identifies an external review change request and its comment', as
   await expect(page.getByText(/requested changes/)).toBeVisible()
   await expect(page.getByText('Please clarify the launch date.', { exact: false })).toBeVisible()
 })
+
+test('attributes tracker updates to Linear and deleted accounts to Deleted user', async ({
+  page,
+}) => {
+  await mockActivity(page)
+  const taskActivity = entries[2]
+  if (!taskActivity) throw new Error('Missing task activity fixture')
+  await page.route(`http://localhost:8787/projects/${projectId}/activity*`, (route) =>
+    route.fulfill({
+      headers,
+      json: {
+        activity: [
+          {
+            ...taskActivity,
+            id: 'tracker',
+            actorId: null,
+            actorName: null,
+            payload: { ...taskActivity.payload, source: 'linear' },
+          },
+          { ...taskActivity, id: 'deleted', actorId: null, actorName: null },
+        ],
+        nextCursor: null,
+      },
+    }),
+  )
+  await page.goto(`/northwind/projects/${projectId}/activity`)
+  await expect(page.getByText('Linear', { exact: true })).toBeVisible()
+  await expect(page.getByText('Deleted user', { exact: true })).toBeVisible()
+})

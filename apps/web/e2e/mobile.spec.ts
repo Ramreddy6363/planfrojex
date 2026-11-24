@@ -554,3 +554,40 @@ test('reviewer page fits at 390px with approval controls reachable', async ({ pa
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390)
 })
+
+test('integration settings fit at 390px with all controls reachable', async ({ page }) => {
+  await page.route('http://localhost:8787/workspaces/northwind/integrations', (route) =>
+    route.fulfill({
+      headers,
+      json: {
+        configured: true,
+        integration: {
+          id: 'i1',
+          provider: 'linear',
+          name: 'Northwind',
+          options: { pushMilestones: true, pullStatus: true, importIssues: false },
+          statusMapping: {
+            planning: 'todo',
+            in_progress: 'started',
+            completed: 'done',
+            archived: 'canceled',
+          },
+          states: [
+            { id: 'todo', name: 'Todo' },
+            { id: 'started', name: 'In Progress' },
+            { id: 'done', name: 'Done' },
+            { id: 'canceled', name: 'Canceled' },
+          ],
+          lastSyncedAt: null,
+        },
+      },
+    }),
+  )
+  await page.goto('/northwind/settings')
+  await page.getByRole('tab', { name: 'Integrations' }).click()
+  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
+  await expect(page.getByLabel('Archived Linear state')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+})

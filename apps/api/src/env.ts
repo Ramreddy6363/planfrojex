@@ -24,5 +24,9 @@ export type Env = {
     ENVIRONMENT?: string
     ANTHROPIC_API_KEY: string
     TRIGGER_SECRET_KEY?: string
+    LINEAR_CLIENT_ID?: string
+    LINEAR_CLIENT_SECRET?: string
+    LINEAR_TOKEN_ENCRYPTION_KEY?: string
+    LINEAR_WEBHOOK_SECRET?: string
   }
 }

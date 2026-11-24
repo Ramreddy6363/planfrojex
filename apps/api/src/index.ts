@@ -11,6 +11,10 @@ import { createProjectDraftRoutes } from './drafts/routes'
 import type { DraftModel } from './drafts/service'
 import type { Env } from './env'
 import { createInboxRoutes } from './inbox/routes'
+import { createLinearProvider } from './integrations/linear'
+import { createIntegrationRoutes, type TrackerRouteOptions } from './integrations/routes'
+import { linearConfig } from './integrations/security'
+import { runDailyTrackerSync } from './integrations/sync'
 import { createProjectBriefRoutes } from './projects/brief-routes'
 import { createMyTaskRoutes } from './projects/my-task-routes'
 import { createProjectPlanRoutes } from './projects/plan-routes'
@@ -20,17 +24,14 @@ import { consumeRateLimit } from './rate-limit'
 import { createReviewRoutes } from './reviews/routes'
 import { createSearchRoutes } from './search-routes'
 import { createShareRoutes } from './share/routes'
-import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
 import { createWorkspaceRoutes } from './workspaces/routes'
 import { createWorkspaceSettingsRoutes } from './workspaces/settings-routes'
 
 export function createApp(
   options: {
-    database?: DatabaseFactory
-    auth?: AuthFactory
     draftModel?: DraftModel
     diagramDraftModel?: DiagramDraftModel
-  } = {},
+  } & TrackerRouteOptions = {},
 ) {
   const database = options.database ?? connect
   const auth = options.auth ?? createAuth
@@ -83,6 +84,7 @@ export function createApp(
     .route('/', createActivityRoutes(options))
     .route('/', createMyTaskRoutes(options))
     .route('/', createInboxRoutes(options))
+    .route('/', createIntegrationRoutes(options))
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
     .route('/', createProjectDraftRoutes(options))
@@ -97,6 +99,13 @@ export type AppType = typeof app
 export type ProjectTaskRoutes = ReturnType<typeof createProjectTaskRoutes>
 export type ProjectDiagramRoutes = ReturnType<typeof createProjectDiagramRoutes>
 export type DiagramRoutes = ReturnType<typeof createDiagramRoutes>
+export type IntegrationRoutes = ReturnType<typeof createIntegrationRoutes>
 export type MyTaskRoutes = ReturnType<typeof createMyTaskRoutes>
 export type TaskRoutes = ReturnType<typeof createTaskRoutes>
-export default app
+export default Object.assign(app, {
+  async scheduled(_controller: unknown, env: Env['Bindings']) {
+    const config = await linearConfig(env, false)
+    if (config?.mode === 'real')
+      await runDailyTrackerSync(connect(env.DATABASE_URL), config, createLinearProvider(env))
+  },
+})

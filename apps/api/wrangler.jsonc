@@ -3,6 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  "triggers": { "crons": ["0 3 * * *"] },
   // Invocation logs include request URLs, which can contain share or review tokens.
   "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   // `pnpm dev`: same Worker, but on the local Docker PostgreSQL through node-postgres.
