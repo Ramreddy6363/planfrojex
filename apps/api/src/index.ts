@@ -17,6 +17,7 @@ import { createProjectPlanRoutes } from './projects/plan-routes'
 import { createProjectRoutes } from './projects/routes'
 import { createProjectTaskRoutes, createTaskRoutes } from './projects/task-routes'
 import { consumeRateLimit } from './rate-limit'
+import { createReviewRoutes } from './reviews/routes'
 import { createSearchRoutes } from './search-routes'
 import { createShareRoutes } from './share/routes'
 import type { AuthFactory, DatabaseFactory } from './workspaces/permissions'
@@ -76,6 +77,7 @@ export function createApp(
     .route('/', createWorkspaceSettingsRoutes(options))
     .route('/', createSearchRoutes(options))
     .route('/', createShareRoutes(options))
+    .route('/', createReviewRoutes(options))
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
     .route('/', createActivityRoutes(options))

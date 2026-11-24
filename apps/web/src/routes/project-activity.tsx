@@ -134,6 +134,13 @@ function activityContent(
     </span>
   )
   switch (entry.type) {
+    case 'review.approved':
+      return { sentence: `approved ${text(payload.section, 'the plan')}` }
+    case 'review.changes_requested':
+      return {
+        sentence: `requested changes to ${text(payload.section, 'the plan')}`,
+        detail: text(payload.comment, '') || undefined,
+      }
     case 'comment.mentioned':
       return entry.comment
         ? {
@@ -478,19 +485,16 @@ function ProjectActivity() {
               <ol>
                 {entries.map((entry) => {
                   const content = activityContent(entry, memberNames)
+                  const actorName = entry.type.startsWith('review.')
+                    ? 'External reviewer'
+                    : (entry.actorName ?? 'Deleted user')
                   return (
                     <li key={entry.id} className="flex gap-2 border-b border-border py-3">
-                      <Avatar
-                        id={entry.actorId}
-                        name={entry.actorName ?? 'Deleted user'}
-                        className="!size-5.5"
-                      />
+                      <Avatar id={entry.actorId} name={actorName} className="!size-5.5" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-3">
                           <p className="min-w-0 flex-1">
-                            <span className="mr-2 font-medium">
-                              {entry.actorName ?? 'Deleted user'}
-                            </span>
+                            <span className="mr-2 font-medium">{actorName}</span>
                             <span className="text-text-muted">{content.sentence}</span>
                           </p>
                           <time

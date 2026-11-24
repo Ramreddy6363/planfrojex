@@ -225,6 +225,18 @@ async function mockInbox(page: import('@playwright/test').Page) {
     return route.fulfill({ headers, json: {} })
   })
   return {
+    addReview: (outcome = 'changes_requested') => {
+      Object.assign(items[0] ?? {}, {
+        type: 'review_decision',
+        actor: { id: null, name: null },
+        task: null,
+        comment: null,
+        target: null,
+        section: 'Brief',
+        outcome,
+        reviewComment: outcome === 'changes_requested' ? 'Please clarify the launch date.' : null,
+      })
+    },
     markFirstRead: () => {
       if (items[0]) items[0].readAt = new Date().toISOString()
     },
@@ -315,4 +327,26 @@ test('sidebar unread count refreshes every minute and on navigation', async ({ p
   await expect(page.getByRole('button', { name: 'Inbox 2', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'My tasks 7', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Inbox 2', exact: true })).toBeVisible()
+})
+
+test('review change request identifies the reviewer, shows the comment and opens the brief', async ({
+  page,
+}) => {
+  const state = await mockInbox(page)
+  state.addReview()
+  await page.goto('/northwind/inbox')
+  await page.getByRole('button', { name: /External reviewer requested changes/ }).click()
+  await expect(page.getByText('Please clarify the launch date.').last()).toBeVisible()
+  await page.getByRole('link', { name: 'Open brief' }).click()
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`))
+})
+
+test('review approval appears in inbox and opens the project', async ({ page }) => {
+  const state = await mockInbox(page)
+  state.addReview('approved')
+  await page.goto('/northwind/inbox')
+  await page.getByRole('button', { name: /External reviewer approved Brief/ }).click()
+  await expect(page.getByText('External reviewer approved Brief.', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Open brief' }).click()
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`))
 })

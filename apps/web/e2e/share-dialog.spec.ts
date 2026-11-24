@@ -55,6 +55,33 @@ async function mockShare(page: Page, role = 'owner', initial = false) {
           },
         },
       })
+    if (path === `/projects/${projectId}/review-requests` && request.method() === 'GET')
+      return route.fulfill({
+        headers,
+        json: {
+          requests:
+            role === 'viewer'
+              ? [
+                  {
+                    id: 'request-1',
+                    dueDate: '2026-12-20',
+                    expiresAt: '2027-01-01T00:00:00Z',
+                    createdAt: '2026-11-20T00:00:00Z',
+                    cancelledAt: null,
+                    reviewers: [
+                      {
+                        id: 'reviewer-1',
+                        email: 'lena@example.com',
+                        verifiedAt: '2026-11-21T00:00:00Z',
+                        approvedCount: 1,
+                        totalSections: 2,
+                      },
+                    ],
+                  },
+                ]
+              : [],
+        },
+      })
     if (path === '/workspaces/northwind/projects/PORTAL/share') {
       if (fail) return route.fulfill({ headers, status: 500, json: { error: 'Unavailable' } })
       if (request.method() === 'DELETE') {
@@ -149,8 +176,8 @@ test('creates a link once, updates included sections, forgets the token on close
   await expect
     .poll(() => state.updates.at(-1))
     .toEqual({ enabled: true, include: ['brief', 'plan', 'diagrams', 'tasks'] })
-  await expect(dialog.getByText('Ask for approval')).toHaveCount(0)
-  await expect(dialog.getByRole('button', { name: 'Send for review' })).toHaveCount(0)
+  await expect(dialog.getByText('Ask for approval')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Send for review' })).toBeVisible()
   await page.screenshot({ path: '/tmp/feature15-share-409.png' })
   await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   await page.getByRole('button', { name: 'Share', exact: true }).click()
@@ -159,7 +186,7 @@ test('creates a link once, updates included sections, forgets the token on close
   await dialog.getByRole('button', { name: 'Make a new link' }).click()
   await expect(dialog.getByLabel('Share link', { exact: true })).toHaveValue(/new-token-2$/)
   await dialog.getByRole('button', { name: 'Turn off link' }).click()
-  await expect(dialog.getByRole('switch')).not.toBeChecked()
+  await expect(dialog.getByRole('switch', { name: 'Public read-only link' })).not.toBeChecked()
 })
 test('share errors keep controls recoverable', async ({ page }) => {
   const state = await mockShare(page)
@@ -186,6 +213,19 @@ for (const role of ['owner', 'editor', 'viewer']) {
     await expect(page.getByRole('button', { name: 'Share', exact: true })).toHaveCount(
       role === 'viewer' ? 0 : 1,
     )
+    if (role === 'viewer') {
+      await page.getByRole('button', { name: 'Review progress', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog.getByText('lena@example.com')).toBeVisible()
+      await expect(dialog.getByText('1 of 2 sections approved')).toBeVisible()
+      await expect(dialog.getByRole('switch')).toHaveCount(0)
+      await expect(dialog.getByRole('checkbox')).toHaveCount(0)
+      await expect(dialog.getByLabel('Reviewer emails')).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: 'Make a new link' })).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: 'Turn off link' })).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: 'Send for review' })).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: 'Cancel request' })).toHaveCount(0)
+    }
     await page.goto('/northwind/settings')
     const row = page.getByRole('row').filter({ hasText: 'Customer portal rebuild' })
     await expect(row.getByRole('cell', { name: '41', exact: true })).toBeVisible()
@@ -205,7 +245,7 @@ test('editor can enable and disable a public link', async ({ page }) => {
   await page.getByRole('switch', { name: 'Public read-only link' }).click()
   await expect(page.getByLabel('Share link', { exact: true })).toHaveValue(/new-token-1$/)
   await page.getByRole('button', { name: 'Turn off link' }).click()
-  await expect(page.getByRole('switch')).not.toBeChecked()
+  await expect(page.getByRole('switch', { name: 'Public read-only link' })).not.toBeChecked()
   expect(state.updates.at(-1)).toEqual({ enabled: false, include: ['brief', 'plan', 'diagrams'] })
 })
 test('a failed revoke leaves the settings link listed and can be retried', async ({ page }) => {
@@ -219,4 +259,73 @@ test('a failed revoke leaves the settings link listed and can be retried', async
   state.setFail(false)
   await page.getByRole('button', { name: 'Revoke' }).click()
   await expect(page.getByRole('heading', { name: 'No share links yet' })).toBeVisible()
+})
+
+test('asks reviewers for approval with a due date', async ({ page }) => {
+  await mockShare(page, 'owner')
+  const sent: unknown[] = []
+  await page.route(`http://localhost:8787/projects/${projectId}/review-requests`, async (route) => {
+    const headers = {
+      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-credentials': 'true',
+      'access-control-allow-methods': 'GET,POST,OPTIONS',
+      'access-control-allow-headers': 'content-type',
+    }
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    if (route.request().method() === 'POST') {
+      sent.push(route.request().postDataJSON())
+      return route.fulfill({ status: 201, headers, json: { ok: true } })
+    }
+    return route.fulfill({
+      headers,
+      json: {
+        requests: sent.length
+          ? [
+              {
+                id: 'request-1',
+                dueDate: '2026-12-20',
+                expiresAt: '2027-01-01T00:00:00Z',
+                createdAt: '2026-11-20T00:00:00Z',
+                cancelledAt: null,
+                reviewers: [
+                  {
+                    id: 'reviewer-1',
+                    email: 'lena@example.com',
+                    verifiedAt: null,
+                    approvedCount: 0,
+                    totalSections: 2,
+                  },
+                ],
+              },
+            ]
+          : [],
+      },
+    })
+  })
+  await page.goto(`/northwind/projects/${projectId}`)
+  await page.getByRole('button', { name: 'Share', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Share Customer portal rebuild' })
+  await dialog.getByRole('switch', { name: 'Public read-only link' }).click()
+  await expect(dialog.getByLabel('Share link')).toHaveValue(/new-token-1$/)
+  await dialog.getByRole('switch', { name: 'Ask for approval' }).click()
+  await dialog.getByLabel('Reviewer emails').fill('lena@example.com')
+  await dialog.getByLabel('Review due date').fill('2026-12-20')
+  const emailsBox = await dialog.getByLabel('Reviewer emails').boundingBox()
+  const dueDateBox = await dialog.getByLabel('Review due date').boundingBox()
+  expect(emailsBox && dueDateBox && Math.abs(emailsBox.y - dueDateBox.y)).toBeLessThan(3)
+  await page.screenshot({ path: test.info().outputPath('share-review-409.png') })
+  await dialog.getByRole('button', { name: 'Send for review' }).click()
+  await expect.poll(() => sent).toEqual([{ emails: ['lena@example.com'], dueDate: '2026-12-20' }])
+  await expect(dialog.getByText('lena@example.com')).toBeVisible()
+  await expect(dialog.getByText('0 of 2 sections approved')).toBeVisible()
+})
+
+test('review progress due dates keep their calendar day west of UTC', async ({ browser }) => {
+  const context = await browser.newContext({ timezoneId: 'America/Los_Angeles' })
+  const page = await context.newPage()
+  await mockShare(page, 'viewer', true)
+  await page.goto(`/northwind/projects/${projectId}`)
+  await page.getByRole('button', { name: 'Review progress', exact: true }).click()
+  await expect(page.getByText(/Due Dec 20, 2026/)).toBeVisible()
+  await context.close()
 })

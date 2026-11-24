@@ -185,8 +185,8 @@ const getDecisionsRoute = createRoute({
         decisions: z.array(
           z.object({
             id: z.uuid(),
-            kind: z.enum(allDraftKinds),
-            outcome: z.enum(['accepted', 'rejected', 'reversed']),
+            kind: z.enum([...allDraftKinds, 'brief', 'plan']),
+            outcome: z.enum(['accepted', 'rejected', 'reversed', 'approved', 'changes_requested']),
             reason: z.string().nullable(),
             actorId: z.string().nullable(),
             actorName: z.string(),
@@ -1201,7 +1201,10 @@ export function createProjectDraftRoutes(
         {
           decisions: rows.map((row) => ({
             ...row,
-            actorName: row.actorName ?? 'Deleted user',
+            actorName:
+              row.outcome === 'approved' || row.outcome === 'changes_requested'
+                ? 'External reviewer'
+                : (row.actorName ?? 'Deleted user'),
             createdAt: row.createdAt.toISOString(),
           })),
         },

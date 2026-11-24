@@ -87,6 +87,7 @@ async function mockActivity(
   page: import('@playwright/test').Page,
   role = 'owner',
   deletedActor = false,
+  reviewer = false,
 ) {
   const queries: URLSearchParams[] = []
   const workspace = { id: '1', name: 'Northwind', slug: 'northwind', role, isPersonal: false }
@@ -148,7 +149,25 @@ async function mockActivity(
               : type.startsWith('diagram.')
                 ? 'diagrams'
                 : 'project'
-      const filtered = entries.filter(
+      const filtered = (
+        reviewer
+          ? [
+              {
+                id: 'review-1',
+                actorId: null,
+                actorName: null,
+                type: 'review.changes_requested',
+                subject: 'review',
+                payload: {
+                  section: 'brief',
+                  outcome: 'changes_requested',
+                  comment: 'Please clarify the launch date.',
+                },
+                createdAt: '2026-11-14T11:20:00.000+05:30',
+              },
+            ]
+          : entries
+      ).filter(
         (row) =>
           (!actor || row.actorId === actor) && (!category || categoryOf(row.type) === category),
       )
@@ -275,4 +294,12 @@ test('mention edits use truthful activity copy without repeating comment text', 
   ).toBeVisible()
   await expect(page.getByText('deleted a comment', { exact: true })).toBeVisible()
   await expect(page.getByText('Private edited comment body', { exact: false })).toHaveCount(0)
+})
+
+test('activity identifies an external review change request and its comment', async ({ page }) => {
+  await mockActivity(page, 'owner', false, true)
+  await page.goto(`/northwind/projects/${projectId}/activity`)
+  await expect(page.getByText('External reviewer', { exact: true })).toBeVisible()
+  await expect(page.getByText(/requested changes/)).toBeVisible()
+  await expect(page.getByText('Please clarify the launch date.', { exact: false })).toBeVisible()
 })
