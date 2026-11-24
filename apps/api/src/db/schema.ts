@@ -16,6 +16,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+import type { DriftFinding } from '../drift/rules'
 
 export type TrackerOptions = {
   pushMilestones: boolean
@@ -87,6 +88,9 @@ export const externalLinks = pgTable(
       .references(() => integrations.id, { onDelete: 'cascade' }),
     milestoneId: uuid('milestone_id').references(() => milestones.id, { onDelete: 'cascade' }),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+    sourceMilestoneId: uuid('source_milestone_id').references(() => milestones.id, {
+      onDelete: 'set null',
+    }),
     externalId: text('external_id').notNull(),
     source: text('source', { enum: ['pushed', 'imported'] }).notNull(),
     ...timestamps(),
@@ -413,7 +417,7 @@ export const drafts = pgTable(
       .references(() => projects.id, { onDelete: 'cascade' }),
     diagramId: uuid('diagram_id').references(() => diagrams.id, { onDelete: 'set null' }),
     prompt: text('prompt'),
-    kind: text('kind', { enum: ['plan', 'diagram'] })
+    kind: text('kind', { enum: ['plan', 'diagram', 'drift'] })
       .notNull()
       .default('plan'),
     status: text('status', { enum: ['queued', 'running', 'ready', 'failed', 'discarded'] })
@@ -441,12 +445,37 @@ export const draftChanges = pgTable(
     after: jsonb('after').$type<unknown>().notNull(),
     appliedSnapshot: jsonb('applied_snapshot').$type<unknown>(),
     baseVersion: integer('base_version'),
+    driftKey: text('drift_key').notNull().default(''),
     status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
       .notNull()
       .default('pending'),
     ...timestamps(),
   },
-  (t) => [uniqueIndex('draft_changes_draft_kind_idx').on(t.draftId, t.kind)],
+  (t) => [uniqueIndex('draft_changes_draft_kind_idx').on(t.draftId, t.kind, t.driftKey)],
+)
+
+export const driftReports = pgTable(
+  'drift_reports',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    draftId: uuid('draft_id')
+      .unique()
+      .references(() => drafts.id, { onDelete: 'cascade' }),
+    findings: jsonb('findings').$type<DriftFinding[]>().notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    status: text('status', { enum: ['open', 'accepted', 'dismissed'] }).notNull(),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull(),
+    checkedAgainstLinearAt: timestamp('checked_against_linear_at', { withTimezone: true }),
+    linearDestination: text('linear_destination'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('drift_reports_project_created_idx').on(t.projectId, t.createdAt, t.id),
+    uniqueIndex('drift_reports_project_open_idx').on(t.projectId).where(sql`${t.status} = 'open'`),
+  ],
 )
 
 export const decisions = pgTable(

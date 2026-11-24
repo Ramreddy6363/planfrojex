@@ -1,5 +1,18 @@
-import type { AppType, IntegrationRoutes, ProjectTaskRoutes, TaskRoutes } from '@planfrojex/api'
-import { type ClientResponse, DetailedError, hc, parseResponse } from 'hono/client'
+import type {
+  AppType,
+  IntegrationRoutes,
+  ProjectDriftRoutes,
+  ProjectTaskRoutes,
+  TaskRoutes,
+} from '@planfrojex/api'
+import {
+  type ClientResponse,
+  DetailedError,
+  hc,
+  type InferRequestType,
+  type InferResponseType,
+  parseResponse,
+} from 'hono/client'
 
 export const api = hc<AppType>(import.meta.env.VITE_API_URL ?? 'http://localhost:8787', {
   init: { credentials: 'include' },
@@ -8,6 +21,11 @@ const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
 export const projectTasksApi = hc<ProjectTaskRoutes>(apiBase, { init: { credentials: 'include' } })
 export const tasksApi = hc<TaskRoutes>(apiBase, { init: { credentials: 'include' } })
 export const integrationsApi = hc<IntegrationRoutes>(apiBase, { init: { credentials: 'include' } })
+const projectDriftApi = hc<ProjectDriftRoutes>(apiBase, { init: { credentials: 'include' } })
+export const projectDriftClient = projectDriftApi.projects[':id'].drift
+export type DriftResult = InferResponseType<typeof projectDriftClient.$get, 200>
+export type DriftReport = NonNullable<DriftResult['report']>
+export type DriftAction = InferRequestType<typeof projectDriftClient.check.$post>['json']
 type ProjectTaskEndpoint = NonNullable<typeof projectTasksApi.projects>[':id']
 type TaskEndpoint = NonNullable<typeof tasksApi.tasks>
 export type TrackerIntegration = {

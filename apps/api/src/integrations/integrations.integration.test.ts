@@ -1,5 +1,6 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
-import { draftChanges, drafts, milestones, projects, tasks } from '../db/schema'
+import { draftChanges, drafts, integrations, milestones, projects, tasks } from '../db/schema'
 import { integrationSuite } from '../testing/pg'
 import { listPath, trackerFixture, webhook } from './test-fixture'
 
@@ -192,6 +193,34 @@ integrationSuite(url)('Linear tracker synchronization', () => {
       'SELECT external_id FROM external_links WHERE task_id IS NOT NULL',
     )
     expect(links.rows).toEqual([{ external_id: 'changed' }])
+  })
+
+  it('does not advance last synced time for an unrelated issue with no linked local data', async () => {
+    const { id } = await fixture.connect()
+    const [before] = await fixture.db
+      .select({ lastSyncedAt: integrations.lastSyncedAt })
+      .from(integrations)
+      .where(eq(integrations.id, id))
+    expect(before?.lastSyncedAt).toBeNull()
+
+    const teamId = `fake-team-${fixture.workspace.id}`
+    await fixture.fake.provider.putProject(
+      'fake-linear-token',
+      teamId,
+      { id: 'unmapped-project', name: 'Unmapped', targetDate: null, leadId: null },
+      false,
+    )
+    fixture.fake.issues.set('unlinked-issue', issue('unlinked-issue', 'unmapped-project'))
+    expect(
+      await fixture.fake.provider.issuesInTeam('fake-linear-token', teamId, [], ['unlinked-issue']),
+    ).toMatchObject([{ id: 'unlinked-issue' }])
+    expect((await webhook(fixture, event('unlinked-issue', teamId))).status).toBe(200)
+
+    const [after] = await fixture.db
+      .select({ lastSyncedAt: integrations.lastSyncedAt })
+      .from(integrations)
+      .where(eq(integrations.id, id))
+    expect(after?.lastSyncedAt).toBeNull()
   })
 
   it('pushes accepted milestones and their tasks, pulls mapped status, and imports once', async () => {

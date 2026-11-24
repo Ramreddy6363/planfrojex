@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { mockDrift } from './drift-fixture'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 
@@ -244,6 +245,7 @@ async function mockPlan(
     return route.fulfill({ headers, status: 404, json: { error: 'Not found' } })
   })
   return {
+    project,
     sections,
     milestones,
     writes,
@@ -340,4 +342,115 @@ test('failed drafts can be discarded and started again', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Draft from the brief is ready for review' }),
   ).toBeVisible()
+})
+
+test('owner accepts a drift update with a decision reason', async ({ page }, testInfo) => {
+  const state = await mockPlan(page)
+  state.project.name = 'Customer portal rebuild'
+  state.project.taskProgress = { done: 18, total: 42 }
+  const billing = {
+    id: 'milestone-2',
+    code: 'M2',
+    title: 'Billing details and invoice download',
+    dueDate: '2026-11-21',
+    status: 'planning',
+  }
+  state.milestones.push(billing, {
+    id: 'milestone-3',
+    code: 'M3',
+    title: 'Teammate management and public launch',
+    dueDate: '2026-12-12',
+    status: 'planning',
+  })
+  const drift = await mockDrift(page, projectId, {
+    onAccept: (reason) => {
+      billing.dueDate = '2026-11-27'
+      state.decisions.push({
+        id: 'drift-decision',
+        kind: 'milestones',
+        actorName: 'Maya Chen',
+        outcome: 'accepted',
+        reason,
+        reversesDecisionId: null,
+      })
+    },
+  })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const card = page.getByRole('region', { name: 'The plan has drifted from the work' })
+  await expect(card).toBeVisible()
+  await expect(card).toContainText(/Checked against Linear \d+ minutes ago/)
+  await expect(card).toContainText('4 of 11 tasks done')
+  await expect(card).toContainText('3 tasks were added in Linear outside the plan')
+  await expect(card).toContainText('needed a decision by Oct 10')
+  await expect(card).toContainText('due Nov 27')
+  await expect(card).toContainText('severity High, owner Maya Chen')
+  await expect(card).toContainText('M3 and the launch date stay the same.')
+  await page.screenshot({ path: testInfo.outputPath('project-plan-drift-403.png'), fullPage: true })
+  await card.getByLabel('Why?').fill('Give billing extra time.')
+  await card.getByRole('button', { name: 'Accept update' }).click()
+  await expect(card).toHaveCount(0)
+  await expect(page.locator('#milestones')).toContainText('Nov 27')
+  await expect(page.getByText('Give billing extra time.')).toBeVisible()
+  expect(drift.requests).toEqual([
+    { action: 'accept', reportId: drift.reportId, reason: 'Give billing extra time.' },
+  ])
+})
+
+test('owner can review drift changes separately', async ({ page }) => {
+  await mockPlan(page)
+  const drift = await mockDrift(page, projectId)
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const card = page.getByRole('region', { name: 'The plan has drifted from the work' })
+  await card.getByRole('button', { name: 'Review each' }).click()
+  const acceptDate = card.getByRole('button', {
+    name: 'Accept M2 Billing details and invoice download date change',
+  })
+  await acceptDate.click()
+  await expect(acceptDate).toHaveCount(0)
+  const rejectRisk = card.getByRole('button', {
+    name: 'Reject R1 SSO vendor contract severity change',
+  })
+  await rejectRisk.click()
+  await expect(rejectRisk).toHaveCount(0)
+  await expect(card).toContainText('Accepted')
+  await expect(card).toContainText('Rejected')
+  expect(drift.requests).toEqual([
+    { action: 'accept_change', reportId: drift.reportId, changeId: 'date-change' },
+    { action: 'reject_change', reportId: drift.reportId, changeId: 'risk-change' },
+  ])
+})
+
+test('check now leaves dismissed drift hidden when its findings stay the same', async ({
+  page,
+}) => {
+  await mockPlan(page)
+  const drift = await mockDrift(page, projectId)
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const card = page.getByRole('region', { name: 'The plan has drifted from the work' })
+  await card.getByRole('button', { name: 'Dismiss' }).click()
+  await expect(card).toHaveCount(0)
+  await page.getByRole('button', { name: 'Plan actions' }).click()
+  await page.getByRole('menuitem', { name: 'Check now' }).click()
+  await expect.poll(() => drift.requests.length).toBe(2)
+  await expect(card).toHaveCount(0)
+  expect(drift.requests).toEqual([
+    { action: 'dismiss', reportId: drift.reportId },
+    { action: 'check' },
+  ])
+})
+
+test('viewer reads the drift report without managing it or seeing disconnected tracker data', async ({
+  page,
+}) => {
+  await mockPlan(page, 'viewer')
+  const drift = await mockDrift(page, projectId, { canManage: false, linearConnected: false })
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const card = page.getByRole('region', { name: 'The plan has drifted from the work' })
+  await expect(card).toContainText('4 of 11 tasks done')
+  await expect(card).not.toContainText('Linear')
+  await expect(card.getByRole('button')).toHaveCount(0)
+  await expect(card.getByLabel('Why?')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Plan actions' })).toHaveCount(0)
+  expect(drift.requests).toEqual([])
 })
