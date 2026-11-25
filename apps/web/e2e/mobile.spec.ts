@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { mockDrift } from './drift-fixture'
 import { type Mode, mockSignedOut, mockStates, projectScreens, screens } from './states-fixture'
+import { mockStatusEmail } from './status-email-fixture'
+import { webOrigin } from './test-origin'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const workspace = {
@@ -67,7 +69,7 @@ const comments = [
   updatedAt: '2026-11-13T10:00:00.000Z',
 }))
 const headers = {
-  'access-control-allow-origin': 'http://localhost:5199',
+  'access-control-allow-origin': webOrigin(),
   'access-control-allow-credentials': 'true',
   'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
   'access-control-allow-headers': 'content-type',
@@ -184,6 +186,8 @@ async function mockApp(page: import('@playwright/test').Page) {
       return route.fulfill({ headers, json: { diagrams: [] } })
     if (path === `/projects/${projectId}/plan`)
       return route.fulfill({ headers, json: { sections: [], milestones: [], risks: [] } })
+    if (path === `/projects/${projectId}/status-reports`)
+      return route.fulfill({ headers, json: { reports: [] } })
     if (path === `/projects/${projectId}/tasks`)
       return route.fulfill({
         headers,
@@ -216,6 +220,22 @@ async function mockApp(page: import('@playwright/test').Page) {
 
 test.beforeEach(async ({ page }) => {
   await mockApp(page)
+})
+
+test('weekly status list and email preview fit the Plan at 390px', async ({ page }, testInfo) => {
+  await mockStatusEmail(page, projectId)
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const status = page.getByRole('region', { name: 'Weekly status' })
+  await expect(status.getByRole('button', { name: 'View report for Oct 6, 2025' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await status.getByRole('button', { name: 'Preview this week' }).click()
+  const preview = page.getByRole('dialog', { name: 'Weekly status preview' })
+  await expect(preview.getByRole('heading', { name: 'Next week' })).toBeVisible()
+  expect(await preview.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(390)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await preview.screenshot({ path: testInfo.outputPath('weekly-status-preview-603-mobile.png') })
+  await preview.getByRole('button', { name: 'Done' }).click()
+  await expect(preview).toHaveCount(0)
 })
 
 test('bottom tabs navigate between Home, My tasks, Inbox and Projects', async ({ page }) => {
@@ -463,7 +483,7 @@ test('landing stacks at 390px with reachable navigation and no horizontal overfl
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const routeHeaders = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')

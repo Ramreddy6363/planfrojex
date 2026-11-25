@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { outbox, sendInvite, sendReviewCode, sendReviewInvitations } from './email'
+import { outbox, sendInvite, sendReviewCode, sendReviewInvitations, sendStatusEmail } from './email'
 import type { Env } from './env'
 
 const env: Env['Bindings'] = {
@@ -96,5 +96,43 @@ describe('review email delivery', () => {
       })),
     )
     expect(outbox).toEqual([])
+  })
+})
+
+describe('weekly status provider idempotency', () => {
+  it('treats a provider idempotency conflict as an already accepted delivery', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ name: 'invalid_idempotent_request' }), { status: 409 }),
+    )
+    await expect(
+      sendStatusEmail(
+        { ...env, RESEND_API_KEY: 'test-key', EMAIL_FROM: 'PlanFrojex <plans@example.com>' },
+        {
+          to: 'person@example.com',
+          subject: 'Weekly status',
+          text: 'Plan update',
+          html: '<p>Plan update</p>',
+        },
+        'weekly-status/test-report/test-recipient',
+      ),
+    ).resolves.toBeUndefined()
+  })
+
+  it('keeps a concurrent idempotency request retryable', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ name: 'concurrent_idempotent_requests' }), { status: 409 }),
+    )
+    await expect(
+      sendStatusEmail(
+        { ...env, RESEND_API_KEY: 'test-key', EMAIL_FROM: 'PlanFrojex <plans@example.com>' },
+        {
+          to: 'person@example.com',
+          subject: 'Weekly status',
+          text: 'Plan update',
+          html: '<p>Plan update</p>',
+        },
+        'weekly-status/test-report/test-recipient',
+      ),
+    ).rejects.toThrow('Email delivery failed')
   })
 })

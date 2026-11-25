@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 test.use({ viewport: { width: 1440, height: 1360 } })
 
@@ -95,7 +96,7 @@ async function mockShare(page: import('@playwright/test').Page, body: unknown, s
     requests.push(new URL(route.request().url()).pathname)
     return route.fulfill({
       status,
-      headers: { 'access-control-allow-origin': 'http://localhost:5199' },
+      headers: { 'access-control-allow-origin': webOrigin() },
       json: body,
     })
   })
@@ -189,7 +190,7 @@ test('shows a loading state without a session or project shell', async ({ page }
   await page.route('http://localhost:8787/**', async (route) => {
     await response
     await route.fulfill({
-      headers: { 'access-control-allow-origin': 'http://localhost:5199' },
+      headers: { 'access-control-allow-origin': webOrigin() },
       json: shared,
     })
   })

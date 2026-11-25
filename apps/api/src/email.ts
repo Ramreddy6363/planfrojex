@@ -1,9 +1,9 @@
 import type { Env } from './env'
 
-type Mail = { to: string; subject: string; text: string }
+type Mail = { to: string; subject: string; text: string; html?: string }
 export const outbox: Mail[] = []
 
-async function deliver(env: Env['Bindings'], message: Mail) {
+async function deliver(env: Env['Bindings'], message: Mail, idempotencyKey?: string) {
   if (!env.RESEND_API_KEY) {
     if (env.ENVIRONMENT !== 'production' && new URL(env.BETTER_AUTH_URL).hostname === 'localhost') {
       outbox.push(message)
@@ -14,16 +14,40 @@ async function deliver(env: Env['Bindings'], message: Mail) {
   if (!env.EMAIL_FROM) throw new Error('Email delivery is not configured')
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+    },
     body: JSON.stringify({
       from: env.EMAIL_FROM,
       to: [message.to],
       subject: message.subject,
       text: message.text,
+      html: message.html,
     }),
   })
-  if (!response.ok) throw new Error('Email delivery failed')
+  if (!response.ok) {
+    if (response.status === 409 && idempotencyKey) {
+      const body: unknown = await response.json().catch(() => null)
+      if (
+        body &&
+        typeof body === 'object' &&
+        'name' in body &&
+        (body.name === 'invalid_idempotent_request' || body.name === 'invalid_idempotency_request')
+      )
+        return
+    }
+    throw new Error('Email delivery failed')
+  }
 }
+
+export const sendStatusEmail = (
+  env: Env['Bindings'],
+  message: Mail & { html: string },
+  idempotencyKey: string,
+) => deliver(env, message, idempotencyKey)
+
 export async function sendCode(env: Env['Bindings'], email: string, otp: string) {
   await deliver(env, {
     to: email,

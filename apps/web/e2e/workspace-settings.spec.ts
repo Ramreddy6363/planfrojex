@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 async function mockSettings(page: Page, role = 'owner', hasNext = true, isPersonal = false) {
   let workspace = { id: '1', name: 'Northwind', slug: 'northwind', role, isPersonal }
@@ -10,7 +11,7 @@ async function mockSettings(page: Page, role = 'owner', hasNext = true, isPerson
     const request = route.request(),
       path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,PATCH,DELETE,OPTIONS',
       'access-control-allow-headers': 'content-type',

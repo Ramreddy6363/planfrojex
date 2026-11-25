@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 
 async function mockBrief(page: import('@playwright/test').Page, role = 'owner') {
   const workspace = { id: '1', name: 'Northwind', slug: 'northwind', role, isPersonal: false }
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',

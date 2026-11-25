@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const defaults = [
   { type: 'mention', email: true, inApp: true },
@@ -31,7 +32,7 @@ async function mockAccount(page: Page, blocked = false) {
     const request = route.request(),
       path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
       'access-control-allow-headers': 'content-type',

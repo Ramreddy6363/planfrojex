@@ -2,6 +2,7 @@ import type {
   AppType,
   IntegrationRoutes,
   ProjectDriftRoutes,
+  ProjectStatusReportRoutes,
   ProjectTaskRoutes,
   TaskRoutes,
 } from '@planfrojex/api'
@@ -26,6 +27,18 @@ export const projectDriftClient = projectDriftApi.projects[':id'].drift
 export type DriftResult = InferResponseType<typeof projectDriftClient.$get, 200>
 export type DriftReport = NonNullable<DriftResult['report']>
 export type DriftAction = InferRequestType<typeof projectDriftClient.check.$post>['json']
+const projectStatusReportApi = hc<ProjectStatusReportRoutes>(apiBase, {
+  init: { credentials: 'include' },
+})
+export const projectStatusReportClient = projectStatusReportApi.projects[':id']['status-reports']
+export type WeeklyStatusReport = InferResponseType<
+  typeof projectStatusReportClient.preview.$post,
+  200
+>['report']
+export type SentStatusReport = InferResponseType<
+  typeof projectStatusReportClient.$get,
+  200
+>['reports'][number]
 type ProjectTaskEndpoint = NonNullable<typeof projectTasksApi.projects>[':id']
 type TaskEndpoint = NonNullable<typeof tasksApi.tasks>
 export type TrackerIntegration = {

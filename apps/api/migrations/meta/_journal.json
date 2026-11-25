@@ -113,6 +113,41 @@
       "when": 1795515989816,
       "tag": "0015_handy_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795525502855,
+      "tag": "0016_chemical_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795588497222,
+      "tag": "0017_stormy_azazel",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795589442311,
+      "tag": "0018_wealthy_mariko_yashida",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795590351253,
+      "tag": "0019_military_retro_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795591741388,
+      "tag": "0020_exotic_jackpot",
+      "breakpoints": true
     }
   ]
 }

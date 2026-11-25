@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 export type Mode = 'empty' | 'slow' | 'fail'
 export type Screen = {
@@ -18,7 +19,7 @@ const workspace = {
 }
 const user = { id: 'owner', name: 'Maya Chen', email: 'maya@example.com', emailVerified: true }
 export const headers = {
-  'access-control-allow-origin': 'http://localhost:5199',
+  'access-control-allow-origin': webOrigin(),
   'access-control-allow-credentials': 'true',
   'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
   'access-control-allow-headers': 'content-type',
@@ -44,6 +45,7 @@ const project = {
 const kinds = ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate']
 const bodies: Record<string, unknown> = {
   [`/projects/${projectId}`]: { project },
+  [`/projects/${projectId}/status-reports`]: { reports: [] },
   [`/projects/${projectId}/plan`]: {
     sections: kinds.map((kind) => ({
       kind,

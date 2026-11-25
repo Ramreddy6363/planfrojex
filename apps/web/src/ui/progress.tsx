@@ -2,10 +2,12 @@ export const Progress = ({
   value: raw,
   label,
   className = 'w-30',
+  tone = 'accent',
 }: {
   value: number
   label: string
   className?: string
+  tone?: 'accent' | 'warning'
 }) => {
   const value = Math.min(100, Math.max(0, raw))
   return (
@@ -17,7 +19,10 @@ export const Progress = ({
       aria-valuenow={value}
       className={`h-1 overflow-hidden rounded-xs bg-bg-muted ${className}`}
     >
-      <div className="h-full bg-accent" style={{ width: `${value}%` }} />
+      <div
+        className={`h-full ${tone === 'warning' ? 'bg-warning' : 'bg-accent'}`}
+        style={{ width: `${value}%` }}
+      />
     </div>
   )
 }

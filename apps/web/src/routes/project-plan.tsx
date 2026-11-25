@@ -4,6 +4,7 @@ import { CalendarDays, MoreHorizontal, Pencil, Plus, Star, Trash2 } from 'lucide
 import { useState } from 'react'
 import { api, call, type DriftAction, projectDriftClient, RequestError } from '../api'
 import { ProjectDriftCard } from '../project-drift-card'
+import { ProjectWeeklyStatus } from '../project-weekly-status'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { ShareButton } from '../share-dialog'
@@ -1172,6 +1173,7 @@ function ProjectPlan() {
             </section>
             {drawSection('stack')}
             {drawSection('estimate')}
+            <ProjectWeeklyStatus key={projectId} projectId={projectId} editable={editable} />
           </main>
           <aside className="hidden pt-6 lg:block">
             <p className="mb-2 text-caption font-medium text-text-muted">On this page</p>
@@ -1183,6 +1185,7 @@ function ProjectPlan() {
                 { id: 'risks', label: 'Risks' },
                 { id: 'stack', label: 'Tech stack' },
                 { id: 'estimate', label: 'Estimate' },
+                { id: 'weekly-status', label: 'Weekly status' },
               ].map((item) => (
                 <a
                   key={item.id}

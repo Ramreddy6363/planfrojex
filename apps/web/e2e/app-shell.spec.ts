@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 test('shows Home and the signed-in workspace', async ({ page }) => {
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/workspaces/northwind')
@@ -34,7 +35,7 @@ test('switches between memberships and remembers the chosen workspace', async ({
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')
@@ -75,7 +76,7 @@ test('Home shows empty sections without sample records', async ({ page }) => {
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')
@@ -105,7 +106,7 @@ test('Home shows empty sections without sample records', async ({ page }) => {
 
 test('a failed identity request shows a retry instead of no access', async ({ page }) => {
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
   }
   await page.route('http://localhost:8787/workspaces/northwind', (route) =>
@@ -123,7 +124,7 @@ test('a failed identity request shows a retry instead of no access', async ({ pa
 
 test('sign out returns to sign in', async ({ page }) => {
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
@@ -155,7 +156,7 @@ test('sign out returns to sign in', async ({ page }) => {
 
 test('shows a loading state while the workspace is being checked', async ({ page }) => {
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
   }
   await page.route('http://localhost:8787/workspaces/northwind', async (route) => {
@@ -185,7 +186,7 @@ test('home lists the projects you lead', async ({ page }) => {
     isPersonal: false,
   }
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
   }
   let view = ''

@@ -1,8 +1,16 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNotNull, isNull, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { connect, type Db } from '../db'
-import { projects, shareLinks, user, workspaces } from '../db/schema'
+import {
+  emailUnsubscribes,
+  projects,
+  reviewRequests,
+  shareLinks,
+  statusReportDeliveries,
+  user,
+  workspaces,
+} from '../db/schema'
 import type { Env } from '../env'
 import { consumeRateLimit } from '../rate-limit'
 import {
@@ -313,6 +321,7 @@ export function createShareRoutes(
       )
         return c.json({ error: 'Too many requests. Try again in a minute.' }, 429)
       if (!/^[A-Za-z0-9_-]{43}$/.test(raw)) return invalid()
+      const tokenHash = await hash(raw)
       const lead = alias(user, 'lead'),
         creator = alias(user, 'creator')
       const [found] = await db
@@ -336,26 +345,94 @@ export function createShareRoutes(
         .leftJoin(creator, eq(creator.id, shareLinks.createdBy))
         .where(
           and(
-            eq(shareLinks.tokenHash, await hash(raw)),
+            eq(shareLinks.tokenHash, tokenHash),
             isNull(shareLinks.revokedAt),
             isNull(projects.deletedAt),
           ),
         )
-      if (!found) return invalid()
+      if (found) {
+        const counted = await db
+          .update(shareLinks)
+          .set({ viewCount: sql`${shareLinks.viewCount} + 1`, lastViewedAt: new Date() })
+          .where(
+            and(
+              eq(shareLinks.id, found.link.id),
+              eq(shareLinks.tokenHash, tokenHash),
+              eq(shareLinks.workspaceId, found.link.workspaceId),
+              isNull(shareLinks.revokedAt),
+            ),
+          )
+          .returning({ id: shareLinks.id })
+        if (!counted.length) return invalid()
+        const { data } = await readPublicSnapshot(db, found)
+        return c.json(data, 200)
+      }
+      const [reviewerLink] = await db
+        .select({
+          project: projects,
+          link: { include: shareLinks.include },
+          linkId: shareLinks.id,
+          shareTokenHash: shareLinks.tokenHash,
+          workspaceName: workspaces.name,
+          leadName: lead.name,
+          sharedBy: creator.name,
+        })
+        .from(emailUnsubscribes)
+        .innerJoin(
+          statusReportDeliveries,
+          and(eq(statusReportDeliveries.id, emailUnsubscribes.deliveryId)),
+        )
+        .innerJoin(
+          shareLinks,
+          and(
+            eq(shareLinks.projectId, emailUnsubscribes.projectId),
+            eq(shareLinks.tokenHash, statusReportDeliveries.shareTokenHash),
+          ),
+        )
+        .innerJoin(
+          reviewRequests,
+          and(
+            eq(reviewRequests.id, emailUnsubscribes.shareReviewRequestId),
+            eq(reviewRequests.id, statusReportDeliveries.reviewRequestId),
+            eq(reviewRequests.projectId, shareLinks.projectId),
+            eq(reviewRequests.workspaceId, shareLinks.workspaceId),
+            eq(reviewRequests.shareTokenHash, shareLinks.tokenHash),
+          ),
+        )
+        .innerJoin(
+          projects,
+          and(
+            eq(projects.id, shareLinks.projectId),
+            eq(projects.workspaceId, shareLinks.workspaceId),
+          ),
+        )
+        .innerJoin(workspaces, eq(workspaces.id, shareLinks.workspaceId))
+        .leftJoin(lead, eq(lead.id, projects.leadId))
+        .leftJoin(creator, eq(creator.id, shareLinks.createdBy))
+        .where(
+          and(
+            eq(emailUnsubscribes.shareTokenHash, tokenHash),
+            isNull(shareLinks.revokedAt),
+            isNull(projects.deletedAt),
+            isNull(reviewRequests.cancelledAt),
+            gt(reviewRequests.expiresAt, new Date()),
+            isNotNull(statusReportDeliveries.shareInclude),
+          ),
+        )
+      if (!reviewerLink) return invalid()
       const counted = await db
         .update(shareLinks)
         .set({ viewCount: sql`${shareLinks.viewCount} + 1`, lastViewedAt: new Date() })
         .where(
           and(
-            eq(shareLinks.id, found.link.id),
-            eq(shareLinks.tokenHash, await hash(raw)),
-            eq(shareLinks.workspaceId, found.link.workspaceId),
+            eq(shareLinks.id, reviewerLink.linkId),
+            eq(shareLinks.tokenHash, reviewerLink.shareTokenHash),
             isNull(shareLinks.revokedAt),
           ),
         )
         .returning({ id: shareLinks.id })
       if (!counted.length) return invalid()
-      const { data } = await readPublicSnapshot(db, found)
+      const { data } = await readPublicSnapshot(db, reviewerLink)
       return c.json(data, 200)
     })
 }

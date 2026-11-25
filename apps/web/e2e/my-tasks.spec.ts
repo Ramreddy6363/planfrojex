@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
@@ -70,7 +71,7 @@ async function mockMyTasks(page: import('@playwright/test').Page, role = 'owner'
     { ...base, id: 'task-done', key: 'PORT-7', title: 'Completed task', status: 'done' },
   ]
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',
