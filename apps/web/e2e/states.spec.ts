@@ -159,6 +159,25 @@ test('an unreachable API on / is an error, and Try again loads the app once it i
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 
+test('an invite link with a failing /me shows the error state, not sign-in, and recovers', async ({
+  page,
+}) => {
+  const { state } = await mockStates(page, '/workspaces/northwind/projects', 'empty')
+  state.meFails = true
+  await page.goto('/invite/abc')
+  await expect(page.getByRole('alert')).toContainText('Something went wrong')
+  await expect(page).toHaveURL(/\/invite\/abc$/)
+  state.meFails = false
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('button', { name: 'Continue without invitation' })).toBeVisible()
+})
+
+test('an invite link while signed out still goes to sign-in', async ({ page }) => {
+  await mockSignedOut(page, 401)
+  await page.goto('/invite/abc')
+  await expect(page).toHaveURL(/\/sign-in$/)
+})
+
 test('a 401 on / still shows the landing page', async ({ page }) => {
   await mockSignedOut(page, 401)
   await page.goto('/')
