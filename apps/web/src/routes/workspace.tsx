@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { createRoute, Link, redirect, useLoaderData } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { createRoute, Link, redirect, useLoaderData, useNavigate } from '@tanstack/react-router'
+import { CircleCheck, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { api, call, RequestError } from '../api'
 import { NewProjectDialog } from '../new-project-dialog'
 import { getMe, getWorkspace } from '../session'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
-import { EmptyState } from '../ui/empty-state'
-import { SkeletonRow } from '../ui/skeleton-row'
+import { EmptyState, ErrorState } from '../ui/empty-state'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusLabel } from '../ui/status'
 import { WorkspaceShell } from '../workspace-shell'
 import { LoadError } from './load-error'
@@ -59,9 +59,9 @@ function YourProjects({ slug }: { slug: string }) {
         Your projects
       </h2>
       {list.isPending ? (
-        <SkeletonRow />
+        <SkeletonRows count={3} />
       ) : list.isError ? (
-        <p className="text-text-muted">Could not load projects.</p>
+        <ErrorState title="Couldn’t load projects" onRetry={() => void list.refetch()} />
       ) : list.data.projects.length === 0 ? (
         <EmptyState title="No projects yet" body="Projects you lead will appear here." />
       ) : (
@@ -106,6 +106,7 @@ function YourProjects({ slug }: { slug: string }) {
 
 function Workspace() {
   const { workspace, me } = useLoaderData({ from: '/$ws' })
+  const navigate = useNavigate()
   const [newProjectOpen, setNewProjectOpen] = useState(false)
   return (
     <WorkspaceShell workspace={workspace} me={me} active="home">
@@ -132,7 +133,20 @@ function Workspace() {
         <div className="space-y-8 p-4 md:p-8">
           <section>
             <h2 className="mb-4 font-semibold">My tasks</h2>
-            <EmptyState title="No tasks yet" body="Your tasks will appear here." />
+            <EmptyState
+              icon={CircleCheck}
+              title="Nothing assigned to you"
+              body="Tasks assigned to you show up here, grouped by when they’re due."
+              action={
+                <Button
+                  onClick={() =>
+                    void navigate({ to: '/$ws/projects', params: { ws: workspace.slug } })
+                  }
+                >
+                  Browse projects
+                </Button>
+              }
+            />
           </section>
           <YourProjects slug={workspace.slug} />
         </div>

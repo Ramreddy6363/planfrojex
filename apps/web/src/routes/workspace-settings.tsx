@@ -7,7 +7,7 @@ import { IntegrationsSettings } from '../integrations-settings'
 import { getMe, queryClient } from '../session'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Input } from '../ui/input'
 import { Tabs } from '../ui/tabs'
 import { ToastRegion } from '../ui/toast'
@@ -195,10 +195,9 @@ function WorkspaceSettings() {
                 Loading share links…
               </p>
             ) : shareLinks.isError ? (
-              <EmptyState
+              <ErrorState
                 title="Couldn’t load share links"
-                body="Try again to see shared project links."
-                action={<Button onClick={() => void shareLinks.refetch()}>Retry</Button>}
+                onRetry={() => void shareLinks.refetch()}
               />
             ) : shareLinks.data.links.length === 0 ? (
               <EmptyState

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { mockDrift } from './drift-fixture'
+import { type Mode, mockSignedOut, mockStates, screens } from './states-fixture'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const workspace = {
@@ -607,4 +608,26 @@ test('drift card and its review controls fit the plan at 390px', async ({ page }
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390)
+})
+
+// Every state of every workspace screen, and the 404 page, fits 390px.
+test('states and 404 do not overflow at 390px', async ({ page }) => {
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  for (const screen of screens) {
+    for (const mode of ['empty', 'fail'] satisfies Mode[]) {
+      await page.unrouteAll()
+      await mockStates(page, screen.target, mode)
+      await page.goto(screen.path)
+      await expect(
+        page.getByText(mode === 'empty' ? screen.empty : screen.error, { exact: true }),
+      ).toBeVisible()
+      expect(await overflow(), `${screen.name} ${mode}`).toBeLessThanOrEqual(0)
+    }
+  }
+  await page.unrouteAll()
+  await mockSignedOut(page)
+  await page.goto('/a/b/c/d')
+  await expect(page.getByRole('heading', { name: "This page isn't on the plan" })).toBeVisible()
+  expect(await overflow(), '404').toBeLessThanOrEqual(0)
 })

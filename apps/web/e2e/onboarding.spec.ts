@@ -336,7 +336,7 @@ test('a server error on a workspace shows a retry, not no-access', async ({ page
   await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible()
   await expect(page.getByText("You don't have access")).toHaveCount(0)
   fail = false
-  await page.getByRole('button', { name: 'Retry' }).click()
+  await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 

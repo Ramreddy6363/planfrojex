@@ -8,3 +8,13 @@ export const SkeletonRow = () => (
     <div className={`${bar} w-12`} />
   </div>
 )
+
+// The drawn loading state: a list of skeleton rows, announced once as "Loading".
+export const SkeletonRows = ({ count = 7 }: { count?: number }) => (
+  <div role="status" aria-label="Loading">
+    {Array.from({ length: count }, (_, n) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: identical static rows never reorder
+      <SkeletonRow key={n} />
+    ))}
+  </div>
+)
