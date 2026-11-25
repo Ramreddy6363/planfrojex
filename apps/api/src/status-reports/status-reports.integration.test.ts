@@ -11,6 +11,7 @@ import {
   reviewers,
   reviewRequests,
   statusReportDeliveries,
+  statusReports,
   tasks,
   user,
 } from '../db/schema'
@@ -212,6 +213,71 @@ integrationSuite(url)('weekly status report delivery', () => {
         },
       },
     })
+  })
+
+  it('words rejected drift suggestions as drift, not as plan-draft sections', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(lastFriday)
+    const { db, project, milestone } = fixture
+    const [draft] = await db
+      .insert(drafts)
+      .values({ projectId: project.id, kind: 'drift', status: 'ready', model: 'rules' })
+      .returning()
+    if (!draft) throw new Error('Missing draft')
+    const changes = await db
+      .insert(draftChanges)
+      .values([
+        {
+          draftId: draft.id,
+          kind: 'milestones',
+          status: 'rejected',
+          driftKey: '1:m',
+          before: '2026-11-21',
+          after: {
+            kind: 'milestone_date',
+            targetId: milestone.id,
+            code: 'M2',
+            title: 'Billing',
+            before: '2026-11-21',
+            after: '2026-11-26',
+          },
+        },
+        {
+          draftId: draft.id,
+          kind: 'risks',
+          status: 'rejected',
+          driftKey: '3:r',
+          before: 'medium',
+          after: {
+            kind: 'risk_severity',
+            targetId: milestone.id,
+            code: 'R1',
+            title: 'SSO',
+            before: 'medium',
+            after: 'high',
+            decideBy: '2026-11-20',
+            ownerName: null,
+          },
+        },
+      ])
+      .returning()
+    await db.insert(decisions).values(
+      changes.map((change) => ({
+        projectId: project.id,
+        actorId: 'owner',
+        kind: change.kind,
+        outcome: 'rejected' as const,
+        draftChangeId: change.id,
+        createdAt: lastFriday,
+      })),
+    )
+    const { report } = (await (await fixture.preview()).json()) as {
+      report: { body: { decisions: string[] } }
+    }
+    const text = report.body.decisions.join('\n')
+    expect(text).toContain('Rejected the suggested date change for M2 Billing')
+    expect(text).toContain('Rejected raising R1 SSO to High')
+    expect(text).not.toContain('section')
   })
 
   it('does not show a milestone as moved when it returned to its original date', async () => {
@@ -621,5 +687,56 @@ integrationSuite(url)('weekly status report delivery', () => {
       .select({ state: statusReportDeliveries.state })
       .from(statusReportDeliveries)
     expect(deliveries.every(({ state }) => state === 'unknown')).toBe(true)
+  })
+  it('finishes a report whose deliveries never succeeded and does not claim it again', async () => {
+    const { db, project, workspace } = fixture
+    let attempts = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        attempts += 1
+        return { ok: false, status: 503 }
+      }),
+    )
+    const env = { ...testEnv, RESEND_API_KEY: 'test-key', EMAIL_FROM: 'from@example.com' }
+    await runWeeklyStatusEmails(db, env, monday)
+    await runWeeklyStatusEmails(db, env, new Date('2026-11-25T09:00:00Z'), true)
+    const [report] = await db
+      .select()
+      .from(statusReports)
+      .where(eq(statusReports.projectId, project.id))
+    expect(report?.sentAt).not.toBeNull()
+    expect(report?.recipientsCount).toBe(0)
+    expect(await (await fixture.list('viewer')).json()).toEqual({ reports: [] })
+    const before = attempts
+    await db.insert(user).values({ id: 'late', name: 'Late', email: 'late@example.com' })
+    await db
+      .insert(memberships)
+      .values({ userId: 'late', workspaceId: workspace.id, role: 'editor' })
+    await runWeeklyStatusEmails(db, env, new Date('2026-11-26T03:00:00Z'), true)
+    expect(attempts).toBe(before)
+  })
+
+  it('ignores an unsent report from five weeks ago when a member joins', async () => {
+    const { db, project, workspace } = fixture
+    // Build a real report, then age it to five weeks ago with nothing delivered.
+    await runWeeklyStatusEmails(db, testEnv, monday)
+    outbox.length = 0
+    await db.delete(statusReportDeliveries)
+    await db
+      .update(statusReports)
+      .set({ week: '2026-10-19', sentAt: null })
+      .where(eq(statusReports.projectId, project.id))
+    await db.insert(user).values({ id: 'late', name: 'Late', email: 'late@example.com' })
+    await db
+      .insert(memberships)
+      .values({ userId: 'late', workspaceId: workspace.id, role: 'editor' })
+    await runWeeklyStatusEmails(db, testEnv, new Date('2026-11-25T03:00:00Z'), true)
+    expect(outbox).toHaveLength(0)
+    const [report] = await db
+      .select()
+      .from(statusReports)
+      .where(eq(statusReports.projectId, project.id))
+    expect(report?.sentAt).toBeNull()
   })
 })

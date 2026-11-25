@@ -234,9 +234,19 @@ function activityContent(
           : { detail: 'Nothing changes until a section is accepted.' }),
       }
     case 'draft.accepted':
-      return { sentence: `accepted the ${sectionName(payload.section)} section of the plan draft` }
+      return {
+        sentence:
+          payload.source === 'drift'
+            ? `accepted a drift suggestion for ${sectionName(payload.section)}`
+            : `accepted the ${sectionName(payload.section)} section of the plan draft`,
+      }
     case 'draft.rejected':
-      return { sentence: `rejected the ${sectionName(payload.section)} section of the plan draft` }
+      return {
+        sentence:
+          payload.source === 'drift'
+            ? `rejected a drift suggestion for ${sectionName(payload.section)}`
+            : `rejected the ${sectionName(payload.section)} section of the plan draft`,
+      }
     case 'draft.accepted_all':
       return { sentence: 'accepted the remaining sections of the plan draft' }
     case 'draft.undone':
