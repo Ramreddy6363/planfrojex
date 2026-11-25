@@ -45,6 +45,7 @@ const project = {
 const kinds = ['requirements', 'stories', 'milestones', 'risks', 'stack', 'estimate']
 const bodies: Record<string, unknown> = {
   [`/projects/${projectId}`]: { project },
+  [`/projects/${projectId}/status-reports`]: { reports: [] },
   [`/projects/${projectId}/plan`]: {
     sections: kinds.map((kind) => ({
       kind,
