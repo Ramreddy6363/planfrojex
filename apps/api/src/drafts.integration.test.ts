@@ -146,6 +146,7 @@ suite('project drafts and decisions', () => {
     current = people.outsider
     const paths: Array<[string, RequestInit]> = [
       [`/projects/${projectId}/drafts`, post()],
+      [`/projects/${projectId}/drafts/active`, { headers }],
       [`/drafts/${id}`, { headers }],
       [`/drafts/${id}`, { method: 'DELETE', headers }],
       [`/drafts/${id}/changes/${changeId}/accept`, post({})],
@@ -155,6 +156,34 @@ suite('project drafts and decisions', () => {
       [`/decisions/${decisionId}/undo`, post()],
     ]
     for (const [path, init] of paths) expect((await app.request(path, init, env)).status).toBe(404)
+  })
+
+  it('returns the unresolved plan draft so a reload can restore it', async () => {
+    const active = async () =>
+      (await (
+        await app.request(`/projects/${projectId}/drafts/active`, { headers }, env)
+      ).json()) as {
+        draft: { id: string; status: string } | null
+      }
+    expect(await active()).toEqual({ draft: null })
+    const id = await createDraft()
+    const ready = await readDraft(id)
+    expect((await active()).draft).toEqual({ id, status: 'ready' })
+    current = people.viewer
+    expect((await active()).draft?.id).toBe(id)
+    current = people.owner
+    const changes = ready.changes
+    for (const change of changes.slice(0, -1))
+      await app.request(`/drafts/${id}/changes/${change.id}/reject`, post({}), env)
+    expect((await active()).draft?.id).toBe(id)
+    const last = changes.at(-1)
+    await app.request(`/drafts/${id}/changes/${last?.id}/reject`, post({}), env)
+    expect(await active()).toEqual({ draft: null })
+    const second = await createDraft()
+    await readDraft(second)
+    expect((await active()).draft?.id).toBe(second)
+    await app.request(`/drafts/${second}`, { method: 'DELETE', headers }, env)
+    expect(await active()).toEqual({ draft: null })
   })
 
   it('denies viewers every write while allowing them to read drafts and decisions', async () => {

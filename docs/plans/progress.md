@@ -334,6 +334,13 @@ Screens: 507 (404), 506 (no access, already built), 704 (states). Front-end only
 - **Open questions:** 1. Undo only where the drawing shows it, plus rejecting a section (recommended). 2. Audit covers desktop and the 390px layout (recommended).
 - **Out of scope:** new features, copy rewrites beyond the drawn states.
 
+## 2026-11-26: Review fixes (post-launch-review pass) — approved
+From the full review and real end-to-end run on 2026-11-25. Two branches, no new feature screens.
+- **API branch `feat/fix-api`:** (1) drift: a still-late milestone must not replace the open report each day (compare the due date only, keep reviewed decisions when a report is replaced, one draft per check); (2) status reports: a week whose deliveries never succeeded must stop retrying after about two weeks and be marked finished; (3) drift accept/reject is recorded and shown as a drift decision, not a plan-draft section (Activity and weekly email); (4) a ready plan draft survives a reload: add a read-only endpoint for a project's pending draft and use it on the Plan page.
+- **Web branch `feat/fix-web`:** (5) Home and Projects show the real plan status, progress and recent activity instead of the fixed "No plan yet", "—" and "No activity yet"; (6) mobile at 390px: Home project names readable, workspace menu (Members, Settings, Account, Sign out, switch workspace) reachable from Home, My tasks and Inbox, Settings share-links table fits.
+- Tests first, every change. New endpoints filter by workspace and get a cross-workspace 404 test.
+- **Not in this pass (decisions or lower priority):** landing "free" wording, React Flow attribution licence, reviewer-code guess cap, unsubscribe re-click message, sidebar links, shell error handling, mention-list accessibility, brief file split.
+
 ## Still open before production
 - Apply migrations 0001–0020 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.

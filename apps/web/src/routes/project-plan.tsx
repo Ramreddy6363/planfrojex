@@ -76,7 +76,8 @@ function ProjectPlan() {
   const [addingRisk, setAddingRisk] = useState(false)
   const [editingMilestone, setEditingMilestone] = useState<string | null>(null)
   const [editingRisk, setEditingRisk] = useState<string | null>(null)
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
+  // undefined: use the draft the server says is unresolved; null: the user discarded it.
+  const [chosenDraftId, setActiveDraftId] = useState<string | null | undefined>(undefined)
   const [toast, setToast] = useState<{ message: string; decisionId?: string } | null>(null)
   const action = useAction()
   const driftAction = useAction()
@@ -97,6 +98,12 @@ function ProjectPlan() {
     queryKey: ['members', workspace.slug],
     queryFn: () => call(api.workspaces[':ws'].members.$get({ param: { ws: workspace.slug } })),
   })
+  const restoredDraftQuery = useQuery({
+    queryKey: ['active-draft', projectId],
+    queryFn: () => call(api.projects[':id'].drafts.active.$get({ param: { id: projectId } })),
+  })
+  const activeDraftId =
+    chosenDraftId === undefined ? (restoredDraftQuery.data?.draft?.id ?? null) : chosenDraftId
   const draftQuery = useQuery({
     queryKey: ['draft', activeDraftId],
     enabled: Boolean(activeDraftId),
@@ -258,6 +265,7 @@ function ProjectPlan() {
     if (!activeDraftId) return
     await call(api.drafts[':id'].$delete({ param: { id: activeDraftId } }))
     setActiveDraftId(null)
+    void queryClient.invalidateQueries({ queryKey: ['active-draft', projectId] })
     setToast({ message: 'Draft discarded' })
   }
   const undoDecision = async (decisionId: string) => {

@@ -272,16 +272,25 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
   }
   const previous = await latestReport(tx, scope)
   let suggestions = changes
+  let carried: Change[] = []
   const changedDestination =
     previous?.status === 'open' &&
     previous.linearDestination !== linearFields.linearDestination &&
     findings.some(({ kind }) => kind === 'linear_tasks')
+  if (previous?.status === 'open') {
+    const rows = await draftRows(tx, previous)
+    const current = new Map(changes.map((change) => [keyFor(change), change]))
+    // A rejection stays in force while the rejected change still applies, even if the report is replaced.
+    carried = rows.filter(
+      (row) => row.status === 'rejected' && stillApplies(proposed(row), current.get(row.driftKey)),
+    )
+    const reviewed = new Set(carried.map((row) => row.driftKey))
+    if (previous.fingerprint === fingerprint)
+      for (const row of rows) if (row.status === 'accepted') reviewed.add(row.driftKey)
+    suggestions = changes.filter((change) => !reviewed.has(keyFor(change)))
+  }
   if (previous?.fingerprint === fingerprint && !changedDestination) {
     const rows = previous.status === 'open' ? await draftRows(tx, previous) : []
-    const reviewed = new Set(
-      rows.filter((row) => row.status !== 'pending').map((row) => row.driftKey),
-    )
-    suggestions = changes.filter((change) => !reviewed.has(keyFor(change)))
     const pending = rows.filter((row) => row.status === 'pending')
     const byKey = new Map(suggestions.map((change) => [keyFor(change), change]))
     if (
@@ -289,6 +298,15 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
       (pending.length === suggestions.length &&
         pending.every((row) => stillApplies(proposed(row), byKey.get(row.driftKey))))
     ) {
+      // Keep the shown date equal to the date that accepting would apply.
+      for (const row of pending) {
+        const current = byKey.get(row.driftKey)
+        if (current?.kind === 'milestone_date' && !sameJson(row.after, current))
+          await tx
+            .update(draftChanges)
+            .set({ after: current, updatedAt: new Date() })
+            .where(and(eq(draftChanges.id, row.id), eq(draftChanges.draftId, row.draftId)))
+      }
       await tx
         .update(driftReports)
         .set({ ...linearFields, ...(previous.status === 'open' ? { findings } : {}) })
@@ -303,7 +321,7 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
       .where(and(eq(driftReports.id, previous.id), eq(driftReports.projectId, scope.projectId)))
   if (!findings.length && !previous) return
   let draftId: string | null = null
-  if (suggestions.length) {
+  if (suggestions.length || carried.length) {
     const [draft] = await tx
       .insert(drafts)
       .values({
@@ -316,15 +334,23 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
       .returning({ id: drafts.id })
     if (!draft) throw new Error('Drift draft could not be stored')
     draftId = draft.id
-    await tx.insert(draftChanges).values(
-      suggestions.map((change) => ({
+    await tx.insert(draftChanges).values([
+      ...carried.map(({ kind, driftKey, before, after, status }) => ({
+        draftId: draft.id,
+        kind,
+        driftKey,
+        before,
+        after,
+        status,
+      })),
+      ...suggestions.map((change) => ({
         draftId: draft.id,
         kind: change.kind === 'risk_severity' ? ('risks' as const) : ('milestones' as const),
         driftKey: keyFor(change),
         before: change.kind === 'milestone_tasks' ? null : change.before,
         after: change,
       })),
-    )
+    ])
   }
   await tx.insert(driftReports).values({
     ...linearFields,
@@ -336,9 +362,12 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
   })
 }
 
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
 function stillApplies(change: ProposedChange, current: ProposedChange | undefined) {
   if (change.kind === 'milestone_date' && current?.kind === 'milestone_date')
-    return change.before === current.before && change.after === current.after
+    // `after` is just today's date at check time; only the due date decides staleness.
+    return change.before === current.before
   if (change.kind === 'risk_severity' && current?.kind === 'risk_severity')
     return change.before === current.before && change.decideBy === current.decideBy
   if (change.kind === 'milestone_tasks' && current?.kind === 'milestone_tasks')
@@ -424,14 +453,20 @@ async function recordDriftDecision(
     .returning({ id: decisions.id })
   await tx
     .update(draftChanges)
-    .set({ status: outcome, before, appliedSnapshot, updatedAt: now })
+    .set({ status: outcome, before, after: row.after, appliedSnapshot, updatedAt: now })
     .where(and(eq(draftChanges.id, row.id), eq(draftChanges.draftId, row.draftId)))
   await recordActivity(tx, {
     ...scope,
     actorId,
     type: accepted ? 'draft.accepted' : 'draft.rejected',
     subject: row.id,
-    payload: { section: row.kind, before: 'pending', after: outcome, decisionId: decision?.id },
+    payload: {
+      section: row.kind,
+      source: 'drift',
+      before: 'pending',
+      after: outcome,
+      decisionId: decision?.id,
+    },
   })
 }
 
@@ -504,7 +539,10 @@ export async function reviewDrift(
     const current = evaluateDrift(await driftFacts(tx, scope), now)
     const proposals = new Map(current.changes.map((change) => [keyFor(change), change]))
     for (const row of selected) {
-      if (!stillApplies(proposed(row), proposals.get(row.driftKey))) throw new StaleDriftReport()
+      const proposal = proposals.get(row.driftKey)
+      if (!stillApplies(proposed(row), proposal)) throw new StaleDriftReport()
+      // Apply today's proposal, not the date stored when the report was created.
+      if (proposal?.kind === 'milestone_date') row.after = proposal
     }
   }
   for (const row of selected)
