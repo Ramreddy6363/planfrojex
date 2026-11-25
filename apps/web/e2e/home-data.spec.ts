@@ -113,7 +113,7 @@ test('Home shows real recent activity', async ({ page }) => {
   await page.goto('/northwind')
   const feed = page.getByRole('region', { name: 'Recent activity' })
   await expect(feed.getByText('Luis Ortiz')).toBeVisible()
-  await expect(feed.getByText(/task status changed/i)).toBeVisible()
+  await expect(feed.getByText(/changed the status of a task in/)).toBeVisible()
   await expect(feed.getByRole('link', { name: planned.name })).toBeVisible()
   await expect(page.getByText('No activity yet')).toHaveCount(0)
 })

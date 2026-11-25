@@ -263,7 +263,7 @@ test('Projects uses compact rows and opens mobile search and project creation', 
   await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Customer portal rebuild' })).toBeVisible()
   await expect(page.getByRole('list', { name: 'Projects' }).getByText('18/42')).toBeVisible()
-  await expect(page.getByText('Draft · No plan yet')).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Projects' }).getByText('No plan yet')).toBeVisible()
   await page.screenshot({ path: test.info().outputPath('mobile-701.png') })
   await page.getByRole('button', { name: 'Search projects' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
@@ -738,3 +738,20 @@ test('Settings share links fit at 390px and Revoke is reachable', async ({ page 
   expect(box?.height).toBeGreaterThanOrEqual(44)
   await expect(revoke).toBeEnabled()
 })
+
+for (const [name, path] of [
+  ['Home', '/northwind'],
+  ['Projects', '/northwind/projects'],
+  ['My tasks', '/northwind/my-tasks'],
+  ['Inbox', '/northwind/inbox'],
+] as const)
+  test(`a failed sign-out from the ${name} menu shows an error`, async ({ page }) => {
+    await page.route('http://localhost:8787/api/auth/sign-out', (route) =>
+      route.fulfill({ status: 500, headers, json: { message: 'x' } }),
+    )
+    await page.goto(path)
+    await page.getByRole('button', { name: 'Workspace menu' }).click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    await expect(page.getByText('Could not sign out. Try again.')).toBeVisible()
+    await expect(page).toHaveURL(path)
+  })

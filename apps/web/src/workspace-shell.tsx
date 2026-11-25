@@ -104,6 +104,14 @@ export function MobileWorkspaceMenu({
           },
         ]}
       />
+      {action.error ? (
+        <p
+          role="alert"
+          className="fixed inset-x-4 top-16 z-40 rounded-control border border-border bg-bg p-3 text-danger"
+        >
+          {action.error}
+        </p>
+      ) : null}
     </span>
   )
 }

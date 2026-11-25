@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createRoute, Link, redirect, useLoaderData, useNavigate } from '@tanstack/react-router'
 import { CircleCheck, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { activitySentence } from '../activity-sentence'
 import { api, call, RequestError } from '../api'
 import { getMyTasks, myTasksKey } from '../my-tasks'
 import { NewProjectDialog } from '../new-project-dialog'
@@ -134,7 +135,7 @@ function RecentActivity({ slug }: { slug: string }) {
             <li key={item.id} className="text-ui">
               <p>
                 <span className="font-semibold">{item.actorName}</span>{' '}
-                {item.type.replace(/[._]/g, ' ')} in{' '}
+                {activitySentence(item.type)} in{' '}
                 <Link
                   to="/$ws/projects/$projectId"
                   params={{ ws: slug, projectId: item.projectId }}
@@ -209,7 +210,6 @@ function YourTasks({ slug }: { slug: string }) {
 
 function Workspace() {
   const { workspace, me } = useLoaderData({ from: '/$ws' })
-  const _navigate = useNavigate()
   const [newProjectOpen, setNewProjectOpen] = useState(false)
   return (
     <WorkspaceShell workspace={workspace} me={me} active="home">

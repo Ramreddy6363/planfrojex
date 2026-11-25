@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest'
 import { activity, memberships, projects, user, workspaces } from '../db/schema'
 import { createApp } from '../index'
@@ -107,7 +108,62 @@ integrationSuite(url)('workspace recent activity', () => {
     actor = 'outsider'
     expect((await get()).status).toBe(404)
   })
-  it('rejects a bad limit', async () => {
-    expect((await get('/workspaces/northwind/activity?limit=101')).status).toBe(400)
+  it('validates the limit', async () => {
+    for (const limit of ['0', '21', 'x'])
+      expect((await get(`/workspaces/northwind/activity?limit=${limit}`)).status, limit).toBe(400)
+    expect((await get('/workspaces/northwind/activity?limit=20')).status).toBe(200)
+  })
+  it('orders newest first and hides soft-deleted projects', async () => {
+    const [north] = await db.db.select().from(workspaces).where(eq(workspaces.slug, 'northwind'))
+    if (!north) throw new Error('Missing workspace')
+    const [gone] = await db.db
+      .insert(projects)
+      .values({
+        workspaceId: north.id,
+        name: 'Gone',
+        key: 'GONE',
+        leadId: 'owner',
+        brief: { problem: '' },
+        deletedAt: new Date(),
+      })
+      .returning()
+    const [portal] = await db.db.select().from(projects).where(eq(projects.key, 'PORT'))
+    if (!gone || !portal) throw new Error('Missing project')
+    await db.db.insert(activity).values([
+      {
+        workspaceId: north.id,
+        projectId: gone.id,
+        actorId: 'owner',
+        type: 'task.created',
+        payload: {},
+        createdAt: new Date('2030-01-01'),
+      },
+      {
+        workspaceId: north.id,
+        projectId: portal.id,
+        actorId: 'owner',
+        type: 'task.deleted',
+        payload: {},
+        createdAt: new Date('2029-01-01'),
+      },
+    ])
+    const { activity: items } = (await (await get()).json()) as { activity: Item[] }
+    expect(items.map((item) => item.type)).toEqual(['task.deleted', 'task.created'])
+    expect(items.some((item) => item.projectName === 'Gone')).toBe(false)
+  })
+  it('masks external reviewers like the project activity route', async () => {
+    const [north] = await db.db.select().from(workspaces).where(eq(workspaces.slug, 'northwind'))
+    const [portal] = await db.db.select().from(projects).where(eq(projects.key, 'PORT'))
+    if (!north || !portal) throw new Error('Missing rows')
+    await db.db.insert(activity).values({
+      workspaceId: north.id,
+      projectId: portal.id,
+      actorId: 'owner',
+      type: 'review.approved',
+      payload: {},
+      createdAt: new Date('2031-01-01'),
+    })
+    const { activity: items } = (await (await get()).json()) as { activity: Item[] }
+    expect(items[0]).toMatchObject({ type: 'review.approved', actorName: 'External reviewer' })
   })
 })

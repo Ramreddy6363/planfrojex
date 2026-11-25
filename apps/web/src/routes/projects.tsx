@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
+import { createRoute, Link, useLoaderData } from '@tanstack/react-router'
 import { ArrowUpDown, FolderKanban, Plus, Star } from 'lucide-react'
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import { api, call } from '../api'
 import { NewProjectDialog } from '../new-project-dialog'
 import { ProjectProgress } from '../project-progress'
@@ -14,7 +14,7 @@ import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
 import { SkeletonRows } from '../ui/skeleton-row'
-import { StatusGlyph, StatusLabel } from '../ui/status'
+import { StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
 import { MobileWorkspaceMenu, WorkspaceSearchButton, WorkspaceShell } from '../workspace-shell'
@@ -23,12 +23,6 @@ import { loadWorkspace, WorkspaceError } from './workspace'
 
 type View = 'all' | 'active' | 'mine' | 'starred'
 type Status = 'draft' | 'planning' | 'in-progress' | 'completed' | 'archived'
-const subscribePhone = (onChange: () => void) => {
-  const query = window.matchMedia('(max-width: 767px)')
-  query.addEventListener('change', onChange)
-  return () => query.removeEventListener('change', onChange)
-}
-const phoneSnapshot = () => window.matchMedia('(max-width: 767px)').matches
 const shortDate = (date: string | null) =>
   date
     ? new Intl.DateTimeFormat(undefined, {
@@ -57,13 +51,6 @@ function MobileProjectRow({
   busy: boolean
   onStar: () => void
 }) {
-  const phone = useSyncExternalStore(subscribePhone, phoneSnapshot, () => false)
-  const detail = useQuery({
-    queryKey: ['project', project.id],
-    queryFn: () => call(api.projects[':id'].$get({ param: { id: project.id } })),
-    enabled: phone,
-  })
-  const progress = detail.data?.project.taskProgress
   return (
     <li className="min-h-20 border-b border-border px-4 pb-3">
       <div className="flex min-w-0 items-center gap-1">
@@ -91,46 +78,15 @@ function MobileProjectRow({
         />
       </div>
       <div className="flex min-w-0 items-center gap-3 text-caption text-text-muted">
-        {progress?.total ? (
-          <>
-            <StatusLabel status={project.status} />
-            <span
-              role="progressbar"
-              aria-label={`${project.name} task progress`}
-              aria-valuemin={0}
-              aria-valuemax={progress.total}
-              aria-valuenow={progress.done}
-              className="h-1 w-14 shrink-0 overflow-hidden rounded-control bg-bg-muted"
-            >
-              <span
-                className={`block h-full rounded-control ${project.status === 'completed' ? 'bg-success' : 'bg-accent'}`}
-                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-              />
-            </span>
-            <span className="font-mono text-caption">
-              {progress.done}/{progress.total}
-            </span>
-          </>
-        ) : detail.isError ? (
-          <span>Couldn’t load progress</span>
-        ) : progress ? (
-          <span className="inline-flex items-center gap-1.5">
-            <StatusGlyph status="draft" />
-            Draft · No plan yet
-          </span>
-        ) : (
-          <span>Loading progress…</span>
-        )}
-        {progress?.total ? (
-          <span className="ml-auto shrink-0 font-mono">{shortDate(project.targetDate)}</span>
-        ) : null}
+        <StatusLabel status={project.status} />
+        <ProjectProgress id={project.id} name={project.name} />
+        <span className="ml-auto shrink-0 font-mono">{shortDate(project.targetDate)}</span>
       </div>
     </li>
   )
 }
 function Projects() {
   const { workspace, me } = useLoaderData({ from: '/$ws/projects' })
-  const _navigate = useNavigate()
   const slug = workspace.slug
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('all')
