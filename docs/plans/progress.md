@@ -341,6 +341,19 @@ From the full review and real end-to-end run on 2026-11-25. Two branches, no new
 - Tests first, every change. New endpoints filter by workspace and get a cross-workspace 404 test.
 - **Not in this pass (decisions or lower priority):** landing "free" wording, React Flow attribution licence, reviewer-code guess cap, unsubscribe re-click message, sidebar links, shell error handling, mention-list accessibility, brief file split.
 
+## 2026-11-26: Cloudflare Workers deploy (one Worker, no custom domain yet) — approved
+Goal: host web and API from one Worker on `*.workers.dev` so session cookies are same-origin. A custom domain is added later without code changes.
+- **Why one origin:** web and API on two `workers.dev` addresses are cross-site; Better Auth and reviewer cookies use SameSite Lax defaults and would not stick.
+- **Worker config (`apps/api/wrangler.jsonc`):** `assets` serves `../web/dist` with single-page-app fallback; `run_worker_first` lists the API prefixes (`/api/*`, `/health`, `/me`, `/workspaces/*`, `/projects/*`, `/diagrams/*`, `/drafts/*`, `/public/*`, `/integrations/*`, `/comments`, `/tasks/*`, `/invites/*`, `/inbox`, `/risks/*`, `/milestones/*`, `/webhooks/*`, `/templates`, `/review-requests/*`, `/decisions/*`). Crons stay. The `workers.dev` address is only known after the first deploy, so `WEB_ORIGIN` and `BETTER_AUTH_URL` are set by the owner after deploy 1, then deploy 2.
+- **Route clash:** API `GET /share/{token}` moves to `/public/share/{token}` (as on the API board), freeing `/share/$token` for the web page. Web client and tests follow.
+- **Reserved workspace slugs:** add every API first segment (me, inbox, projects, workspaces, diagrams, drafts, public, integrations, comments, tasks, invites, risks, milestones, webhooks, templates, share, review-requests, decisions, health) so a workspace URL can never hit an API path.
+- **Web API base:** one helper; in production builds it defaults to the page origin (`VITE_API_URL` still overrides, localhost:8787 in dev), so one build works on `workers.dev` and on a later custom domain.
+- **Guard test:** every route in the Hono app has a first segment covered by `run_worker_first`, and no web route's first segment is, and every API first segment is a reserved slug.
+- **Production drafting:** a missing `ANTHROPIC_API_KEY` or `TRIGGER_SECRET_KEY` shows "drafting is not set up" instead of the fixed sample plan (fake drafter only in dev and tests).
+- **Deploy script:** `pnpm --filter @planfrojex/api deploy` builds the web app first, then `wrangler deploy`. No deploy is run by an agent; the owner runs it.
+- **Owner steps (not in code):** Neon production database and migrations 0001–0021; pick the `workers.dev` name on first deploy; `wrangler secret put` for the secrets; Google OAuth redirect `https://<worker>/api/auth/callback/google`. Resend can send only test mail until a domain is verified, so Google sign-in is the practical login at first.
+- **Out of scope:** custom domain, Resend domain, Linear OAuth app, Trigger.dev, extra security headers on assets.
+
 ## Still open before production
 - Apply migrations 0001–0020 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
