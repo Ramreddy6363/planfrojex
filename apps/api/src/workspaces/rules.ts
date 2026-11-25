@@ -7,6 +7,7 @@ export const reservedSlugs = new Set([
   'verify',
   'onboarding',
   'invite',
+  'assets', // the web build's /assets files
   // First segments of API routes: the single Worker answers these before the web app does.
   'me',
   'inbox',

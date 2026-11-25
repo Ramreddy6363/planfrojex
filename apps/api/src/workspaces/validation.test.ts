@@ -33,6 +33,8 @@ describe('workspace request validation', () => {
     expect(validWorkspaceSlug('northwind')).toBe(true)
     expect(validWorkspaceSlug('bad--url')).toBe(false)
     expect(validWorkspaceSlug('api')).toBe(false)
+    // Vite emits the web app's files under /assets, so that URL belongs to the build.
+    expect(validWorkspaceSlug('assets')).toBe(false)
   })
 
   it('accepts a valid workspace and rejects invalid or reserved slugs', () => {
