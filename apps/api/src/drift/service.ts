@@ -298,6 +298,15 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
       (pending.length === suggestions.length &&
         pending.every((row) => stillApplies(proposed(row), byKey.get(row.driftKey))))
     ) {
+      // Keep the shown date equal to the date that accepting would apply.
+      for (const row of pending) {
+        const current = byKey.get(row.driftKey)
+        if (current?.kind === 'milestone_date' && !sameJson(row.after, current))
+          await tx
+            .update(draftChanges)
+            .set({ after: current, updatedAt: new Date() })
+            .where(and(eq(draftChanges.id, row.id), eq(draftChanges.draftId, row.draftId)))
+      }
       await tx
         .update(driftReports)
         .set({ ...linearFields, ...(previous.status === 'open' ? { findings } : {}) })
@@ -352,6 +361,8 @@ export async function checkDrift(tx: ActivityTx, scope: Scope, actorId?: string)
     status: findings.length ? 'open' : 'dismissed',
   })
 }
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 function stillApplies(change: ProposedChange, current: ProposedChange | undefined) {
   if (change.kind === 'milestone_date' && current?.kind === 'milestone_date')
@@ -442,7 +453,7 @@ async function recordDriftDecision(
     .returning({ id: decisions.id })
   await tx
     .update(draftChanges)
-    .set({ status: outcome, before, appliedSnapshot, updatedAt: now })
+    .set({ status: outcome, before, after: row.after, appliedSnapshot, updatedAt: now })
     .where(and(eq(draftChanges.id, row.id), eq(draftChanges.draftId, row.draftId)))
   await recordActivity(tx, {
     ...scope,

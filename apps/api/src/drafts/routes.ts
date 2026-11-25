@@ -932,10 +932,10 @@ export function createProjectDraftRoutes(
         .limit(1)
       return c.json(
         {
-          draft:
-            draft && draft.status !== 'failed' && draft.status !== 'discarded'
-              ? { id: draft.id, status: draft.status }
-              : null,
+          // The query above only selects queued, running or ready drafts.
+          draft: draft
+            ? { id: draft.id, status: draft.status as 'queued' | 'running' | 'ready' }
+            : null,
         },
         200,
       )

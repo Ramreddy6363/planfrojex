@@ -214,6 +214,39 @@ integrationSuite(url)('project drift', () => {
     }
   })
 
+  it('shows and applies the same milestone date on the day a pending suggestion is accepted', async () => {
+    const { db, milestone } = fixture
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-24T03:00:00.000Z'))
+      const { report } = (await (await fixture.action()).json()) as {
+        report: { id: string; changes: { id: string; kind: string }[] }
+      }
+      for (const day of ['2026-11-25', '2026-11-26', '2026-11-27']) {
+        vi.setSystemTime(new Date(`${day}T03:00:00.000Z`))
+        await fixture.action()
+      }
+      const served = (await (await fixture.get()).json()) as {
+        report: { id: string; changes: { id: string; kind: string; after: string }[] }
+      }
+      expect(served.report.id).toBe(report.id)
+      expect(served.report.changes.find(({ kind }) => kind === 'milestone_date')?.after).toBe(
+        '2026-11-27',
+      )
+      const change = served.report.changes.find(({ kind }) => kind === 'milestone_date')
+      await fixture.action({ action: 'accept_change', reportId: report.id, changeId: change?.id })
+      expect((await db.select().from(milestones))[0]?.dueDate).toBe('2026-11-27')
+      const [stored] = await db
+        .select()
+        .from(draftChanges)
+        .where(eq(draftChanges.id, change?.id as string))
+      expect(stored?.after).toMatchObject({ kind: 'milestone_date', after: '2026-11-27' })
+      expect(milestone.dueDate).not.toBe('2026-11-27')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('carries reviewed decisions forward when a report is replaced', async () => {
     const { db, project, milestone } = fixture
     vi.useFakeTimers({ toFake: ['Date'] })
