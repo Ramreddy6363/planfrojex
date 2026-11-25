@@ -1,5 +1,5 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
-import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, desc, eq, gt, isNotNull, isNull } from 'drizzle-orm'
 import { projects, statusReports } from '../db/schema'
 import type { Env } from '../env'
 import { projectForMember } from '../reviews/service'
@@ -125,6 +125,7 @@ export function createProjectStatusReportRoutes(
             eq(projects.workspaceId, project.workspaceId),
             isNull(projects.deletedAt),
             isNotNull(statusReports.sentAt),
+            gt(statusReports.recipientsCount, 0),
           ),
         )
         .orderBy(desc(statusReports.week))

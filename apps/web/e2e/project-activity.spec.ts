@@ -83,6 +83,15 @@ const entries = [
     comment: null,
     createdAt: '2026-10-08T12:00:00.000Z',
   },
+  {
+    id: 'e9',
+    actorId: 'owner',
+    actorName: 'Maya Chen',
+    type: 'draft.rejected',
+    subject: 'change-1',
+    payload: { section: 'risks', source: 'drift' },
+    createdAt: '2026-10-07T12:00:00.000Z',
+  },
 ]
 async function mockActivity(
   page: import('@playwright/test').Page,
@@ -218,6 +227,8 @@ test('activity groups timeline entries, renders details, filters and loads more'
   await page.screenshot({ path: '/tmp/feature9-activity-408.png' })
   await page.getByRole('button', { name: 'Load more' }).click()
   await expect(page.getByText('deleted a comment')).toBeVisible()
+  await expect(page.getByText('rejected a drift suggestion for Risks')).toBeVisible()
+  await expect(page.getByText('rejected the Risks section of the plan draft')).toHaveCount(0)
   await expect(page.getByText('secret deleted text')).toHaveCount(0)
   await page.getByLabel('Filter by person').selectOption('editor')
   await expect.poll(() => queries.at(-1)?.get('actor')).toBe('editor')

@@ -136,7 +136,42 @@ function historicalMilestoneDates(change: {
   })
 }
 
+const driftChange = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('milestone_date'),
+    code: z.string(),
+    title: z.string(),
+    after: z.iso.date(),
+  }),
+  z.object({
+    kind: z.literal('risk_severity'),
+    code: z.string(),
+    title: z.string(),
+    after: z.enum(['low', 'medium', 'high', 'critical']),
+  }),
+  z.object({
+    kind: z.literal('milestone_tasks'),
+    code: z.string(),
+    tasks: z.array(z.unknown()),
+  }),
+])
+const capitalized = (value: string) => `${value[0]?.toUpperCase()}${value.slice(1)}`
+
+// Drift suggestions are reviewed like plan sections but are not plan-draft sections.
+function driftDecisionText(row: Decision) {
+  const change = driftChange.safeParse(row.after)
+  if (!change.success) return null
+  const verb = row.outcome === 'rejected' ? 'Rejected' : 'Accepted'
+  const { data } = change
+  if (data.kind === 'milestone_date')
+    return `${verb} the suggested date change for ${data.code} ${data.title} to ${formatReportDate(data.after)}.`
+  if (data.kind === 'risk_severity')
+    return `${verb} raising ${data.code} ${data.title} to ${capitalized(data.after)}.`
+  return `${verb} adding ${data.tasks.length} tracker ${data.tasks.length === 1 ? 'task' : 'tasks'} to ${data.code}.`
+}
+
 type Decision = Pick<typeof decisions.$inferSelect, 'kind' | 'outcome' | 'createdAt'> & {
+  draftKind: string | null
   name: string | null
   before: unknown
   after: unknown
@@ -144,6 +179,8 @@ type Decision = Pick<typeof decisions.$inferSelect, 'kind' | 'outcome' | 'create
 }
 function decisionText(row: Decision) {
   let summary = `${outcomes[row.outcome]} the ${sections[row.kind]} section.`
+  const drift = row.draftKind === 'drift' ? driftDecisionText(row) : null
+  if (drift) summary = drift
   if (row.kind === 'milestones' && (row.outcome === 'accepted' || row.outcome === 'reversed')) {
     const dates = historicalMilestoneDates(row)
     if (dates.length)
@@ -248,6 +285,7 @@ async function readReport(
       outcome: decisions.outcome,
       createdAt: decisions.createdAt,
       name: user.name,
+      draftKind: drafts.kind,
       before: sql`case when ${drafts.id} is not null then ${draftChanges.before} end`,
       after: sql`case when ${drafts.id} is not null then ${draftChanges.after} end`,
       appliedSnapshot: sql`case when ${drafts.id} is not null then ${draftChanges.appliedSnapshot} end`,
@@ -723,6 +761,8 @@ export async function runWeeklyStatusEmails(
     .where(
       and(
         isNull(statusReports.sentAt),
+        // Older weeks are abandoned: a report built from today's data would be misleading.
+        gte(statusReports.week, dateOnly(offsetDays(end, -14))),
         eq(projects.status, 'in-progress'),
         isNull(projects.deletedAt),
       ),
@@ -840,7 +880,20 @@ export async function runWeeklyStatusEmails(
             .update(statusReports)
             .set({ sentAt: now, recipientsCount: sentRows.length })
             .where(and(eq(statusReports.id, claim.id), eq(statusReports.projectId, project.id)))
-        // Leave a report with no recipients pending; a later retry can re-evaluate eligibility.
+        else {
+          const [attempted] = await db
+            .select({ id: statusReportDeliveries.id })
+            .from(statusReportDeliveries)
+            .where(eq(statusReportDeliveries.reportId, claim.id))
+            .limit(1)
+          // Every delivery ended cancelled or unknown: finish the report so it is not retried forever.
+          // A report with no deliveries stays pending; a later run can re-evaluate eligibility.
+          if (attempted)
+            await db
+              .update(statusReports)
+              .set({ sentAt: now, recipientsCount: 0 })
+              .where(and(eq(statusReports.id, claim.id), eq(statusReports.projectId, project.id)))
+        }
       }
     } catch {
       console.error('A weekly status report could not be processed.')

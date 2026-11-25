@@ -63,6 +63,7 @@ async function mockPlan(
   }))
   const decisions: Array<Record<string, unknown>> = []
   let draftStatus = initialDraftStatus
+  let draftStarted = false
   const project = {
     id: projectId,
     key: 'PORT',
@@ -130,7 +131,18 @@ async function mockPlan(
       })
     if (path === `/projects/${projectId}/status-reports`)
       return route.fulfill({ headers, json: { reports: [] } })
+    if (path === `/projects/${projectId}/drafts/active` && req.method() === 'GET') {
+      const active =
+        draftStarted &&
+        draftStatus === 'ready' &&
+        changes.some((change) => change.status === 'pending')
+      return route.fulfill({
+        headers,
+        json: { draft: active ? { id: draftId, status: draftStatus } : null },
+      })
+    }
     if (path === `/projects/${projectId}/drafts` && req.method() === 'POST') {
+      draftStarted = true
       if (draftStatus === 'discarded') draftStatus = 'ready'
       return route.fulfill({
         headers,
@@ -380,6 +392,24 @@ test('owner reviews a plan draft, accepts and rejects changes, then undoes an ac
   await expect
     .poll(() => state.decisions.some((decision) => decision.outcome === 'reversed'))
     .toBe(true)
+})
+
+test('a ready plan draft is restored after a reload and keeps its review progress', async ({
+  page,
+}) => {
+  const state = await mockPlan(page)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  await expect(page.getByRole('region', { name: 'Plan draft' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Draft plan from brief' }).click()
+  await expect(page.getByRole('region', { name: 'Plan draft' })).toContainText('ready for review')
+  await page.getByRole('button', { name: 'Reject', exact: true }).first().click()
+  await expect.poll(() => state.changes[0]?.status).toBe('rejected')
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Plan draft' })).toContainText('ready for review')
+  await expect(page.getByRole('region', { name: 'Plan draft' })).toContainText('1 of 6 sections')
+  await expect(page.locator('#milestones')).toContainText('First release')
+  await expect(page.getByRole('button', { name: 'Draft plan from brief' })).toHaveCount(0)
 })
 
 test('failed drafts can be discarded and started again', async ({ page }) => {

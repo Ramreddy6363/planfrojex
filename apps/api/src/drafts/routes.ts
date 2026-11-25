@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { TriggerClient } from '@trigger.dev/sdk'
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, exists, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { recordActivity } from '../activity/service'
 import {
   decisions,
@@ -85,6 +85,23 @@ const changeResponse = z.object({
   before: z.unknown(),
   after: z.unknown(),
   status: z.enum(['pending', 'accepted', 'rejected']),
+})
+const activeDraftRoute = createRoute({
+  method: 'get',
+  path: '/projects/{id}/drafts/active',
+  request: idParams,
+  responses: {
+    200: json(
+      z.object({
+        draft: z
+          .object({ id: z.uuid(), status: z.enum(['queued', 'running', 'ready']) })
+          .nullable(),
+      }),
+      'The newest plan draft that still needs review, or null',
+    ),
+    401: json(error, 'Sign in required'),
+    404: json(error, 'Project not found'),
+  },
 })
 const getDraftRoute = createRoute({
   method: 'get',
@@ -881,6 +898,47 @@ export function createProjectDraftRoutes(
         void run()
       }
       return c.json({ draft: { id: draft.id, status: 'queued' as const } }, 202)
+    })
+    .openapi(activeDraftRoute, async (c) => {
+      const { id: projectId } = c.req.valid('param')
+      const db = c.get('db')
+      const project = await visibleProject(db, projectId, c.get('user').id)
+      if (!project) return c.json({ error: 'Project not found' }, 404)
+      // Unresolved: still being drafted, or ready with at least one section not yet reviewed.
+      const [draft] = await db
+        .select({ id: drafts.id, status: drafts.status })
+        .from(drafts)
+        .where(
+          and(
+            eq(drafts.projectId, projectId),
+            eq(drafts.kind, 'plan'),
+            or(
+              inArray(drafts.status, ['queued', 'running']),
+              and(
+                eq(drafts.status, 'ready'),
+                exists(
+                  db
+                    .select({ id: draftChanges.id })
+                    .from(draftChanges)
+                    .where(
+                      and(eq(draftChanges.draftId, drafts.id), eq(draftChanges.status, 'pending')),
+                    ),
+                ),
+              ),
+            ),
+          ),
+        )
+        .orderBy(desc(drafts.createdAt), desc(drafts.id))
+        .limit(1)
+      return c.json(
+        {
+          // The query above only selects queued, running or ready drafts.
+          draft: draft
+            ? { id: draft.id, status: draft.status as 'queued' | 'running' | 'ready' }
+            : null,
+        },
+        200,
+      )
     })
     .openapi(getDraftRoute, async (c) => {
       const id = c.req.valid('param').id
