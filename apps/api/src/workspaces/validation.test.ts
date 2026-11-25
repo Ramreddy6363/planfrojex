@@ -1,4 +1,28 @@
 import { describe, expect, it } from 'vitest'
+
+// First path segments the API answers on; a workspace slug must never equal one.
+const apiSegments = [
+  'me',
+  'inbox',
+  'projects',
+  'workspaces',
+  'diagrams',
+  'drafts',
+  'public',
+  'integrations',
+  'comments',
+  'tasks',
+  'invites',
+  'risks',
+  'milestones',
+  'webhooks',
+  'templates',
+  'share',
+  'review-requests',
+  'decisions',
+  'health',
+]
+
 import { validWorkspaceName, validWorkspaceSlug } from './rules'
 import { createWorkspaceSchema, inviteSchema } from './validation'
 
@@ -19,6 +43,16 @@ describe('workspace request validation', () => {
     for (const slug of ['ab', 'Bad-Slug', 'two words', 'api', 'sign-in', '-bad', 'bad-']) {
       expect(
         createWorkspaceSchema.safeParse({ name: 'Northwind', slug, isPersonal: false }).success,
+      ).toBe(false)
+    }
+  })
+
+  it('refuses every API path segment as a workspace URL', () => {
+    for (const slug of apiSegments) {
+      expect(validWorkspaceSlug(slug), slug).toBe(false)
+      expect(
+        createWorkspaceSchema.safeParse({ name: 'Northwind', slug, isPersonal: false }).success,
+        slug,
       ).toBe(false)
     }
   })

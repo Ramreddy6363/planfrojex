@@ -67,7 +67,7 @@ function PublicShare() {
     enabled: !isReview,
     queryFn: () =>
       call(
-        api.share[':token'].$get(
+        api.public.share[':token'].$get(
           { param: { token } },
           { init: { credentials: 'omit', referrerPolicy: 'no-referrer' } },
         ),

@@ -14,20 +14,22 @@ import {
   type InferResponseType,
   parseResponse,
 } from 'hono/client'
+import { apiBase } from './api-base'
+import { UserError } from './user-error'
 
-export const api = hc<AppType>(import.meta.env.VITE_API_URL ?? 'http://localhost:8787', {
+const base = apiBase()
+export const api = hc<AppType>(base, {
   init: { credentials: 'include' },
 })
-const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
-export const projectTasksApi = hc<ProjectTaskRoutes>(apiBase, { init: { credentials: 'include' } })
-export const tasksApi = hc<TaskRoutes>(apiBase, { init: { credentials: 'include' } })
-export const integrationsApi = hc<IntegrationRoutes>(apiBase, { init: { credentials: 'include' } })
-const projectDriftApi = hc<ProjectDriftRoutes>(apiBase, { init: { credentials: 'include' } })
+export const projectTasksApi = hc<ProjectTaskRoutes>(base, { init: { credentials: 'include' } })
+export const tasksApi = hc<TaskRoutes>(base, { init: { credentials: 'include' } })
+export const integrationsApi = hc<IntegrationRoutes>(base, { init: { credentials: 'include' } })
+const projectDriftApi = hc<ProjectDriftRoutes>(base, { init: { credentials: 'include' } })
 export const projectDriftClient = projectDriftApi.projects[':id'].drift
 export type DriftResult = InferResponseType<typeof projectDriftClient.$get, 200>
 export type DriftReport = NonNullable<DriftResult['report']>
 export type DriftAction = InferRequestType<typeof projectDriftClient.check.$post>['json']
-const projectStatusReportApi = hc<ProjectStatusReportRoutes>(apiBase, {
+const projectStatusReportApi = hc<ProjectStatusReportRoutes>(base, {
   init: { credentials: 'include' },
 })
 export const projectStatusReportClient = projectStatusReportApi.projects[':id']['status-reports']
@@ -108,6 +110,14 @@ export class RequestError extends Error {
 }
 
 // Unwraps a typed client call: the success body, or a RequestError with the API's message.
+// Starting a draft can answer 503 "Drafting is not set up"; that text is written for people, so show it.
+export const startDraftCall = <T extends ClientResponse<unknown>>(response: Promise<T>) =>
+  call(response).catch((error) => {
+    throw error instanceof RequestError && error.status === 503
+      ? new UserError(error.message)
+      : error
+  })
+
 export async function call<T extends ClientResponse<unknown>>(
   response: T | Promise<T>,
 ): ReturnType<typeof parseResponse<T>> {

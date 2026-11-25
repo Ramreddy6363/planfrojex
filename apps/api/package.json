@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "wrangler dev --env dev --log-level warn",
-    "deploy": "wrangler deploy --minify",
+    "deploy": "pnpm --filter @planfrojex/web build && wrangler deploy --minify",
     "typecheck": "tsc",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",

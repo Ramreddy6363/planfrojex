@@ -14,6 +14,10 @@ describe('personal workspace slugs', () => {
     expect(slugForName('Team')).toBe('team')
     expect(slugForName("Jo's team")).toBe('jo-space')
   })
+  it('never makes a slug that is an API path', () => {
+    for (const name of ['Projects', 'Workspaces', 'Inbox', 'Health', 'Public', 'Review requests'])
+      expect(slugForName(name), name).toMatch(/-space$/)
+  })
   it('adds a suffix on collision without exceeding the maximum length', () => {
     expect(personalSlug('jo-space', 1)).toBe('jo-space-2')
     expect(personalSlug('a'.repeat(40), 1)).toBe(`${'a'.repeat(38)}-2`)
