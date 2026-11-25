@@ -7,6 +7,27 @@ export const reservedSlugs = new Set([
   'verify',
   'onboarding',
   'invite',
+  'assets', // the web build's /assets files
+  // First segments of API routes: the single Worker answers these before the web app does.
+  'me',
+  'inbox',
+  'projects',
+  'workspaces',
+  'diagrams',
+  'drafts',
+  'public',
+  'integrations',
+  'comments',
+  'tasks',
+  'invites',
+  'risks',
+  'milestones',
+  'webhooks',
+  'templates',
+  'share',
+  'review-requests',
+  'decisions',
+  'health',
 ])
 
 // Names are shown in emails, so links and line breaks are not allowed.

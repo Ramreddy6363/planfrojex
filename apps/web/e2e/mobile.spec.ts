@@ -215,7 +215,7 @@ async function mockApp(page: import('@playwright/test').Page) {
       return route.fulfill({ headers, json: { settings: [] } })
     if (path.startsWith('/workspaces/northwind/search'))
       return route.fulfill({ headers, json: { projects: [], tasks: [] } })
-    if (path === '/share/mobile-token') return route.fulfill({ headers, json: publicShare })
+    if (path === '/public/share/mobile-token') return route.fulfill({ headers, json: publicShare })
     return route.fulfill({ headers, status: 404, json: { error: 'Not found' } })
   })
 }
@@ -460,7 +460,7 @@ test('long project names wrap without horizontal overflow on mobile project and 
   await page.route(`http://localhost:8787/projects/${projectId}`, (route) =>
     route.fulfill({ headers, json: { project: { ...project, name: longName } } }),
   )
-  await page.route('http://localhost:8787/share/mobile-token', (route) =>
+  await page.route('http://localhost:8787/public/share/mobile-token', (route) =>
     route.fulfill({
       headers,
       json: { ...publicShare, project: { ...publicShare.project, name: longName } },

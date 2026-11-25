@@ -77,6 +77,7 @@ const createDraftRoute = createRoute({
     403: json(error, 'Owner or editor required'),
     404: json(error, 'Project not found'),
     429: json(error, 'Draft limit reached'),
+    503: json(error, 'Drafting is not set up'),
   },
 })
 const changeResponse = z.object({
@@ -825,6 +826,14 @@ export function createProjectDraftRoutes(
           )
         if (!diagram) return c.json({ error: 'Diagram not found' }, 404)
       }
+      // Production (ENVIRONMENT is set by wrangler.jsonc) never falls back to the fixed sample plan.
+      if (
+        c.env.ENVIRONMENT === 'production' &&
+        !options.draftModel &&
+        !options.diagramDraftModel &&
+        !(c.env.ANTHROPIC_API_KEY && c.env.TRIGGER_SECRET_KEY)
+      )
+        return c.json({ error: 'Drafting is not set up' }, 503)
       if (
         !(await consumeRateLimit(
           db,

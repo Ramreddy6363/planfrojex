@@ -110,7 +110,7 @@ const listRoute = createRoute({
 })
 const publicRoute = createRoute({
   method: 'get',
-  path: '/share/{token}',
+  path: '/public/share/{token}',
   request: { params: z.object({ token: z.string() }) },
   responses: {
     200: json(publicSchema, 'Public project'),
@@ -173,7 +173,7 @@ export function createShareRoutes(
     requireSession(options.auth),
     requireMember,
   )
-  app.use('/share/:token', async (c, next) => {
+  app.use('/public/share/:token', async (c, next) => {
     c.header('X-Robots-Tag', 'noindex')
     c.header('Referrer-Policy', 'no-referrer')
     await next()

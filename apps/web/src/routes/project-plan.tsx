@@ -2,7 +2,14 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
 import { CalendarDays, MoreHorizontal, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { api, call, type DriftAction, projectDriftClient, RequestError } from '../api'
+import {
+  api,
+  call,
+  type DriftAction,
+  projectDriftClient,
+  RequestError,
+  startDraftCall,
+} from '../api'
 import { ProjectDriftCard } from '../project-drift-card'
 import { ProjectWeeklyStatus } from '../project-weekly-status'
 import { relativeTime } from '../relative-time'
@@ -216,7 +223,7 @@ function ProjectPlan() {
     setEditing(kind)
   }
   const startDraft = async () => {
-    const result = await call(
+    const result = await startDraftCall(
       api.projects[':id'].drafts.$post({ param: { id: projectId }, json: { kind: 'plan' } }),
     )
     setActiveDraftId(result.draft.id)

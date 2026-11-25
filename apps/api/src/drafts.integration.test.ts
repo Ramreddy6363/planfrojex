@@ -269,6 +269,23 @@ suite('project drafts and decisions', () => {
     expect((await app.request(`/projects/${projectId}/drafts`, post(), env)).status).toBe(429)
   })
 
+  it('in production, refuses to draft when a key is missing instead of using the sample plan', async () => {
+    const production = { ...env, ENVIRONMENT: 'production' }
+    for (const keys of [{}, { ANTHROPIC_API_KEY: 'key' }, { TRIGGER_SECRET_KEY: 'key' }] as Array<
+      Record<string, string>
+    >) {
+      for (const body of [undefined, { kind: 'plan' }]) {
+        const response = await app.request(`/projects/${projectId}/drafts`, post(body), {
+          ...production,
+          ...keys,
+        })
+        expect(response.status).toBe(503)
+        expect(await response.json()).toEqual({ error: 'Drafting is not set up' })
+      }
+    }
+    expect(await db.db.select().from(schema.drafts)).toHaveLength(0)
+  })
+
   it('marks invalid model output failed without writing any changes', async () => {
     let receivedBrief: unknown
     const broken = createApp({

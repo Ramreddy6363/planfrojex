@@ -124,8 +124,8 @@ integrationSuite(url)('weekly status report delivery', () => {
     if (!shareToken) throw new Error('Missing public plan link for reviewer')
     if (!unsubscribeToken) throw new Error('Missing unsubscribe link for reviewer')
     expect(shareToken).not.toBe(unsubscribeToken)
-    expect((await fixture.request(`/share/${unsubscribeToken}`)).status).toBe(404)
-    const publicPlan = await fixture.request(`/share/${shareToken}`)
+    expect((await fixture.request(`/public/share/${unsubscribeToken}`)).status).toBe(404)
+    const publicPlan = await fixture.request(`/public/share/${shareToken}`)
     expect(publicPlan.status).toBe(200)
     const publicBody = await publicPlan.json()
     expect(publicBody).toMatchObject({
@@ -146,7 +146,7 @@ integrationSuite(url)('weekly status report delivery', () => {
     expect((await fixture.request(`/review-requests/${review.id}`, 'DELETE', 'owner')).status).toBe(
       200,
     )
-    expect((await fixture.request(`/share/${shareToken}`)).status).toBe(404)
+    expect((await fixture.request(`/public/share/${shareToken}`)).status).toBe(404)
     for (const mail of outbox) {
       expect(mail.subject).toContain('Weekly portal')
       expect(mail.html).toContain('Open the plan')
@@ -428,7 +428,7 @@ integrationSuite(url)('weekly status report delivery', () => {
       /Open the plan: http:\/\/localhost:5173\/share\/([A-Za-z0-9_-]{43})/,
     )?.[1]
     expect(shareToken).toBeTruthy()
-    expect((await fixture.request(`/share/${shareToken}`)).status).toBe(200)
+    expect((await fixture.request(`/public/share/${shareToken}`)).status).toBe(200)
   })
 
   it('refreshes an expired sending claim to the current reviewer scope', async () => {
@@ -483,7 +483,7 @@ integrationSuite(url)('weekly status report delivery', () => {
       /Open the plan: http:\/\/localhost:5173\/share\/([A-Za-z0-9_-]{43})/,
     )?.[1]
     expect(shareToken).toBeTruthy()
-    expect((await fixture.request(`/share/${shareToken}`)).status).toBe(200)
+    expect((await fixture.request(`/public/share/${shareToken}`)).status).toBe(200)
     const [replacement] = await db
       .insert(reviewRequests)
       .values({
@@ -509,7 +509,7 @@ integrationSuite(url)('weekly status report delivery', () => {
       .update(reviewRequests)
       .set({ cancelledAt: new Date('2026-11-25T04:00:00Z') })
       .where(eq(reviewRequests.id, review.id))
-    expect((await fixture.request(`/share/${shareToken}`)).status).toBe(404)
+    expect((await fixture.request(`/public/share/${shareToken}`)).status).toBe(404)
     const deliveries = await db
       .select({ state: statusReportDeliveries.state })
       .from(statusReportDeliveries)

@@ -113,7 +113,7 @@ test('opens a signed-out read-only project with only public requests', async ({ 
       path: '/',
     },
   ])
-  const requestPromise = page.waitForRequest('http://localhost:8787/share/public-token')
+  const requestPromise = page.waitForRequest('http://localhost:8787/public/share/public-token')
   const document = await page.goto('/share/public-token')
   expect(document?.headers()['x-robots-tag']).toBe('noindex')
   expect(document?.headers()['referrer-policy']).toBe('no-referrer')
@@ -134,7 +134,7 @@ test('opens a signed-out read-only project with only public requests', async ({ 
   await expect(page.locator('.react-flow__attribution')).toHaveCount(0)
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex')
   await expect(page.locator('meta[name="referrer"]')).toHaveAttribute('content', 'no-referrer')
-  expect(requests).toEqual(['/share/public-token'])
+  expect(requests).toEqual(['/public/share/public-token'])
   const headers = (await requestPromise).headers()
   expect(headers.cookie).toBeUndefined()
   expect(headers.referer).toBeUndefined()
@@ -171,7 +171,11 @@ test('unknown, revoked and deleted links have the same plain unavailable page', 
     await expect(page.getByText(shared.project.name)).toHaveCount(0)
     await expect(page.getByRole('navigation')).toHaveCount(0)
   }
-  expect(requests).toEqual(['/share/unknown', '/share/revoked', '/share/deleted'])
+  expect(requests).toEqual([
+    '/public/share/unknown',
+    '/public/share/revoked',
+    '/public/share/deleted',
+  ])
 })
 
 test('shows a useful service error without exposing project content', async ({ page }) => {

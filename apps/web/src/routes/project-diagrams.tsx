@@ -23,7 +23,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import { api, call, RequestError } from '../api'
+import { api, call, RequestError, startDraftCall } from '../api'
 import { queryClient } from '../session'
 import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
@@ -338,7 +338,7 @@ function ProjectDiagrams() {
     await save()
     if (latest.current.dirty || !selectedId)
       throw new UserError('Save your changes before drafting.')
-    const result = await call(
+    const result = await startDraftCall(
       api.projects[':id'].drafts.$post({
         param: { id: projectId },
         json: { kind: 'diagram', diagramId: selectedId, prompt },

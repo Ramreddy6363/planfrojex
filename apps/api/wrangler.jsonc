@@ -3,9 +3,51 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  // One Worker serves the web app and the API on one origin, so session cookies stay same-site.
+  // The owner sets WEB_ORIGIN and BETTER_AUTH_URL (secrets) to the workers.dev address after the first deploy.
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    // API paths run the Worker first; everything else is a file or the web app's index.html.
+    "run_worker_first": [
+      "/api/*",
+      "/health",
+      "/me",
+      "/me/*",
+      "/workspaces",
+      "/workspaces/*",
+      "/projects/*",
+      "/diagrams/*",
+      "/drafts/*",
+      "/public/*",
+      "/integrations/*",
+      "/comments",
+      "/comments/*",
+      "/tasks/*",
+      "/invites/*",
+      "/inbox",
+      "/inbox/*",
+      "/risks/*",
+      "/milestones/*",
+      "/webhooks/*",
+      "/templates",
+      "/review-requests/*",
+      "/decisions/*"
+    ]
+  },
+  // Production signal: no sample drafter, real email. vars are not inherited, so env.dev sets its own.
+  "vars": { "ENVIRONMENT": "production" },
   "triggers": { "crons": ["0 3 * * *", "0 9 * * 1"] },
   // Invocation logs include request URLs, which can contain share, review or unsubscribe tokens.
   "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   // `pnpm dev`: same Worker, but on the local Docker PostgreSQL through node-postgres.
-  "env": { "dev": { "main": "src/dev.ts" } }
+  // `assets` is inherited by env.dev, and wrangler fails when its directory is missing. Dev runs the web app
+  // with Vite, so point it at the always-present public folder and let the Worker answer every request (`/*`).
+  "env": {
+    "dev": {
+      "main": "src/dev.ts",
+      "vars": { "ENVIRONMENT": "development" },
+      "assets": { "directory": "../web/public", "run_worker_first": ["/*"] }
+    }
+  }
 }

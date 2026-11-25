@@ -9,6 +9,7 @@ async function mockPlan(
   page: import('@playwright/test').Page,
   role = 'owner',
   initialDraftStatus = 'ready',
+  draftingSetUp = true,
 ) {
   const headers = {
     'access-control-allow-origin': webOrigin(),
@@ -142,6 +143,8 @@ async function mockPlan(
       })
     }
     if (path === `/projects/${projectId}/drafts` && req.method() === 'POST') {
+      if (!draftingSetUp)
+        return route.fulfill({ headers, status: 503, json: { error: 'Drafting is not set up' } })
       draftStarted = true
       if (draftStatus === 'discarded') draftStatus = 'ready'
       return route.fulfill({
@@ -410,6 +413,15 @@ test('a ready plan draft is restored after a reload and keeps its review progres
   await expect(page.getByRole('region', { name: 'Plan draft' })).toContainText('1 of 6 sections')
   await expect(page.locator('#milestones')).toContainText('First release')
   await expect(page.getByRole('button', { name: 'Draft plan from brief' })).toHaveCount(0)
+})
+
+test('shows that drafting is not set up and no sample plan', async ({ page }) => {
+  await mockPlan(page, 'owner', 'ready', false)
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  await page.getByRole('button', { name: 'Draft plan from brief' }).click()
+  await expect(page.getByRole('alert')).toHaveText('Drafting is not set up')
+  await expect(page.getByRole('region', { name: 'Plan draft' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Draft plan from brief' })).toBeVisible()
 })
 
 test('failed drafts can be discarded and started again', async ({ page }) => {

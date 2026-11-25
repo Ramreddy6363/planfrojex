@@ -119,7 +119,7 @@ integrationSuite(url)('share links', () => {
     const created = await enable()
     const { token } = (await created.json()) as { token: string }
     const response = await app.request(
-      `/share/${token}`,
+      `/public/share/${token}`,
       { headers: { 'CF-Connecting-IP': ip } },
       env,
     )
@@ -165,7 +165,7 @@ integrationSuite(url)('share links', () => {
     const created = await request(path, 'PUT', { enabled: true, include: ['diagrams'] })
     const { token } = (await created.json()) as { token: string }
     const response = await app.request(
-      `/share/${token}`,
+      `/public/share/${token}`,
       { headers: { 'CF-Connecting-IP': '192.0.2.45' } },
       env,
     )
@@ -186,7 +186,10 @@ integrationSuite(url)('share links', () => {
       .values({ projectId: project.id, number: 1, title: 'Task', createdBy: 'owner' })
     const created = await request(path, 'PUT', { enabled: true, include: ['tasks'] })
     const { token } = (await created.json()) as { token: string }
-    const first = (await (await request(`/share/${token}`)).json()) as Record<string, unknown>
+    const first = (await (await request(`/public/share/${token}`)).json()) as Record<
+      string,
+      unknown
+    >
     expect(first.tasks).toEqual([{ key: 'ABC-1', title: 'Task', status: 'todo' }])
     for (const key of ['brief', 'plan', 'diagrams']) expect(first).not.toHaveProperty(key)
     const updated = await request(path, 'PUT', {
@@ -194,7 +197,10 @@ integrationSuite(url)('share links', () => {
       include: ['brief', 'plan', 'diagrams'],
     })
     expect(await updated.json()).not.toHaveProperty('token')
-    const second = (await (await request(`/share/${token}`)).json()) as Record<string, unknown>
+    const second = (await (await request(`/public/share/${token}`)).json()) as Record<
+      string,
+      unknown
+    >
     for (const key of ['brief', 'plan', 'diagrams']) expect(second).toHaveProperty(key)
     expect(second).not.toHaveProperty('tasks')
     const [otherWs] = await db.db.select().from(workspaces).where(eq(workspaces.slug, 'other'))
@@ -226,16 +232,16 @@ integrationSuite(url)('share links', () => {
   })
   it('limits public requests per IP and returns the same error for deleted projects', async () => {
     const { token } = (await (await enable()).json()) as { token: string }
-    const unknown = await (await request('/share/unknown')).json()
+    const unknown = await (await request('/public/share/unknown')).json()
     await db.db.update(projects).set({ deletedAt: new Date() })
-    const deleted = await request(`/share/${token}`)
+    const deleted = await request(`/public/share/${token}`)
     expect(deleted.status).toBe(404)
     expect(await deleted.json()).toEqual(unknown)
     for (let i = 0; i < 60; i++) {
       expect(
         (
           await app.request(
-            '/share/unknown',
+            '/public/share/unknown',
             { headers: { 'CF-Connecting-IP': '198.51.100.2' } },
             env,
           )
@@ -243,7 +249,7 @@ integrationSuite(url)('share links', () => {
       ).toBe(404)
     }
     const limited = await app.request(
-      '/share/unknown',
+      '/public/share/unknown',
       { headers: { 'CF-Connecting-IP': '198.51.100.2' } },
       env,
     )
@@ -259,7 +265,7 @@ integrationSuite(url)('share links', () => {
     const stored = await db.client.query('SELECT token_hash FROM share_links')
     expect(stored.rows[0].token_hash).not.toContain(token)
     expect(JSON.stringify(await (await request(path)).json())).not.toContain(token)
-    const publicResponse = await request(`/share/${token}`)
+    const publicResponse = await request(`/public/share/${token}`)
     expect(publicResponse.status).toBe(200)
     expect(publicResponse.headers.get('x-robots-tag')).toBe('noindex')
     expect(publicResponse.headers.get('referrer-policy')).toBe('no-referrer')
@@ -270,8 +276,8 @@ integrationSuite(url)('share links', () => {
     const share = (await (await request(path)).json()) as { share: { viewCount: number } }
     expect(share.share.viewCount).toBe(1)
     expect((await request(path, 'DELETE')).status).toBe(200)
-    const revoked = await request(`/share/${token}`)
-    const unknown = await request('/share/unknown')
+    const revoked = await request(`/public/share/${token}`)
+    const unknown = await request('/public/share/unknown')
     expect(revoked.status).toBe(404)
     expect(await revoked.json()).toEqual(await unknown.json())
     const next = (await (await enable()).json()) as { token: string }
@@ -294,6 +300,6 @@ it('returns the same public error and privacy headers for an unknown link', asyn
     }),
   }
   const app = createApp({ database: () => db as never })
-  const response = await app.request('/share/unknown', {}, env)
+  const response = await app.request('/public/share/unknown', {}, env)
   expect(response.headers.get('x-robots-tag')).toBe('noindex')
 })
