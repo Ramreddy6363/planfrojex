@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { mockDrift } from './drift-fixture'
-import { type Mode, mockSignedOut, mockStates, screens } from './states-fixture'
+import { type Mode, mockSignedOut, mockStates, projectScreens, screens } from './states-fixture'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const workspace = {
@@ -621,6 +621,20 @@ test('states and 404 do not overflow at 390px', async ({ page }) => {
       await page.goto(screen.path)
       await expect(
         page.getByText(mode === 'empty' ? screen.empty : screen.error, { exact: true }),
+      ).toBeVisible()
+      expect(await overflow(), `${screen.name} ${mode}`).toBeLessThanOrEqual(0)
+    }
+  }
+  // The brief's comment column is not shown at 390px, so its states are not checked here.
+  for (const screen of projectScreens.filter((item) => item.name !== 'Brief comments')) {
+    for (const mode of ['empty', 'fail'] satisfies Mode[]) {
+      await page.unrouteAll()
+      await mockStates(page, screen.target, mode)
+      await page.goto(screen.path)
+      await expect(
+        mode === 'empty'
+          ? page.getByText(screen.ok, { exact: true }).locator('visible=true').first()
+          : page.getByRole('alert').filter({ hasText: screen.error }),
       ).toBeVisible()
       expect(await overflow(), `${screen.name} ${mode}`).toBeLessThanOrEqual(0)
     }

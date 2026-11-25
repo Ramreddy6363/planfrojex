@@ -212,7 +212,9 @@ function ProjectTasks() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       {projectQuery.isPending ? (
-        <p className="p-8">Loading project…</p>
+        <div className="p-8">
+          <SkeletonRows />
+        </div>
       ) : projectQuery.isError ? (
         projectQuery.error instanceof RequestError && projectQuery.error.status === 404 ? (
           <div className="p-8">
@@ -526,7 +528,7 @@ function ProjectTasks() {
                       action={<Button onClick={() => selectTask()}>Close</Button>}
                     />
                   ) : !selectedTask ? (
-                    <p className="text-ui text-text-muted">Loading task…</p>
+                    <SkeletonRows count={3} />
                   ) : (
                     <>
                       <div className="mb-5 flex items-center gap-2">
@@ -711,7 +713,7 @@ function ProjectTasks() {
                       action={<Button onClick={() => selectTask()}>Close</Button>}
                     />
                   ) : !selectedTask ? (
-                    <p className="text-ui text-text-muted">Loading task…</p>
+                    <SkeletonRows count={3} />
                   ) : (
                     <>
                       <div className="mb-5 flex items-center gap-2">
@@ -1349,14 +1351,9 @@ function TaskComments({
         Comments <span>{commentsQuery.data?.comments.length ?? ''}</span>
       </h3>
       {commentsQuery.isPending ? (
-        <p className="text-caption text-text-muted">Loading comments…</p>
+        <SkeletonRows count={3} />
       ) : commentsQuery.isError ? (
-        <p className="text-caption text-text-muted">
-          Couldn’t load comments.{' '}
-          <Button size="sm" variant="ghost" onClick={() => void commentsQuery.refetch()}>
-            Retry
-          </Button>
-        </p>
+        <ErrorState title="Couldn’t load comments" onRetry={() => void commentsQuery.refetch()} />
       ) : (
         <ol className="space-y-4">
           {commentsQuery.data.comments.map((comment) => (

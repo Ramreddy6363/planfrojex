@@ -7,6 +7,7 @@ import { Checkbox } from './ui/checkbox'
 import { EmptyState, ErrorState } from './ui/empty-state'
 import { Icon } from './ui/icon'
 import { Select } from './ui/select'
+import { SkeletonRows } from './ui/skeleton-row'
 import { type Status, StatusLabel } from './ui/status'
 import { ActionError, useAction } from './use-action'
 
@@ -102,9 +103,7 @@ export function IntegrationsSettings({ slug }: { slug: string }) {
         </p>
       </div>
       {integrations.isPending ? (
-        <p role="status" className="text-text-muted">
-          Loading integrations…
-        </p>
+        <SkeletonRows count={3} />
       ) : integrations.isError ? (
         <ErrorState
           title="Couldn’t load integrations"

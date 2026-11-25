@@ -198,7 +198,7 @@ function Members() {
             <h2 className="font-semibold">Pending invites</h2>
             <p className="mt-1 text-caption text-text-muted">Invites expire after 7 days.</p>
             {invitations.isPending ? (
-              <p className="mt-4">Loading invitations…</p>
+              <SkeletonRows count={3} />
             ) : invitations.isError ? (
               <ErrorState
                 title="Couldn’t load invitations"

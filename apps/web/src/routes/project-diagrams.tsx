@@ -30,11 +30,12 @@ import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import type { DiagramScene, DiagramShape } from '../ui/diagram-canvas'
 import { Dialog } from '../ui/dialog'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { Textarea } from '../ui/textarea'
@@ -378,8 +379,15 @@ function ProjectDiagrams() {
   if (!project)
     return (
       <WorkspaceShell workspace={workspace} me={me} active="projects">
-        <div className="p-8 text-text-muted">
-          {projectQuery.isLoading ? 'Loading diagrams…' : 'Diagrams could not be loaded.'}
+        <div className="p-8">
+          {projectQuery.isError ? (
+            <ErrorState
+              title="Couldn’t load diagrams"
+              onRetry={() => void projectQuery.refetch()}
+            />
+          ) : (
+            <SkeletonRows />
+          )}
         </div>
       </WorkspaceShell>
     )
@@ -672,13 +680,14 @@ function ProjectDiagrams() {
             )}
             {selectedId ? (
               diagramQuery.isLoading ? (
-                <div className="flex-1 p-8 text-text-muted">Loading diagram…</div>
+                <div className="flex-1 p-8">
+                  <SkeletonRows />
+                </div>
               ) : diagramQuery.isError ? (
                 <div className="flex-1 p-8">
-                  <EmptyState
-                    title="Diagram could not be loaded"
-                    body="Try loading it again."
-                    action={<Button onClick={() => void diagramQuery.refetch()}>Try again</Button>}
+                  <ErrorState
+                    title="Couldn’t load the diagram"
+                    onRetry={() => void diagramQuery.refetch()}
                   />
                 </div>
               ) : (

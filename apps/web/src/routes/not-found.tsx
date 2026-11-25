@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { api, call } from '../api'
+import { api, call, RequestError } from '../api'
 import { CenterShell } from '../layouts'
 import { nextPath } from '../session'
 import { Button } from '../ui/button'
+import { ErrorState } from '../ui/empty-state'
 import { ActionError, useAction } from '../use-action'
 
 // Tick marks along a line, with a marker above the middle: the page that is not on the plan.
@@ -13,6 +14,7 @@ export function NotFound() {
   const navigate = useNavigate()
   const me = useQuery({ queryKey: ['me'], queryFn: () => call(api.me.$get()) })
   const { busy, error, run } = useAction()
+  const signedOut = me.error instanceof RequestError && me.error.status === 401
   return (
     <CenterShell>
       <div className="text-center">
@@ -40,7 +42,11 @@ export function NotFound() {
         <p className="mt-4 text-text-muted">
           The link may be old, or the project was moved or deleted.
         </p>
-        {me.isPending ? null : (
+        {me.isPending ? null : me.isError && !signedOut ? (
+          <div className="mt-8">
+            <ErrorState title="Couldn’t check your sign-in" onRetry={() => void me.refetch()} />
+          </div>
+        ) : (
           <Button
             variant="primary"
             className="mt-8"

@@ -14,6 +14,7 @@ import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { Tag } from '../ui/tag'
@@ -395,7 +396,7 @@ function ProjectBrief() {
         Comments <span>{commentsQuery.data?.comments.length ?? ''}</span>
       </h2>
       {commentsQuery.isPending ? (
-        <p className="text-text-muted">Loading comments…</p>
+        <SkeletonRows count={3} />
       ) : commentsQuery.isError ? (
         <ErrorState title="Couldn’t load comments" onRetry={() => void commentsQuery.refetch()} />
       ) : commentsQuery.data.comments.length === 0 ? (
@@ -514,7 +515,9 @@ function ProjectBrief() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       {projectQuery.isPending ? (
-        <p className="p-8">Loading project…</p>
+        <div className="p-8">
+          <SkeletonRows />
+        </div>
       ) : projectQuery.isError ? (
         projectQuery.error instanceof RequestError && projectQuery.error.status === 404 ? (
           <div className="p-8">

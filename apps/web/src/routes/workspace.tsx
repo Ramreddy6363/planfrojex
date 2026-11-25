@@ -3,6 +3,7 @@ import { createRoute, Link, redirect, useLoaderData, useNavigate } from '@tansta
 import { CircleCheck, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { api, call, RequestError } from '../api'
+import { getMyTasks, myTasksKey } from '../my-tasks'
 import { NewProjectDialog } from '../new-project-dialog'
 import { getMe, getWorkspace } from '../session'
 import { Avatar } from '../ui/avatar'
@@ -104,6 +105,59 @@ function YourProjects({ slug }: { slug: string }) {
   )
 }
 
+function YourTasks({ slug }: { slug: string }) {
+  const navigate = useNavigate()
+  const tasks = useQuery({
+    queryKey: [...myTasksKey(slug), 'home'],
+    queryFn: () => getMyTasks(slug, 'assigned', '', null, '5'),
+  })
+  return (
+    <section aria-labelledby="your-tasks">
+      <h2 id="your-tasks" className="mb-4 font-semibold">
+        My tasks
+      </h2>
+      {tasks.isPending ? (
+        <SkeletonRows count={3} />
+      ) : tasks.isError ? (
+        <ErrorState title="Couldn’t load your tasks" onRetry={() => void tasks.refetch()} />
+      ) : tasks.data.tasks.length === 0 ? (
+        <EmptyState
+          icon={CircleCheck}
+          title="Nothing assigned to you"
+          body="Tasks assigned to you show up here, grouped by when they’re due."
+          action={
+            <Button onClick={() => void navigate({ to: '/$ws/projects', params: { ws: slug } })}>
+              Browse projects
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <ul className="border-t border-border">
+            {tasks.data.tasks.map((task) => (
+              <li
+                key={task.id}
+                className="flex min-h-11 items-center gap-3 border-b border-border px-3"
+              >
+                <span className="w-20 shrink-0 font-mono text-text-muted">{task.key}</span>
+                <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                <span className="hidden text-text-muted md:inline">{task.projectName}</span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            to="/$ws/my-tasks"
+            params={{ ws: slug }}
+            className="mt-3 inline-block text-ui text-accent hover:underline"
+          >
+            View all my tasks
+          </Link>
+        </>
+      )}
+    </section>
+  )
+}
+
 function Workspace() {
   const { workspace, me } = useLoaderData({ from: '/$ws' })
   const navigate = useNavigate()
@@ -131,23 +185,7 @@ function Workspace() {
       </header>
       <div className="grid lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-8 p-4 md:p-8">
-          <section>
-            <h2 className="mb-4 font-semibold">My tasks</h2>
-            <EmptyState
-              icon={CircleCheck}
-              title="Nothing assigned to you"
-              body="Tasks assigned to you show up here, grouped by when they’re due."
-              action={
-                <Button
-                  onClick={() =>
-                    void navigate({ to: '/$ws/projects', params: { ws: workspace.slug } })
-                  }
-                >
-                  Browse projects
-                </Button>
-              }
-            />
-          </section>
+          <YourTasks slug={workspace.slug} />
           <YourProjects slug={workspace.slug} />
         </div>
         <section className="border-t border-border p-6 lg:min-h-[calc(100vh-56px)] lg:border-t-0 lg:border-l">

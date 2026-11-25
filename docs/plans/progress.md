@@ -365,4 +365,4 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 19 | Tracker sync | Settings › Integrations | shipped 2026-11-24 |
 | 20 | Drift detection | Plan drift card | shipped 2026-11-24 |
 | 21 | Weekly status email | Monday email | plan approved |
-| 22 | 404 and states pass | 404, states audit | plan approved |
+| 22 | 404 and states pass | 404, states audit | shipped 2026-11-25 |

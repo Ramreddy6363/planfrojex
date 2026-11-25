@@ -17,7 +17,10 @@ export const EmptyState = ({
   icon?: LucideIcon
   tone?: 'danger'
 }) => (
-  <div className="flex flex-col items-center gap-2 rounded-panel border border-border px-6 py-10 text-center">
+  <div
+    role={tone === 'danger' ? 'alert' : undefined}
+    className="flex flex-col items-center gap-2 rounded-panel border border-border px-6 py-10 text-center"
+  >
     {icon && (
       <span
         className={`mb-1 inline-flex size-11 items-center justify-center rounded-panel border border-border bg-bg-subtle ${tone === 'danger' ? 'text-danger' : 'text-text'}`}
