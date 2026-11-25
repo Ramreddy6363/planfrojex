@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { mockSignedOut, mockStates, screens } from './states-fixture'
 
 const OUT =
   '/tmp/claude-1001/-home-ramreddey-Documents-personal-planforjex/8ac40bf8-0c66-4311-8f13-0d94b986b00f/scratchpad/qa1/final/'
@@ -147,4 +148,34 @@ test('rule7 text scan', async ({ page }) => {
     expect(t, p).not.toMatch(/\bAI\b|gradient/)
     expect(t, p).not.toMatch(/\p{Extended_Pictographic}/u)
   }
+})
+
+test('rule7 text scan on 404, empty and error states', async ({ page }) => {
+  const scan = async (label: string) => {
+    const t = await page.evaluate(
+      () =>
+        document.body.innerText +
+        [...document.querySelectorAll('*')]
+          .map((e) => getComputedStyle(e).backgroundImage)
+          .join(' '),
+    )
+    expect(t, label).not.toMatch(/\bAI\b|gradient/)
+    expect(t, label).not.toMatch(/\p{Extended_Pictographic}/u)
+  }
+  for (const screen of screens) {
+    for (const mode of ['empty', 'fail'] as const) {
+      await page.unrouteAll()
+      await mockStates(page, screen.target, mode)
+      await page.goto(screen.path)
+      await expect(
+        page.getByText(mode === 'empty' ? screen.empty : screen.error, { exact: true }),
+      ).toBeVisible()
+      await scan(`${screen.name} ${mode}`)
+    }
+  }
+  await page.unrouteAll()
+  await mockSignedOut(page)
+  await page.goto('/a/b/c/d')
+  await expect(page.getByRole('heading', { name: "This page isn't on the plan" })).toBeVisible()
+  await scan('404')
 })

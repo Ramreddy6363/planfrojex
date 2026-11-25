@@ -7,8 +7,9 @@ import { dueDateGroup, dueDateGroups, formatTaskDueDate } from '../my-tasks-grou
 import { queryClient } from '../session'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
 import { WorkspaceShell } from '../workspace-shell'
@@ -152,13 +153,9 @@ function MyTasks() {
           </p>
         ) : null}
         {list.isPending ? (
-          <p className="p-3 text-text-muted">Loading tasks…</p>
+          <SkeletonRows />
         ) : list.isError && !list.data ? (
-          <EmptyState
-            title="Couldn’t load your tasks"
-            body="Try again to see your tasks."
-            action={<Button onClick={() => void list.refetch()}>Retry</Button>}
-          />
+          <ErrorState title="Couldn’t load your tasks" onRetry={() => void list.refetch()} />
         ) : tasks.length === 0 ? (
           <EmptyState
             title={view === 'completed' ? 'No completed tasks' : 'No tasks here'}

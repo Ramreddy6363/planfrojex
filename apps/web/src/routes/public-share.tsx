@@ -11,6 +11,7 @@ import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Progress } from '../ui/progress'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph, StatusLabel } from '../ui/status'
 import { Textarea } from '../ui/textarea'
 import { ActionError, useAction } from '../use-action'
@@ -478,7 +479,7 @@ function PublicShare() {
       ) : (
         <main className="mx-auto max-w-[840px] px-4 py-20 md:px-10">
           {query.isPending ? (
-            <p role="status">Loading shared project…</p>
+            <SkeletonRows />
           ) : showVerification ? (
             <form className="mx-auto max-w-110" onSubmit={action.submit(verify)}>
               <h1 className="text-title font-semibold">Confirm your email</h1>
@@ -570,6 +571,14 @@ function PublicShare() {
                 <p className="mt-3 text-body text-text-muted">
                   We couldn’t load this shared project. Please refresh the page in a moment.
                 </p>
+              )}
+              {!(
+                reviewUnavailable ||
+                (query.error instanceof RequestError && query.error.status === 404)
+              ) && (
+                <Button className="mt-6" onClick={() => void query.refetch()}>
+                  Try again
+                </Button>
               )}
             </>
           )}

@@ -336,7 +336,7 @@ test('a server error on a workspace shows a retry, not no-access', async ({ page
   await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible()
   await expect(page.getByText("You don't have access")).toHaveCount(0)
   fail = false
-  await page.getByRole('button', { name: 'Retry' }).click()
+  await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 
@@ -478,7 +478,9 @@ test('a failed sign-out stays on the workspace and says so', async ({ page }) =>
   await page.goto('/northwind')
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
-  await expect(page.getByRole('alert')).toHaveText('Could not sign out. Try again.')
+  await expect(page.getByRole('alert').filter({ hasText: 'Could not sign out' })).toHaveText(
+    'Could not sign out. Try again.',
+  )
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
 })
 

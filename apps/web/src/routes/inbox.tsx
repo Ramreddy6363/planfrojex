@@ -8,8 +8,9 @@ import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph } from '../ui/status'
 import { Textarea } from '../ui/textarea'
 import { ActionError, useAction } from '../use-action'
@@ -131,13 +132,9 @@ function Inbox() {
           aria-label="Notifications"
         >
           {list.isPending ? (
-            <p className="p-5 text-text-muted">Loading inbox…</p>
+            <SkeletonRows />
           ) : list.isError && !list.data ? (
-            <EmptyState
-              title="Couldn’t load your inbox"
-              body="Try again to see your notifications."
-              action={<Button onClick={() => void list.refetch()}>Retry</Button>}
-            />
+            <ErrorState title="Couldn’t load your inbox" onRetry={() => void list.refetch()} />
           ) : items.length === 0 ? (
             <EmptyState
               title="You’re all caught up"

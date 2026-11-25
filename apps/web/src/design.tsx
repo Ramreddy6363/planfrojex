@@ -10,7 +10,7 @@ import { CommandPalette } from './ui/command-palette'
 import { DiagramCanvas } from './ui/diagram-canvas'
 import { Dialog } from './ui/dialog'
 import { EmailListInput } from './ui/email-list-input'
-import { EmptyState } from './ui/empty-state'
+import { EmptyState, ErrorState } from './ui/empty-state'
 import { Input } from './ui/input'
 import { Menu } from './ui/menu'
 import { MobileTabs } from './ui/mobile-tabs'
@@ -304,6 +304,11 @@ const Panel = ({ theme }: { theme: 'light' | 'dark' }) => {
           />
         </div>
         <div className="w-100">
+          <ErrorState title="Couldn’t load projects" onRetry={() => {}} />
+        </div>
+        <div className="w-100">
+          <SkeletonRow />
+          <SkeletonRow />
           <SkeletonRow />
         </div>
       </Section>

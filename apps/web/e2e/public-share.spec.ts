@@ -194,7 +194,7 @@ test('shows a loading state without a session or project shell', async ({ page }
     })
   })
   await page.goto('/share/loading-token')
-  await expect(page.getByRole('status')).toHaveText('Loading shared project…')
+  await expect(page.getByRole('status', { name: 'Loading' })).toBeVisible()
   await expect(page.getByRole('navigation')).toHaveCount(0)
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex')
   release?.()

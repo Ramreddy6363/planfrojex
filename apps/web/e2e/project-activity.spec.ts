@@ -256,7 +256,7 @@ test('activity and people failures can be retried', async ({ page }) => {
       : route.fallback(),
   )
   await page.goto(`/northwind/projects/${projectId}/activity`)
-  await expect(page.getByText('Activity could not be loaded.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Couldn’t load activity', { exact: true })).toBeVisible()
   await expect(page.getByText('People could not be loaded.', { exact: true })).toBeVisible()
   fail = false
   await page.getByRole('button', { name: 'Retry people' }).click()

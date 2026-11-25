@@ -8,10 +8,11 @@ import { queryClient } from '../session'
 import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Progress } from '../ui/progress'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { type Status, StatusGlyph } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
@@ -309,12 +310,14 @@ function ProjectActivity() {
   if (!project)
     return (
       <WorkspaceShell workspace={workspace} me={me} active="projects">
-        <div className="p-8 text-text-muted">
-          {projectQuery.isLoading
-            ? 'Loading project activity…'
-            : 'Project activity could not be loaded.'}
-          {projectQuery.isError && (
-            <Button onClick={() => void projectQuery.refetch()}>Try again</Button>
+        <div className="p-8">
+          {projectQuery.isError ? (
+            <ErrorState
+              title="Couldn’t load project activity"
+              onRetry={() => void projectQuery.refetch()}
+            />
+          ) : (
+            <SkeletonRows />
           )}
         </div>
       </WorkspaceShell>
@@ -465,12 +468,9 @@ function ProjectActivity() {
         )}
         <section className="w-full max-w-[824px] px-4 py-8 md:px-8" aria-label="Project activity">
           <div aria-live="polite">
-            {timeline.isLoading ? <p className="text-text-muted">Loading activity…</p> : null}
+            {timeline.isLoading ? <SkeletonRows /> : null}
             {timeline.isError ? (
-              <div role="alert" className="space-y-3">
-                <p className="text-danger">Activity could not be loaded.</p>
-                <Button onClick={() => void timeline.refetch()}>Try again</Button>
-              </div>
+              <ErrorState title="Couldn’t load activity" onRetry={() => void timeline.refetch()} />
             ) : null}
             {!timeline.isLoading && !timeline.isError && !rows.length ? (
               <EmptyState

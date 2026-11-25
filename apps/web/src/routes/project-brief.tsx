@@ -9,11 +9,12 @@ import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { Tag } from '../ui/tag'
@@ -395,13 +396,9 @@ function ProjectBrief() {
         Comments <span>{commentsQuery.data?.comments.length ?? ''}</span>
       </h2>
       {commentsQuery.isPending ? (
-        <p className="text-text-muted">Loading comments…</p>
+        <SkeletonRows count={3} />
       ) : commentsQuery.isError ? (
-        <EmptyState
-          title="Couldn’t load comments"
-          body="Try again to read the discussion."
-          action={<Button onClick={() => void commentsQuery.refetch()}>Retry</Button>}
-        />
+        <ErrorState title="Couldn’t load comments" onRetry={() => void commentsQuery.refetch()} />
       ) : commentsQuery.data.comments.length === 0 ? (
         <p className="mb-4 text-caption text-text-muted">No comments yet.</p>
       ) : (
@@ -518,7 +515,9 @@ function ProjectBrief() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       {projectQuery.isPending ? (
-        <p className="p-8">Loading project…</p>
+        <div className="p-8">
+          <SkeletonRows />
+        </div>
       ) : projectQuery.isError ? (
         projectQuery.error instanceof RequestError && projectQuery.error.status === 404 ? (
           <div className="p-8">
@@ -534,11 +533,7 @@ function ProjectBrief() {
           </div>
         ) : (
           <div className="p-8">
-            <EmptyState
-              title="Couldn’t load project"
-              body="Try again to open this project."
-              action={<Button onClick={() => void projectQuery.refetch()}>Retry</Button>}
-            />
+            <ErrorState title="Couldn’t load project" onRetry={() => void projectQuery.refetch()} />
           </div>
         )
       ) : project ? (
