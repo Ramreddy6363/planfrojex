@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const apiTemplates = [
   { id: 'blank', name: 'Blank project', description: 'Write the brief yourself', brief: '' },
@@ -38,7 +39,7 @@ async function mockSignedOut(page: import('@playwright/test').Page) {
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')
@@ -154,7 +155,7 @@ test('public template cards and the New project picker use the same catalog', as
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')
@@ -209,7 +210,7 @@ test('landing stays public when the identity endpoint is unavailable', async ({ 
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')
@@ -236,7 +237,7 @@ test('signed-in visitors still enter their workspace from /', async ({ page }) =
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')

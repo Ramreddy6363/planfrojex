@@ -1,0 +1,1 @@
+CREATE INDEX "email_unsubscribes_share_token_idx" ON "email_unsubscribes" USING btree ("share_token_hash") WHERE "email_unsubscribes"."share_token_hash" is not null;

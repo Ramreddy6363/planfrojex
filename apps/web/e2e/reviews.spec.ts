@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 test.use({ viewport: { width: 1440, height: 1360 } })
 
@@ -56,7 +57,7 @@ async function mockReview(page: Page, { staleBrief = false } = {}) {
   let briefChanged = false
   let planChangeRequest: { comment: string } | null = null
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
@@ -212,7 +213,7 @@ test('reviewer can correct their email and resend an expired or wrong code', asy
     'http://localhost:8787/public/share/review-token/verify-email',
     async (route) => {
       const headers = {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
         'access-control-allow-methods': 'POST,OPTIONS',
         'access-control-allow-headers': 'content-type',

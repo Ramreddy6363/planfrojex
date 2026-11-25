@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const signedInUser = { id: '1', email: 'test@example.com', emailVerified: true }
 
@@ -7,7 +8,7 @@ test('signs in with a code and creates a personal workspace', async ({ page }) =
     const request = route.request()
     const path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -59,7 +60,7 @@ test('an invitee signs in and joins the invited workspace', async ({ page }) => 
     const request = route.request()
     const path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -112,7 +113,7 @@ test('sign-up collects a name and passes it when verifying the code', async ({ p
     const request = route.request()
     const path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -147,7 +148,7 @@ test('an expired invitation can be dismissed so sign-in can continue', async ({ 
   await page.route('http://localhost:8787/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -171,7 +172,7 @@ test('creates a team workspace and invites two teammates', async ({ page }) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -218,7 +219,7 @@ test('redirects signed-out visitors from a workspace to sign-in', async ({ page 
     route.fulfill({
       status: 401,
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
       json: { error: 'Sign in required' },
@@ -234,7 +235,7 @@ test('creates a unique personal workspace for a short name', async ({ page }) =>
     const request = route.request()
     const path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -264,7 +265,7 @@ test('shows the no-access state for another workspace', async ({ page }) => {
   await page.route('http://localhost:8787/me', (route) =>
     route.fulfill({
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
       json: { user: { email: 'other@example.com' }, workspaces: [] },
@@ -274,7 +275,7 @@ test('shows the no-access state for another workspace', async ({ page }) => {
     route.fulfill({
       status: 404,
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
       json: { error: 'Workspace not found' },
@@ -317,7 +318,7 @@ test('a server error on a workspace shows a retry, not no-access', async ({ page
     route.fulfill({
       json: { user: signedInUser, workspaces: [] },
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
     }),
@@ -326,7 +327,7 @@ test('a server error on a workspace shows a retry, not no-access', async ({ page
     route.fulfill({
       status: fail ? 500 : 200,
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
       json: fail ? { error: 'boom' } : { workspace: { name: 'Northwind', slug: 'northwind' } },
@@ -346,7 +347,7 @@ test('a wrong code clears the boxes and explains how to retry', async ({ page })
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/api/auth/sign-in/email-otp')
@@ -386,7 +387,7 @@ test('onboarding shows the signed-in email and keeps the URL prefix inside its f
   await page.route('http://localhost:8787/me', (route) =>
     route.fulfill({
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
       json: { user: { email: 'maya@example.com' }, workspaces: [] },
@@ -432,7 +433,7 @@ test('a wrong code clears the boxes, refocuses digit 1 and marks them invalid', 
       status: route.request().method() === 'OPTIONS' ? 204 : 400,
       json: { code: 'INVALID_OTP', message: 'Invalid OTP' },
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
         'access-control-allow-headers': 'content-type',
       },
@@ -456,7 +457,7 @@ test('a wrong code clears the boxes, refocuses digit 1 and marks them invalid', 
 
 test('a failed sign-out stays on the workspace and says so', async ({ page }) => {
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
@@ -485,7 +486,7 @@ test('a failed sign-out stays on the workspace and says so', async ({ page }) =>
 test('a link in the workspace name gets a plain message', async ({ page }) => {
   await page.route('http://localhost:8787/**', (route) => {
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',

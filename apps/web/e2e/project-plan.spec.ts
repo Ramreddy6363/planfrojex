@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { mockDrift } from './drift-fixture'
+import { mockStatusEmail } from './status-email-fixture'
+import { webOrigin } from './test-origin'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 
@@ -9,7 +11,7 @@ async function mockPlan(
   initialDraftStatus = 'ready',
 ) {
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',
@@ -126,6 +128,8 @@ async function mockPlan(
         headers,
         json: { sections, milestones, risks: [], lastChanged },
       })
+    if (path === `/projects/${projectId}/status-reports`)
+      return route.fulfill({ headers, json: { reports: [] } })
     if (path === `/projects/${projectId}/drafts` && req.method() === 'POST') {
       if (draftStatus === 'discarded') draftStatus = 'ready'
       return route.fulfill({
@@ -297,6 +301,52 @@ test('owner edits plan sections and adds milestones; viewer reads without write 
   await expect(page.getByRole('button', { name: 'Edit Requirements' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Draft plan from brief' })).toHaveCount(0)
   await expect(page.getByLabel('Milestone title')).toHaveCount(0)
+})
+
+test('editor previews this week’s status email and can read sent reports', async ({
+  page,
+}, testInfo) => {
+  await mockPlan(page, 'editor')
+  const requests = await mockStatusEmail(page, projectId)
+  await page.setViewportSize({ width: 900, height: 1100 })
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+
+  const status = page.getByRole('region', { name: 'Weekly status' })
+  await expect(status.getByText('2 recipients')).toBeVisible()
+  await status.getByRole('button', { name: 'Preview this week' }).click()
+  const preview = page.getByRole('dialog', { name: 'Weekly status preview' })
+  await expect(preview.getByText('Customer portal rebuild: at risk, week of Oct 13')).toBeVisible()
+  await expect(preview.getByText('At risk', { exact: true })).toBeVisible()
+  await expect(preview.getByText('was Nov 21')).toBeVisible()
+  await expect(
+    preview.getByRole('progressbar', { name: 'M2 Billing details and invoices' }),
+  ).toBeVisible()
+  await expect(preview.getByRole('heading', { name: 'Decisions this week' })).toBeVisible()
+  await expect(preview.getByRole('heading', { name: 'Next week' })).toBeVisible()
+  await expect(preview.getByRole('link', { name: 'Open the plan' })).toHaveAttribute(
+    'href',
+    `/northwind/projects/${projectId}/plan`,
+  )
+  await expect(preview.getByText('Unsubscribe', { exact: true })).toBeVisible()
+  await preview.screenshot({ path: testInfo.outputPath('weekly-status-preview-603.png') })
+  await preview.getByRole('button', { name: 'Close' }).click()
+
+  await status.getByRole('button', { name: 'View report for Oct 6, 2025' }).click()
+  const sent = page.getByRole('dialog', { name: 'Sent weekly status' })
+  await expect(sent.getByText('Customer portal rebuild: on track, week of Oct 6')).toBeVisible()
+  await expect(sent.getByText('No decisions recorded this week.')).toBeVisible()
+  expect(requests).toEqual(['GET', 'POST preview'])
+})
+
+test('viewer can open a sent report without a preview button', async ({ page }) => {
+  await mockPlan(page, 'viewer')
+  const requests = await mockStatusEmail(page, projectId)
+  await page.goto(`/northwind/projects/${projectId}/plan`)
+  const status = page.getByRole('region', { name: 'Weekly status' })
+  await expect(status.getByRole('button', { name: 'Preview this week' })).toHaveCount(0)
+  await status.getByRole('button', { name: 'View report for Oct 6, 2025' }).click()
+  await expect(page.getByRole('dialog', { name: 'Sent weekly status' })).toBeVisible()
+  expect(requests).toEqual(['GET'])
 })
 
 test('owner reviews a plan draft, accepts and rejects changes, then undoes an acceptance', async ({

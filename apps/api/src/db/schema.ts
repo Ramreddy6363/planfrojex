@@ -17,6 +17,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { DriftFinding } from '../drift/rules'
+import type { StatusReport } from '../status-reports/report'
 
 export type TrackerOptions = {
   pushMilestones: boolean
@@ -475,6 +476,73 @@ export const driftReports = pgTable(
   (t) => [
     index('drift_reports_project_created_idx').on(t.projectId, t.createdAt, t.id),
     uniqueIndex('drift_reports_project_open_idx').on(t.projectId).where(sql`${t.status} = 'open'`),
+  ],
+)
+
+export const statusReports = pgTable(
+  'status_reports',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    week: date('week').notNull(),
+    status: text('status', { enum: ['on_track', 'at_risk', 'off_track'] }).notNull(),
+    subject: text('subject').notNull(),
+    body: jsonb('body').$type<StatusReport['body']>().notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    recipientsCount: integer('recipients_count').notNull().default(0),
+  },
+  (t) => [uniqueIndex('status_reports_project_week_idx').on(t.projectId, t.week)],
+)
+
+export const statusReportDeliveries = pgTable(
+  'status_report_deliveries',
+  {
+    id: uuid('id').primaryKey().default(sql`planfrojex_uuidv7()`),
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => statusReports.id, { onDelete: 'cascade' }),
+    recipientHash: text('recipient_hash').notNull(),
+    shareInclude: text('share_include').array(),
+    shareTokenHash: text('share_token_hash'),
+    reviewRequestId: uuid('review_request_id'),
+    firstAttemptAt: timestamp('first_attempt_at', { withTimezone: true }),
+    report: jsonb('report').$type<StatusReport>().notNull(),
+    state: text('state', { enum: ['pending', 'sending', 'sent', 'cancelled', 'unknown'] })
+      .notNull()
+      .default('pending'),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('status_report_deliveries_recipient_idx').on(t.reportId, t.recipientHash)],
+)
+
+export const emailUnsubscribes = pgTable(
+  'email_unsubscribes',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    recipientHash: text('recipient_hash').notNull(),
+    deliveryId: uuid('delivery_id').references(() => statusReportDeliveries.id, {
+      onDelete: 'set null',
+    }),
+    shareTokenHash: text('share_token_hash'),
+    shareReviewRequestId: uuid('share_review_request_id').references(() => reviewRequests.id, {
+      onDelete: 'set null',
+    }),
+    unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('email_unsubscribes_share_token_idx')
+      .on(t.shareTokenHash)
+      .where(sql`${t.shareTokenHash} is not null`),
+    index('email_unsubscribes_project_recipient_idx').on(t.projectId, t.recipientHash),
+    uniqueIndex('email_unsubscribes_project_recipient_active_idx')
+      .on(t.projectId, t.recipientHash)
+      .where(sql`${t.unsubscribedAt} is not null`),
   ],
 )
 

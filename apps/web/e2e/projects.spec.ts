@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 test('owner creates and stars a project', async ({ page }) => {
   const workspace = {
@@ -11,7 +12,7 @@ test('owner creates and stars a project', async ({ page }) => {
   let created = false
   let starred = false
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',
@@ -122,7 +123,7 @@ test('sidebar loads every page of starred projects', async ({ page }) => {
     isPersonal: false,
   }
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
   }
   await page.route('http://localhost:8787/**', (route) => {
@@ -171,7 +172,7 @@ test('viewers can use filters and keyboard views and recover from a loading erro
     isPersonal: false,
   }
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
   }
   let failed = false
@@ -244,7 +245,7 @@ test('switching workspaces resets the projects page cursor', async ({ page }) =>
     isPersonal: false,
   })
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
   }
   await page.route('http://localhost:8787/**', (route) => {

@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const taskId = '83caa333-1604-43c5-8f15-61be120754e3'
@@ -47,7 +48,7 @@ async function mockSearch(page: import('@playwright/test').Page, role = 'owner')
       url = new URL(request.url()),
       path = url.pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -226,7 +227,7 @@ test('pending search cannot select a result from the previous query', async ({ p
     await new Promise((resolve) => setTimeout(resolve, 400))
     await route.fulfill({
       headers: {
-        'access-control-allow-origin': 'http://localhost:5199',
+        'access-control-allow-origin': webOrigin(),
         'access-control-allow-credentials': 'true',
       },
       json: { projects: [], tasks: [] },

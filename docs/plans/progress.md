@@ -335,7 +335,7 @@ Screens: 507 (404), 506 (no access, already built), 704 (states). Front-end only
 - **Out of scope:** new features, copy rewrites beyond the drawn states.
 
 ## Still open before production
-- Apply migrations 0001–0015 to Neon before the first deploy.
+- Apply migrations 0001–0020 to Neon before the first deploy.
 - Fix the fake-drafter fallback: in production a missing ANTHROPIC_API_KEY or TRIGGER_SECRET_KEY must show "drafting is not set up" instead of returning the fixed sample plan or diagram. Fake drafter only in local dev and tests.
 
 ## Feature order (agreed 2026-10-29)
@@ -364,5 +364,5 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 18 | Stakeholder approval | Share page review banner | shipped 2026-11-23 |
 | 19 | Tracker sync | Settings › Integrations | shipped 2026-11-24 |
 | 20 | Drift detection | Plan drift card | shipped 2026-11-24 |
-| 21 | Weekly status email | Monday email | plan approved |
+| 21 | Weekly status email | Monday email | shipped 2026-11-25 |
 | 22 | 404 and states pass | 404, states audit | plan approved |

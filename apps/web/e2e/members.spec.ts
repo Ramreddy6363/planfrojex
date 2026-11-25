@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 test('owner can view members, invite people and update a role', async ({ page }) => {
   let editorRole = 'editor'
@@ -10,7 +11,7 @@ test('owner can view members, invite people and update a role', async ({ page })
     const request = route.request()
     const path = new URL(request.url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
       'access-control-allow-headers': 'content-type',
@@ -133,7 +134,7 @@ test('viewers see members without owner controls', async ({ page }) => {
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     if (path === '/me')
@@ -186,7 +187,7 @@ test('members list shows loading and lets people retry after an error', async ({
   await page.route('http://localhost:8787/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
     }
     const workspace = {

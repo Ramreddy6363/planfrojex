@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 async function mockShare(page: Page, role = 'owner', initial = false) {
@@ -9,7 +10,7 @@ async function mockShare(page: Page, role = 'owner', initial = false) {
   let fail = false
   const updates: unknown[] = []
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',
@@ -266,7 +267,7 @@ test('asks reviewers for approval with a due date', async ({ page }) => {
   const sent: unknown[] = []
   await page.route(`http://localhost:8787/projects/${projectId}/review-requests`, async (route) => {
     const headers = {
-      'access-control-allow-origin': 'http://localhost:5199',
+      'access-control-allow-origin': webOrigin(),
       'access-control-allow-credentials': 'true',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type',

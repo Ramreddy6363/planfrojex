@@ -1,9 +1,10 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const OUT =
   '/tmp/claude-1001/-home-ramreddey-Documents-personal-planforjex/8ac40bf8-0c66-4311-8f13-0d94b986b00f/scratchpad/qa1/final/'
 const H = {
-  'access-control-allow-origin': 'http://localhost:5199',
+  'access-control-allow-origin': webOrigin(),
   'access-control-allow-credentials': 'true',
   'access-control-allow-methods': 'GET,POST,OPTIONS',
   'access-control-allow-headers': 'content-type',

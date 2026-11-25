@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 async function mockIntegrations(page: Page, role = 'owner', configured = true, connected = false) {
   const workspace = { id: '1', name: 'Northwind', slug: 'northwind', role, isPersonal: false }
@@ -24,7 +25,7 @@ async function mockIntegrations(page: Page, role = 'owner', configured = true, c
   }
   let integration: typeof initial | null = connected ? initial : null
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',

@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import type { DriftAction, DriftReport, DriftResult } from '../src/api'
+import { webOrigin } from './test-origin'
 
 const reportId = 'd3fa72bc-b233-4682-a721-3a41d8474ae0'
 const milestoneId = '61fb8f41-adb4-4f98-844f-70853ec3fade'
@@ -74,7 +75,7 @@ export async function mockDrift(
   } = {},
 ) {
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',

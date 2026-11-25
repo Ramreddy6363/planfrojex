@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { webOrigin } from './test-origin'
 
 const projectId = 'b4a3a1d9-9f71-4d75-9b9d-6b7e8f21c715'
 const taskId = '83caa333-1604-43c5-8f15-61be120754e3'
@@ -70,7 +71,7 @@ async function mockTasks(page: import('@playwright/test').Page, role = 'owner') 
     },
   ]
   const headers = {
-    'access-control-allow-origin': 'http://localhost:5199',
+    'access-control-allow-origin': webOrigin(),
     'access-control-allow-credentials': 'true',
     'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type',

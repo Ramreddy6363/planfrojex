@@ -26,6 +26,8 @@ import { consumeRateLimit } from './rate-limit'
 import { createReviewRoutes } from './reviews/routes'
 import { createSearchRoutes } from './search-routes'
 import { createShareRoutes } from './share/routes'
+import { createProjectStatusReportRoutes } from './status-reports/routes'
+import { runWeeklyStatusEmails, weeklyStatusCron } from './status-reports/service'
 import { createWorkspaceRoutes } from './workspaces/routes'
 import { createWorkspaceSettingsRoutes } from './workspaces/settings-routes'
 
@@ -90,6 +92,7 @@ export function createApp(
     .route('/', createProjectTaskRoutes(options))
     .route('/', createProjectPlanRoutes(options))
     .route('/', createProjectDriftRoutes(options))
+    .route('/', createProjectStatusReportRoutes(options))
     .route('/', createProjectDraftRoutes(options))
     .route('/', createProjectDiagramRoutes(options))
     .route('/', createDiagramRoutes(options))
@@ -104,8 +107,10 @@ export type ProjectDiagramRoutes = ReturnType<typeof createProjectDiagramRoutes>
 export type DiagramRoutes = ReturnType<typeof createDiagramRoutes>
 export type IntegrationRoutes = ReturnType<typeof createIntegrationRoutes>
 export type ProjectDriftRoutes = ReturnType<typeof createProjectDriftRoutes>
+export type ProjectStatusReportRoutes = ReturnType<typeof createProjectStatusReportRoutes>
 export type MyTaskRoutes = ReturnType<typeof createMyTaskRoutes>
 export type TaskRoutes = ReturnType<typeof createTaskRoutes>
+type ScheduledJob = { cron: string; scheduledTime: number }
 export async function runScheduledChecks(db: Db, env: Env['Bindings']) {
   try {
     const config = await linearConfig(env, false)
@@ -115,7 +120,45 @@ export async function runScheduledChecks(db: Db, env: Env['Bindings']) {
   }
 }
 export default Object.assign(app, {
-  async scheduled(_controller: unknown, env: Env['Bindings']) {
-    await runScheduledChecks(connect(env.DATABASE_URL), env)
+  async scheduled(controller: ScheduledJob, env: Env['Bindings']) {
+    await dispatchScheduledChecks(connect(env.DATABASE_URL), env, controller)
   },
 })
+
+export async function dispatchScheduledChecks(
+  db: Db,
+  env: Env['Bindings'],
+  controller: ScheduledJob,
+  jobs: {
+    checks?: (db: Db, env: Env['Bindings']) => Promise<void>
+    weeklyStatusEmails?: (
+      db: Db,
+      env: Env['Bindings'],
+      now: Date,
+      pendingOnly?: boolean,
+    ) => Promise<void>
+  } = {},
+) {
+  if (controller.cron === weeklyStatusCron) {
+    await (jobs.weeklyStatusEmails ?? runWeeklyStatusEmails)(
+      db,
+      env,
+      new Date(controller.scheduledTime),
+    )
+    return
+  }
+  let checksError: unknown
+  try {
+    await (jobs.checks ?? runScheduledChecks)(db, env)
+  } catch (error) {
+    checksError = error
+  }
+  if (controller.cron === '0 3 * * *')
+    await (jobs.weeklyStatusEmails ?? runWeeklyStatusEmails)(
+      db,
+      env,
+      new Date(controller.scheduledTime),
+      true,
+    )
+  if (checksError) throw checksError
+}
