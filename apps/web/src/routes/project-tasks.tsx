@@ -24,11 +24,12 @@ import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { Dialog } from '../ui/dialog'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph, StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { Textarea } from '../ui/textarea'
@@ -211,7 +212,9 @@ function ProjectTasks() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       {projectQuery.isPending ? (
-        <p className="p-8">Loading project…</p>
+        <div className="p-8">
+          <SkeletonRows />
+        </div>
       ) : projectQuery.isError ? (
         projectQuery.error instanceof RequestError && projectQuery.error.status === 404 ? (
           <div className="p-8">
@@ -227,11 +230,7 @@ function ProjectTasks() {
           </div>
         ) : (
           <div className="p-8">
-            <EmptyState
-              title="Couldn’t load project"
-              body="Try again to open this project."
-              action={<Button onClick={() => void projectQuery.refetch()}>Retry</Button>}
-            />
+            <ErrorState title="Couldn’t load project" onRetry={() => void projectQuery.refetch()} />
           </div>
         )
       ) : project ? (
@@ -425,14 +424,10 @@ function ProjectTasks() {
           </div>
 
           {tasksQuery.isPending ? (
-            <p className="p-8 text-text-muted">Loading tasks…</p>
+            <SkeletonRows />
           ) : tasksQuery.isError ? (
             <div className="p-8">
-              <EmptyState
-                title="Couldn’t load tasks"
-                body="Try again to load the project tasks."
-                action={<Button onClick={() => void tasksQuery.refetch()}>Retry</Button>}
-              />
+              <ErrorState title="Couldn’t load tasks" onRetry={() => void tasksQuery.refetch()} />
             </div>
           ) : view === 'board' ? (
             <div
@@ -533,7 +528,7 @@ function ProjectTasks() {
                       action={<Button onClick={() => selectTask()}>Close</Button>}
                     />
                   ) : !selectedTask ? (
-                    <p className="text-ui text-text-muted">Loading task…</p>
+                    <SkeletonRows count={3} />
                   ) : (
                     <>
                       <div className="mb-5 flex items-center gap-2">
@@ -718,7 +713,7 @@ function ProjectTasks() {
                       action={<Button onClick={() => selectTask()}>Close</Button>}
                     />
                   ) : !selectedTask ? (
-                    <p className="text-ui text-text-muted">Loading task…</p>
+                    <SkeletonRows count={3} />
                   ) : (
                     <>
                       <div className="mb-5 flex items-center gap-2">
@@ -1356,14 +1351,9 @@ function TaskComments({
         Comments <span>{commentsQuery.data?.comments.length ?? ''}</span>
       </h3>
       {commentsQuery.isPending ? (
-        <p className="text-caption text-text-muted">Loading comments…</p>
+        <SkeletonRows count={3} />
       ) : commentsQuery.isError ? (
-        <p className="text-caption text-text-muted">
-          Couldn’t load comments.{' '}
-          <Button size="sm" variant="ghost" onClick={() => void commentsQuery.refetch()}>
-            Retry
-          </Button>
-        </p>
+        <ErrorState title="Couldn’t load comments" onRetry={() => void commentsQuery.refetch()} />
       ) : (
         <ol className="space-y-4">
           {commentsQuery.data.comments.map((comment) => (

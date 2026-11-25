@@ -4,9 +4,10 @@ import { call, type TrackerIntegration as Integration, integrationsClient } from
 import { queryClient } from './session'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
-import { EmptyState } from './ui/empty-state'
+import { EmptyState, ErrorState } from './ui/empty-state'
 import { Icon } from './ui/icon'
 import { Select } from './ui/select'
+import { SkeletonRows } from './ui/skeleton-row'
 import { type Status, StatusLabel } from './ui/status'
 import { ActionError, useAction } from './use-action'
 
@@ -102,14 +103,11 @@ export function IntegrationsSettings({ slug }: { slug: string }) {
         </p>
       </div>
       {integrations.isPending ? (
-        <p role="status" className="text-text-muted">
-          Loading integrations…
-        </p>
+        <SkeletonRows count={3} />
       ) : integrations.isError ? (
-        <EmptyState
+        <ErrorState
           title="Couldn’t load integrations"
-          body="Try again to see your integrations."
-          action={<Button onClick={() => void integrations.refetch()}>Try again</Button>}
+          onRetry={() => void integrations.refetch()}
         />
       ) : (
         <div className="rounded-panel border border-border">

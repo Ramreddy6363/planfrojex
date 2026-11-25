@@ -3,6 +3,7 @@ import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-r
 import {
   ArrowUpDown,
   ChevronsUpDown,
+  FolderKanban,
   LogOut,
   Plus,
   Settings,
@@ -19,11 +20,12 @@ import { queryClient } from '../session'
 import { Avatar } from '../ui/avatar'
 import { WorkspaceMark } from '../ui/brand'
 import { Button } from '../ui/button'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph, StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
@@ -299,22 +301,19 @@ function Projects() {
           </span>
         </div>
         {list.isPending ? (
-          <p className="py-6">Loading projects…</p>
+          <SkeletonRows />
         ) : list.isError ? (
-          <EmptyState
-            title="Couldn’t load projects"
-            body="Try again to see your projects."
-            action={<Button onClick={() => void list.refetch()}>Retry</Button>}
-          />
+          <ErrorState title="Couldn’t load projects" onRetry={() => void list.refetch()} />
         ) : list.data.projects.length === 0 ? (
           <EmptyState
+            icon={FolderKanban}
             title={
               view !== 'all' || status || lead || due ? 'No matching projects' : 'No projects yet'
             }
             body={
               view !== 'all' || status || lead || due
                 ? 'Try another view or change the filters.'
-                : 'Create a project to start planning.'
+                : 'A project holds a brief, a plan, tasks and diagrams. Start from a template or a blank page.'
             }
             action={
               view === 'all' && !status && !lead && !due && workspace.role !== 'viewer' ? (

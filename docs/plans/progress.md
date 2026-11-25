@@ -359,10 +359,10 @@ Each feature: plan → worktree → build → verify → review + security → s
 | 13 | Workspace settings | General, share links, danger zone | shipped 2026-11-15 |
 | 14 | Account settings | Account | shipped 2026-11-15 |
 | 15 | Share links + public share page | Share dialog, public page | shipped 2026-11-18 |
-| 16 | Mobile | Projects, Brief, Share page (390px) | ready for review 2026-11-20 |
+| 16 | Mobile | Projects, Brief, Share page (390px) | shipped 2026-11-20 |
 | 17 | Landing page | Landing | shipped 2026-11-20 |
 | 18 | Stakeholder approval | Share page review banner | shipped 2026-11-23 |
 | 19 | Tracker sync | Settings › Integrations | shipped 2026-11-24 |
 | 20 | Drift detection | Plan drift card | shipped 2026-11-24 |
 | 21 | Weekly status email | Monday email | shipped 2026-11-25 |
-| 22 | 404 and states pass | 404, states audit | plan approved |
+| 22 | 404 and states pass | 404, states audit | shipped 2026-11-25 |

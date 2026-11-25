@@ -206,7 +206,9 @@ test('public template cards and the New project picker use the same catalog', as
   await expect(picker.locator('button span.flex > span:first-child')).toHaveText(landingNames)
 })
 
-test('landing stays public when the identity endpoint is unavailable', async ({ page }) => {
+test('an unavailable identity endpoint shows the error state, not the landing page', async ({
+  page,
+}) => {
   await page.route('http://localhost:8787/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const headers = {
@@ -215,22 +217,14 @@ test('landing stays public when the identity endpoint is unavailable', async ({ 
     }
     if (path === '/me')
       return route.fulfill({ status: 503, headers, json: { error: 'Unavailable' } })
-    if (path === '/templates')
-      return route.fulfill({ status: 401, headers, json: { error: 'Sign in required' } })
     return route.fulfill({ status: 404, headers, json: {} })
   })
   await page.goto('/')
+  await expect(page.getByRole('alert')).toContainText('Something went wrong')
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await expect(
     page.getByRole('heading', { name: 'Plans your team actually follows.' }),
-  ).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Sign in' }).first()).toHaveAttribute(
-    'href',
-    '/sign-in',
-  )
-  await expect(page.getByRole('link', { name: 'Get started' }).first()).toHaveAttribute(
-    'href',
-    '/sign-up',
-  )
+  ).toHaveCount(0)
 })
 
 test('signed-in visitors still enter their workspace from /', async ({ page }) => {

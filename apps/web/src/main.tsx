@@ -9,8 +9,10 @@ import { authCallbackRoute } from './routes/auth-callback'
 import { createWorkspaceRoute } from './routes/create-workspace'
 import { inboxRoute } from './routes/inbox'
 import { inviteRoute } from './routes/invite'
+import { LoadError } from './routes/load-error'
 import { membersRoute } from './routes/members'
 import { myTasksRoute } from './routes/my-tasks'
+import { NotFound } from './routes/not-found'
 import { onboardingRoute } from './routes/onboarding'
 import { projectActivityRoute } from './routes/project-activity'
 import { projectBriefRoute } from './routes/project-brief'
@@ -54,6 +56,9 @@ const router = createRouter({
     projectActivityRoute,
   ]),
   defaultPendingComponent: Loading,
+  // App-level fallbacks: an unknown path, or a crash in any route without its own error screen.
+  defaultNotFoundComponent: NotFound,
+  defaultErrorComponent: LoadError,
 })
 
 createRoot(document.getElementById('root') as HTMLElement).render(

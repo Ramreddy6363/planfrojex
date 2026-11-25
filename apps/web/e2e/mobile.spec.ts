@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { mockDrift } from './drift-fixture'
+import { type Mode, mockSignedOut, mockStates, projectScreens, screens } from './states-fixture'
 import { mockStatusEmail } from './status-email-fixture'
 import { webOrigin } from './test-origin'
 
@@ -627,4 +628,40 @@ test('drift card and its review controls fit the plan at 390px', async ({ page }
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390)
+})
+
+// Every state of every workspace screen, and the 404 page, fits 390px.
+test('states and 404 do not overflow at 390px', async ({ page }) => {
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  for (const screen of screens) {
+    for (const mode of ['empty', 'fail'] satisfies Mode[]) {
+      await page.unrouteAll()
+      await mockStates(page, screen.target, mode)
+      await page.goto(screen.path)
+      await expect(
+        page.getByText(mode === 'empty' ? screen.empty : screen.error, { exact: true }),
+      ).toBeVisible()
+      expect(await overflow(), `${screen.name} ${mode}`).toBeLessThanOrEqual(0)
+    }
+  }
+  // The brief's comment column is not shown at 390px, so its states are not checked here.
+  for (const screen of projectScreens.filter((item) => item.name !== 'Brief comments')) {
+    for (const mode of ['empty', 'fail'] satisfies Mode[]) {
+      await page.unrouteAll()
+      await mockStates(page, screen.target, mode)
+      await page.goto(screen.path)
+      await expect(
+        mode === 'empty'
+          ? page.getByText(screen.ok, { exact: true }).locator('visible=true').first()
+          : page.getByRole('alert').filter({ hasText: screen.error }),
+      ).toBeVisible()
+      expect(await overflow(), `${screen.name} ${mode}`).toBeLessThanOrEqual(0)
+    }
+  }
+  await page.unrouteAll()
+  await mockSignedOut(page)
+  await page.goto('/a/b/c/d')
+  await expect(page.getByRole('heading', { name: "This page isn't on the plan" })).toBeVisible()
+  expect(await overflow(), '404').toBeLessThanOrEqual(0)
 })

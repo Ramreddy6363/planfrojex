@@ -10,9 +10,11 @@ import { queryClient } from '../session'
 import { ShareButton } from '../share-dialog'
 import { Avatar, AvatarStack } from '../ui/avatar'
 import { Button } from '../ui/button'
+import { ErrorState } from '../ui/empty-state'
 import { Input } from '../ui/input'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { Textarea } from '../ui/textarea'
@@ -270,13 +272,23 @@ function ProjectPlan() {
   if (planQuery.isLoading || projectQuery.isLoading)
     return (
       <WorkspaceShell workspace={workspace} me={me} active="projects">
-        <div className="p-8 text-ui text-text-muted">Loading project plan…</div>
+        <div className="p-8">
+          <SkeletonRows />
+        </div>
       </WorkspaceShell>
     )
   if (!project || !plan)
     return (
       <WorkspaceShell workspace={workspace} me={me} active="projects">
-        <div className="p-8 text-ui text-danger">Project plan could not be loaded.</div>
+        <div className="p-8">
+          <ErrorState
+            title="Couldn’t load the plan"
+            onRetry={() => {
+              void planQuery.refetch()
+              void projectQuery.refetch()
+            }}
+          />
+        </div>
       </WorkspaceShell>
     )
   const lastMilestone = plan.milestones.at(-1)

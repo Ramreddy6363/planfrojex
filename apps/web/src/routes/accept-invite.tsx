@@ -37,8 +37,10 @@ export const acceptInviteRoute = createRoute({
     sessionStorage.setItem('invite', params.token)
     try {
       await getMe()
-    } catch {
-      throw redirect({ to: '/sign-in' })
+    } catch (error) {
+      // Only "not signed in" goes to sign-in; network and server failures show the error state.
+      if (error instanceof RequestError && error.status === 401) throw redirect({ to: '/sign-in' })
+      throw error
     }
   },
   loader: async ({ params }) => {

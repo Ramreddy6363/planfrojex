@@ -8,10 +8,11 @@ import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { EmailListInput } from '../ui/email-list-input'
-import { EmptyState } from '../ui/empty-state'
+import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
+import { SkeletonRows } from '../ui/skeleton-row'
 import { ActionError, useAction } from '../use-action'
 import { UserError } from '../user-error'
 import { WorkspaceShell } from '../workspace-shell'
@@ -69,13 +70,9 @@ function Members() {
       </header>
       <div className="space-y-8 px-4 pb-8 pt-6 md:px-8">
         {members.isPending ? (
-          <p>Loading members…</p>
+          <SkeletonRows />
         ) : members.isError ? (
-          <EmptyState
-            title="Couldn’t load members"
-            body="Try again to see this workspace’s members."
-            action={<Button onClick={() => void members.refetch()}>Retry</Button>}
-          />
+          <ErrorState title="Couldn’t load members" onRetry={() => void members.refetch()} />
         ) : (
           <section aria-label="Workspace members">
             <h2 className="mb-3 font-semibold">
@@ -201,12 +198,11 @@ function Members() {
             <h2 className="font-semibold">Pending invites</h2>
             <p className="mt-1 text-caption text-text-muted">Invites expire after 7 days.</p>
             {invitations.isPending ? (
-              <p className="mt-4">Loading invitations…</p>
+              <SkeletonRows count={3} />
             ) : invitations.isError ? (
-              <EmptyState
+              <ErrorState
                 title="Couldn’t load invitations"
-                body="Try again to see pending invitations."
-                action={<Button onClick={() => void invitations.refetch()}>Retry</Button>}
+                onRetry={() => void invitations.refetch()}
               />
             ) : invitations.data?.invites.length === 0 ? (
               <p className="mt-4 text-text-muted">No pending invitations.</p>
