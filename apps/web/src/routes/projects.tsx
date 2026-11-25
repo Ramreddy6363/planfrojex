@@ -1,36 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
 import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
-import {
-  ArrowUpDown,
-  ChevronsUpDown,
-  FolderKanban,
-  LogOut,
-  Plus,
-  Settings,
-  Star,
-  UserRound,
-  UsersRound,
-} from 'lucide-react'
+import { ArrowUpDown, FolderKanban, Plus, Star } from 'lucide-react'
 import { useState, useSyncExternalStore } from 'react'
 import { api, call } from '../api'
-import { auth } from '../auth-client'
 import { NewProjectDialog } from '../new-project-dialog'
+import { ProjectProgress } from '../project-progress'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { Avatar } from '../ui/avatar'
-import { WorkspaceMark } from '../ui/brand'
 import { Button } from '../ui/button'
 import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
-import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
 import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph, StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
-import { UserError } from '../user-error'
-import { WorkspaceSearchButton, WorkspaceShell } from '../workspace-shell'
+import { MobileWorkspaceMenu, WorkspaceSearchButton, WorkspaceShell } from '../workspace-shell'
 import { rootRoute } from './root'
 import { loadWorkspace, WorkspaceError } from './workspace'
 
@@ -143,7 +130,7 @@ function MobileProjectRow({
 }
 function Projects() {
   const { workspace, me } = useLoaderData({ from: '/$ws/projects' })
-  const navigate = useNavigate()
+  const _navigate = useNavigate()
   const slug = workspace.slug
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('all')
@@ -176,48 +163,7 @@ function Projects() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       <header className="flex h-16 items-center justify-between gap-2 px-4 md:h-auto md:border-b md:border-border md:px-8 md:py-3">
-        <span className="mr-1 md:hidden">
-          <Menu
-            label="Workspace menu"
-            triggerClassName="!size-11 !border-0 !p-0"
-            triggerContent={<WorkspaceMark name={workspace.name} />}
-            items={[
-              ...me.workspaces.map((item: { name: string; slug: string }) => ({
-                label: item.name,
-                icon: ChevronsUpDown,
-                current: item.slug === slug,
-                onSelect: () => void navigate({ to: `/${item.slug}/projects` }),
-              })),
-              {
-                label: 'Members',
-                icon: UsersRound,
-                onSelect: () => void navigate({ to: `/${slug}/members` }),
-              },
-              {
-                label: 'Settings',
-                icon: Settings,
-                onSelect: () => void navigate({ to: `/${slug}/settings` }),
-              },
-              {
-                label: 'Account settings',
-                icon: UserRound,
-                onSelect: () => void navigate({ to: `/${slug}/account` }),
-              },
-              {
-                label: 'Sign out',
-                icon: LogOut,
-                separated: true,
-                onSelect: () =>
-                  void action.run(async () => {
-                    const { error } = await auth.signOut()
-                    if (error) throw new UserError('Could not sign out. Try again.')
-                    sessionStorage.removeItem('displayName')
-                    await navigate({ to: '/sign-in' })
-                  }),
-              },
-            ]}
-          />
-        </span>
+        <MobileWorkspaceMenu workspace={workspace} me={me} />
         <h1 className="text-title font-semibold">Projects</h1>
         <WorkspaceSearchButton
           aria-label="Search projects"
@@ -395,7 +341,9 @@ function Projects() {
                         className="!size-5"
                       />
                     </td>
-                    <td className="px-3 py-1.5 text-text-muted">No plan yet</td>
+                    <td className="px-3 py-1.5">
+                      <ProjectProgress id={project.id} name={project.name} />
+                    </td>
                     <td className="px-3 py-1.5 font-mono text-text-muted">
                       {project.targetDate
                         ? new Intl.DateTimeFormat(undefined, {

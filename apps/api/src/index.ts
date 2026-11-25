@@ -12,6 +12,7 @@ import type { DraftModel } from './drafts/service'
 import { createProjectDriftRoutes } from './drift/routes'
 import { runDriftChecks } from './drift/service'
 import type { Env } from './env'
+import { createHomeRoutes } from './home/routes'
 import { createInboxRoutes } from './inbox/routes'
 import { createLinearProvider } from './integrations/linear'
 import { createIntegrationRoutes, type TrackerRouteOptions } from './integrations/routes'
@@ -86,6 +87,7 @@ export function createApp(
     .route('/', createProjectRoutes(options))
     .route('/', createProjectBriefRoutes(options))
     .route('/', createActivityRoutes(options))
+    .route('/', createHomeRoutes(options))
     .route('/', createMyTaskRoutes(options))
     .route('/', createInboxRoutes(options))
     .route('/', createIntegrationRoutes(options))

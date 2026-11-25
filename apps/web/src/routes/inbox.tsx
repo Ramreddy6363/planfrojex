@@ -14,7 +14,7 @@ import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusGlyph } from '../ui/status'
 import { Textarea } from '../ui/textarea'
 import { ActionError, useAction } from '../use-action'
-import { WorkspaceShell } from '../workspace-shell'
+import { MobileWorkspaceMenu, WorkspaceShell } from '../workspace-shell'
 import { rootRoute } from './root'
 import { loadWorkspace, WorkspaceError } from './workspace'
 
@@ -111,7 +111,10 @@ function Inbox() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="inbox">
       <header className="flex min-h-14 items-center justify-between gap-2 border-b border-border px-4 py-2 md:h-14 md:px-8 md:py-0">
-        <h1 className="text-title font-semibold">Inbox</h1>
+        <div className="flex items-center gap-1">
+          <MobileWorkspaceMenu workspace={workspace} me={me} />
+          <h1 className="text-title font-semibold">Inbox</h1>
+        </div>
         <Button
           variant="ghost"
           icon={CheckCheck}

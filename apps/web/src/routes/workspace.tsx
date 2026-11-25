@@ -5,13 +5,15 @@ import { useState } from 'react'
 import { api, call, RequestError } from '../api'
 import { getMyTasks, myTasksKey } from '../my-tasks'
 import { NewProjectDialog } from '../new-project-dialog'
+import { ProjectProgress } from '../project-progress'
+import { relativeTime } from '../relative-time'
 import { getMe, getWorkspace } from '../session'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { EmptyState, ErrorState } from '../ui/empty-state'
 import { SkeletonRows } from '../ui/skeleton-row'
 import { StatusLabel } from '../ui/status'
-import { WorkspaceShell } from '../workspace-shell'
+import { MobileWorkspaceMenu, WorkspaceShell } from '../workspace-shell'
 import { LoadError } from './load-error'
 import { NoAccess, NoAccessError } from './no-access'
 import { rootRoute } from './root'
@@ -75,20 +77,22 @@ function YourProjects({ slug }: { slug: string }) {
               <Link
                 to="/$ws/projects/$projectId"
                 params={{ ws: slug, projectId: project.id }}
-                className="min-w-0 flex-1 truncate font-semibold hover:text-accent hover:underline"
+                className="min-h-11 min-w-0 basis-full break-words py-2.5 font-semibold hover:text-accent hover:underline md:min-h-0 md:flex-1 md:basis-0 md:truncate md:py-0"
               >
                 {project.name}
               </Link>
-              <span className="w-32">
+              <span className="md:w-32">
                 <StatusLabel status={project.status} />
               </span>
-              <span className="w-36 text-text-muted">No plan yet</span>
+              <span className="min-w-0 md:w-48">
+                <ProjectProgress id={project.id} name={project.name} />
+              </span>
               <Avatar
                 id={project.leadId}
                 name={project.leadName ?? 'Deleted user'}
                 className="!size-5"
               />
-              <span className="w-14 text-right font-mono text-text-muted">
+              <span className="ml-auto w-14 text-right font-mono text-text-muted">
                 {project.targetDate
                   ? new Intl.DateTimeFormat(undefined, {
                       month: 'short',
@@ -97,6 +101,51 @@ function YourProjects({ slug }: { slug: string }) {
                     }).format(new Date(`${project.targetDate}T00:00:00Z`))
                   : '—'}
               </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function RecentActivity({ slug }: { slug: string }) {
+  const feed = useQuery({
+    queryKey: ['workspace-activity', slug],
+    queryFn: () => call(api.workspaces[':ws'].activity.$get({ param: { ws: slug }, query: {} })),
+  })
+  return (
+    <section
+      aria-labelledby="recent-activity"
+      className="border-t border-border p-6 lg:min-h-[calc(100vh-56px)] lg:border-t-0 lg:border-l"
+    >
+      <h2 id="recent-activity" className="mb-4 font-semibold">
+        Recent activity
+      </h2>
+      {feed.isPending ? (
+        <SkeletonRows count={3} />
+      ) : feed.isError ? (
+        <ErrorState title="Couldn’t load activity" onRetry={() => void feed.refetch()} />
+      ) : feed.data.activity.length === 0 ? (
+        <EmptyState title="No activity yet" body="Workspace activity will appear here." />
+      ) : (
+        <ul className="space-y-3">
+          {feed.data.activity.map((item) => (
+            <li key={item.id} className="text-ui">
+              <p>
+                <span className="font-semibold">{item.actorName}</span>{' '}
+                {item.type.replace(/[._]/g, ' ')} in{' '}
+                <Link
+                  to="/$ws/projects/$projectId"
+                  params={{ ws: slug, projectId: item.projectId }}
+                  className="text-accent hover:underline"
+                >
+                  {item.projectName}
+                </Link>
+              </p>
+              <p className="font-mono text-caption text-text-muted">
+                {relativeTime(item.createdAt)}
+              </p>
             </li>
           ))}
         </ul>
@@ -160,11 +209,12 @@ function YourTasks({ slug }: { slug: string }) {
 
 function Workspace() {
   const { workspace, me } = useLoaderData({ from: '/$ws' })
-  const navigate = useNavigate()
+  const _navigate = useNavigate()
   const [newProjectOpen, setNewProjectOpen] = useState(false)
   return (
     <WorkspaceShell workspace={workspace} me={me} active="home">
       <header className="flex min-h-14 flex-wrap items-center gap-2 border-b border-border px-4 py-3 md:gap-4 md:px-8">
+        <MobileWorkspaceMenu workspace={workspace} me={me} />
         <h1 className="text-title font-semibold">Home</h1>
         <span className="hidden text-text-muted md:inline">
           {new Intl.DateTimeFormat(undefined, {
@@ -188,10 +238,7 @@ function Workspace() {
           <YourTasks slug={workspace.slug} />
           <YourProjects slug={workspace.slug} />
         </div>
-        <section className="border-t border-border p-6 lg:min-h-[calc(100vh-56px)] lg:border-t-0 lg:border-l">
-          <h2 className="mb-4 font-semibold">Recent activity</h2>
-          <EmptyState title="No activity yet" body="Workspace activity will appear here." />
-        </section>
+        <RecentActivity slug={workspace.slug} />
       </div>
       {newProjectOpen ? (
         <NewProjectDialog

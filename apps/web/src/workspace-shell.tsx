@@ -51,6 +51,63 @@ export function WorkspaceSearchButton(props: ButtonHTMLAttributes<HTMLButtonElem
   )
 }
 
+// Phone-only workspace menu for page headers (the sidebar holds these links on desktop).
+export function MobileWorkspaceMenu({
+  workspace,
+  me,
+}: {
+  workspace: Awaited<ReturnType<typeof getWorkspace>>['workspace']
+  me: Awaited<ReturnType<typeof getMe>>
+}) {
+  const navigate = useNavigate()
+  const action = useAction()
+  const slug = workspace.slug
+  return (
+    <span className="mr-1 md:hidden">
+      <Menu
+        label="Workspace menu"
+        triggerClassName="!size-11 !border-0 !p-0"
+        triggerContent={<WorkspaceMark name={workspace.name} />}
+        items={[
+          ...me.workspaces.map((item: { name: string; slug: string }) => ({
+            label: item.name,
+            icon: ChevronsUpDown,
+            current: item.slug === slug,
+            onSelect: () => void navigate({ to: `/${item.slug}/projects` }),
+          })),
+          {
+            label: 'Members',
+            icon: UsersRound,
+            onSelect: () => void navigate({ to: `/${slug}/members` }),
+          },
+          {
+            label: 'Settings',
+            icon: Settings,
+            onSelect: () => void navigate({ to: `/${slug}/settings` }),
+          },
+          {
+            label: 'Account settings',
+            icon: UserRound,
+            onSelect: () => void navigate({ to: `/${slug}/account` }),
+          },
+          {
+            label: 'Sign out',
+            icon: LogOut,
+            separated: true,
+            onSelect: () =>
+              void action.run(async () => {
+                const { error } = await auth.signOut()
+                if (error) throw new UserError('Could not sign out. Try again.')
+                sessionStorage.removeItem('displayName')
+                await navigate({ to: '/sign-in' })
+              }),
+          },
+        ]}
+      />
+    </span>
+  )
+}
+
 export function WorkspaceShell({
   workspace,
   me,
