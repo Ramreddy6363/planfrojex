@@ -604,7 +604,10 @@ export const activity = pgTable(
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('activity_project_created_idx').on(t.projectId, t.createdAt.desc(), t.id)],
+  (t) => [
+    index('activity_project_created_idx').on(t.projectId, t.createdAt.desc(), t.id),
+    index('activity_workspace_created_idx').on(t.workspaceId, t.createdAt.desc(), t.id),
+  ],
 )
 
 export const notifications = pgTable(

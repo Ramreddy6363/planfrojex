@@ -12,7 +12,7 @@ import { Select } from '../ui/select'
 import { SkeletonRows } from '../ui/skeleton-row'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
-import { WorkspaceShell } from '../workspace-shell'
+import { MobileWorkspaceMenu, WorkspaceShell } from '../workspace-shell'
 import { rootRoute } from './root'
 import { loadWorkspace, WorkspaceError } from './workspace'
 
@@ -100,7 +100,10 @@ function MyTasks() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="my-tasks">
       <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-border px-4 py-3 md:h-14 md:flex-row md:items-center md:gap-4 md:px-8 md:py-0">
-        <h1 className="text-title font-semibold">My tasks</h1>
+        <div className="flex items-center gap-1">
+          <MobileWorkspaceMenu workspace={workspace} me={me} />
+          <h1 className="text-title font-semibold">My tasks</h1>
+        </div>
         <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto md:flex-nowrap">
           <label htmlFor="my-tasks-group" className="text-caption text-text-muted max-md:sr-only">
             Group by

@@ -209,8 +209,12 @@ function WorkspaceSettings() {
                   <thead className="border-y border-border bg-bg-subtle text-caption font-normal text-text-muted">
                     <tr>
                       <th className="w-[55%] px-3 py-2 font-normal">Project</th>
-                      <th className="w-[16%] px-3 py-2 font-normal">Created by</th>
-                      <th className="w-[11%] px-3 py-2 font-normal">Created</th>
+                      <th className="hidden w-[16%] px-3 py-2 font-normal md:table-cell">
+                        Created by
+                      </th>
+                      <th className="hidden w-[11%] px-3 py-2 font-normal md:table-cell">
+                        Created
+                      </th>
                       <th className="w-[10%] px-3 py-2 font-normal">Views</th>
                       {owner ? (
                         <th className="px-3 py-2">
@@ -223,10 +227,10 @@ function WorkspaceSettings() {
                     {shareLinks.data.links.map((link) => (
                       <tr key={link.projectKey} className="border-b border-border">
                         <td className="px-3 py-3 font-medium">{link.projectName}</td>
-                        <td className="px-3 py-3 text-text-muted">
+                        <td className="hidden px-3 py-3 text-text-muted md:table-cell">
                           {link.createdBy ?? 'Deleted user'}
                         </td>
-                        <td className="px-3 py-3 font-mono text-caption text-text-muted">
+                        <td className="hidden px-3 py-3 font-mono text-caption text-text-muted md:table-cell">
                           {new Intl.DateTimeFormat(undefined, {
                             month: 'short',
                             day: 'numeric',
@@ -240,7 +244,7 @@ function WorkspaceSettings() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="!text-danger"
+                              className="!min-h-11 !text-danger"
                               disabled={revoke.busy}
                               onClick={() =>
                                 void revoke.run(async () => {

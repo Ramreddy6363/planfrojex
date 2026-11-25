@@ -94,6 +94,8 @@ async function mockAccount(page: Page, blocked = false) {
         headers,
         json: { tasks: [], counts: { assigned: 0, created: 0, completed: 0 }, nextCursor: null },
       })
+    if (path === '/workspaces/northwind/activity')
+      return route.fulfill({ headers, json: { activity: [] } })
     if (path === '/inbox')
       return route.fulfill({ headers, json: { items: [], unreadCount: 0, nextCursor: null } })
     return route.fulfill({ headers, json: {} })

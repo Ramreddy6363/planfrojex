@@ -1,47 +1,28 @@
 import { useQuery } from '@tanstack/react-query'
-import { createRoute, Link, useLoaderData, useNavigate } from '@tanstack/react-router'
-import {
-  ArrowUpDown,
-  ChevronsUpDown,
-  FolderKanban,
-  LogOut,
-  Plus,
-  Settings,
-  Star,
-  UserRound,
-  UsersRound,
-} from 'lucide-react'
-import { useState, useSyncExternalStore } from 'react'
+import { createRoute, Link, useLoaderData } from '@tanstack/react-router'
+import { ArrowUpDown, FolderKanban, Plus, Star } from 'lucide-react'
+import { useState } from 'react'
 import { api, call } from '../api'
-import { auth } from '../auth-client'
 import { NewProjectDialog } from '../new-project-dialog'
+import { ProjectProgress } from '../project-progress'
 import { relativeTime } from '../relative-time'
 import { queryClient } from '../session'
 import { Avatar } from '../ui/avatar'
-import { WorkspaceMark } from '../ui/brand'
 import { Button } from '../ui/button'
 import { EmptyState, ErrorState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
-import { Menu } from '../ui/menu'
 import { Select } from '../ui/select'
 import { SkeletonRows } from '../ui/skeleton-row'
-import { StatusGlyph, StatusLabel } from '../ui/status'
+import { StatusLabel } from '../ui/status'
 import { Tabs } from '../ui/tabs'
 import { ActionError, useAction } from '../use-action'
-import { UserError } from '../user-error'
-import { WorkspaceSearchButton, WorkspaceShell } from '../workspace-shell'
+import { MobileWorkspaceMenu, WorkspaceSearchButton, WorkspaceShell } from '../workspace-shell'
 import { rootRoute } from './root'
 import { loadWorkspace, WorkspaceError } from './workspace'
 
 type View = 'all' | 'active' | 'mine' | 'starred'
 type Status = 'draft' | 'planning' | 'in-progress' | 'completed' | 'archived'
-const subscribePhone = (onChange: () => void) => {
-  const query = window.matchMedia('(max-width: 767px)')
-  query.addEventListener('change', onChange)
-  return () => query.removeEventListener('change', onChange)
-}
-const phoneSnapshot = () => window.matchMedia('(max-width: 767px)').matches
 const shortDate = (date: string | null) =>
   date
     ? new Intl.DateTimeFormat(undefined, {
@@ -70,13 +51,6 @@ function MobileProjectRow({
   busy: boolean
   onStar: () => void
 }) {
-  const phone = useSyncExternalStore(subscribePhone, phoneSnapshot, () => false)
-  const detail = useQuery({
-    queryKey: ['project', project.id],
-    queryFn: () => call(api.projects[':id'].$get({ param: { id: project.id } })),
-    enabled: phone,
-  })
-  const progress = detail.data?.project.taskProgress
   return (
     <li className="min-h-20 border-b border-border px-4 pb-3">
       <div className="flex min-w-0 items-center gap-1">
@@ -104,46 +78,15 @@ function MobileProjectRow({
         />
       </div>
       <div className="flex min-w-0 items-center gap-3 text-caption text-text-muted">
-        {progress?.total ? (
-          <>
-            <StatusLabel status={project.status} />
-            <span
-              role="progressbar"
-              aria-label={`${project.name} task progress`}
-              aria-valuemin={0}
-              aria-valuemax={progress.total}
-              aria-valuenow={progress.done}
-              className="h-1 w-14 shrink-0 overflow-hidden rounded-control bg-bg-muted"
-            >
-              <span
-                className={`block h-full rounded-control ${project.status === 'completed' ? 'bg-success' : 'bg-accent'}`}
-                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-              />
-            </span>
-            <span className="font-mono text-caption">
-              {progress.done}/{progress.total}
-            </span>
-          </>
-        ) : detail.isError ? (
-          <span>Couldn’t load progress</span>
-        ) : progress ? (
-          <span className="inline-flex items-center gap-1.5">
-            <StatusGlyph status="draft" />
-            Draft · No plan yet
-          </span>
-        ) : (
-          <span>Loading progress…</span>
-        )}
-        {progress?.total ? (
-          <span className="ml-auto shrink-0 font-mono">{shortDate(project.targetDate)}</span>
-        ) : null}
+        <StatusLabel status={project.status} />
+        <ProjectProgress id={project.id} name={project.name} />
+        <span className="ml-auto shrink-0 font-mono">{shortDate(project.targetDate)}</span>
       </div>
     </li>
   )
 }
 function Projects() {
   const { workspace, me } = useLoaderData({ from: '/$ws/projects' })
-  const navigate = useNavigate()
   const slug = workspace.slug
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('all')
@@ -176,48 +119,7 @@ function Projects() {
   return (
     <WorkspaceShell workspace={workspace} me={me} active="projects">
       <header className="flex h-16 items-center justify-between gap-2 px-4 md:h-auto md:border-b md:border-border md:px-8 md:py-3">
-        <span className="mr-1 md:hidden">
-          <Menu
-            label="Workspace menu"
-            triggerClassName="!size-11 !border-0 !p-0"
-            triggerContent={<WorkspaceMark name={workspace.name} />}
-            items={[
-              ...me.workspaces.map((item: { name: string; slug: string }) => ({
-                label: item.name,
-                icon: ChevronsUpDown,
-                current: item.slug === slug,
-                onSelect: () => void navigate({ to: `/${item.slug}/projects` }),
-              })),
-              {
-                label: 'Members',
-                icon: UsersRound,
-                onSelect: () => void navigate({ to: `/${slug}/members` }),
-              },
-              {
-                label: 'Settings',
-                icon: Settings,
-                onSelect: () => void navigate({ to: `/${slug}/settings` }),
-              },
-              {
-                label: 'Account settings',
-                icon: UserRound,
-                onSelect: () => void navigate({ to: `/${slug}/account` }),
-              },
-              {
-                label: 'Sign out',
-                icon: LogOut,
-                separated: true,
-                onSelect: () =>
-                  void action.run(async () => {
-                    const { error } = await auth.signOut()
-                    if (error) throw new UserError('Could not sign out. Try again.')
-                    sessionStorage.removeItem('displayName')
-                    await navigate({ to: '/sign-in' })
-                  }),
-              },
-            ]}
-          />
-        </span>
+        <MobileWorkspaceMenu workspace={workspace} me={me} />
         <h1 className="text-title font-semibold">Projects</h1>
         <WorkspaceSearchButton
           aria-label="Search projects"
@@ -395,7 +297,9 @@ function Projects() {
                         className="!size-5"
                       />
                     </td>
-                    <td className="px-3 py-1.5 text-text-muted">No plan yet</td>
+                    <td className="px-3 py-1.5">
+                      <ProjectProgress id={project.id} name={project.name} />
+                    </td>
                     <td className="px-3 py-1.5 font-mono text-text-muted">
                       {project.targetDate
                         ? new Intl.DateTimeFormat(undefined, {

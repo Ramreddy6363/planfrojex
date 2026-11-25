@@ -207,6 +207,8 @@ async function mockApp(page: import('@playwright/test').Page) {
       })
     if (path === '/inbox')
       return route.fulfill({ headers, json: { items: [], unreadCount: 3, nextCursor: null } })
+    if (path === '/workspaces/northwind/activity')
+      return route.fulfill({ headers, json: { activity: [] } })
     if (path === '/workspaces/northwind/share-links')
       return route.fulfill({ headers, json: { links: [] } })
     if (path.startsWith('/me/notification-settings'))
@@ -260,8 +262,8 @@ test('Projects uses compact rows and opens mobile search and project creation', 
   await page.goto('/northwind/projects')
   await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Customer portal rebuild' })).toBeVisible()
-  await expect(page.getByText('18/42')).toBeVisible()
-  await expect(page.getByText('Draft · No plan yet')).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Projects' }).getByText('18/42')).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Projects' }).getByText('No plan yet')).toBeVisible()
   await page.screenshot({ path: test.info().outputPath('mobile-701.png') })
   await page.getByRole('button', { name: 'Search projects' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
@@ -665,3 +667,91 @@ test('states and 404 do not overflow at 390px', async ({ page }) => {
   await expect(page.getByRole('heading', { name: "This page isn't on the plan" })).toBeVisible()
   expect(await overflow(), '404').toBeLessThanOrEqual(0)
 })
+
+test('Home project names stay readable at 390px', async ({ page }) => {
+  await page.goto('/northwind')
+  for (const name of [project.name, draftProject.name]) {
+    const link = page.getByRole('link', { name, exact: true })
+    await expect(link).toBeVisible()
+    const box = await link.boundingBox()
+    expect(box?.width).toBeGreaterThan(200)
+    expect(await link.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+})
+
+for (const [name, path, heading] of [
+  ['Home', '/northwind', 'Home'],
+  ['My tasks', '/northwind/my-tasks', 'My tasks'],
+  ['Inbox', '/northwind/inbox', 'Inbox'],
+] as const)
+  test(`workspace menu opens from ${name} and reaches Settings and Sign out`, async ({ page }) => {
+    await page.route('http://localhost:8787/api/auth/sign-out', (route) =>
+      route.fulfill({ headers, json: { success: true } }),
+    )
+    await page.goto(path)
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+    const trigger = page.getByRole('button', { name: 'Workspace menu' })
+    const box = await trigger.boundingBox()
+    expect(box?.width).toBeGreaterThanOrEqual(44)
+    expect(box?.height).toBeGreaterThanOrEqual(44)
+    await trigger.click()
+    const menu = page.getByRole('menu')
+    await expect(menu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible()
+    await menu.getByRole('menuitem', { name: 'Settings', exact: true }).click()
+    await expect(page).toHaveURL('/northwind/settings')
+    await page.goto(path)
+    await trigger.click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL('/sign-in')
+  })
+
+test('Settings share links fit at 390px and Revoke is reachable', async ({ page }) => {
+  await page.route('http://localhost:8787/workspaces/northwind/share-links', (route) =>
+    route.fulfill({
+      headers,
+      json: {
+        links: [
+          {
+            projectKey: 'PORTAL',
+            projectName: 'Customer portal rebuild',
+            createdBy: 'Maya Chen',
+            createdAt: '2026-11-13T10:00:00.000Z',
+            viewCount: 12,
+          },
+        ],
+      },
+    }),
+  )
+  await page.goto('/northwind/settings')
+  const revoke = page.getByRole('button', { name: 'Revoke' })
+  await expect(revoke).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  const table = page.getByRole('table')
+  expect(
+    await table.evaluate(
+      (el) => (el.parentElement?.scrollWidth ?? 0) <= (el.parentElement?.clientWidth ?? 0),
+    ),
+  ).toBe(true)
+  const box = await revoke.boundingBox()
+  expect(box && box.x + box.width <= 390).toBe(true)
+  expect(box?.height).toBeGreaterThanOrEqual(44)
+  await expect(revoke).toBeEnabled()
+})
+
+for (const [name, path] of [
+  ['Home', '/northwind'],
+  ['Projects', '/northwind/projects'],
+  ['My tasks', '/northwind/my-tasks'],
+  ['Inbox', '/northwind/inbox'],
+] as const)
+  test(`a failed sign-out from the ${name} menu shows an error`, async ({ page }) => {
+    await page.route('http://localhost:8787/api/auth/sign-out', (route) =>
+      route.fulfill({ status: 500, headers, json: { message: 'x' } }),
+    )
+    await page.goto(path)
+    await page.getByRole('button', { name: 'Workspace menu' }).click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    await expect(page.getByText('Could not sign out. Try again.')).toBeVisible()
+    await expect(page).toHaveURL(path)
+  })

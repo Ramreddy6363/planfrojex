@@ -148,6 +148,13 @@
       "when": 1795591741388,
       "tag": "0020_exotic_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795598629685,
+      "tag": "0021_goofy_radioactive_man",
+      "breakpoints": true
     }
   ]
 }
